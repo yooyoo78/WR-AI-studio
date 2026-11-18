@@ -1,52 +1,75 @@
 package com.example.ui.theme
 
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import com.example.core.AppStrings
+import com.example.core.UiStrings
+import com.example.data.local.UserPreferences
 
-private val DarkColorScheme =
-  darkColorScheme(primary = Purple80, secondary = PurpleGrey80, tertiary = Pink80)
+val LocalUserPrefs = staticCompositionLocalOf { UserPreferences() }
+val LocalUiStrings = staticCompositionLocalOf { AppStrings.get(com.example.data.model.AppLanguage.TH) }
 
-private val LightColorScheme =
-  lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40,
+private fun buildHextechColorScheme(highContrast: Boolean) =
+  darkColorScheme(
+    primary = HextechGold,
+    onPrimary = Color(0xFF140F02),
+    primaryContainer = Color(0xFF332609),
+    onPrimaryContainer = HextechGoldBright,
+    secondary = ArcaneCyan,
+    onSecondary = Color(0xFF031520),
+    secondaryContainer = Color(0xFF0D2B42),
+    onSecondaryContainer = Color(0xFFBAE6FD),
+    tertiary = SkillViolet,
+    onTertiary = Color(0xFF180E33),
+    background = HextechObsidian,
+    onBackground = TextPrimaryLight,
+    surface = HextechNavy,
+    onSurface = TextPrimaryLight,
+    surfaceVariant = HextechSurface,
+    onSurfaceVariant = TextSecondaryLight,
+    surfaceContainerLow = HextechNavy,
+    surfaceContainer = HextechSurface,
+    surfaceContainerHigh = HextechSurfaceHigh,
+    surfaceContainerHighest = HextechSurfaceHighest,
+    outline = if (highContrast) HextechOutlineHighContrast else HextechOutline,
+    outlineVariant = if (highContrast) HextechGoldMuted else Color(0xFF1F2D4A),
+    error = ThreatCrimson,
+    onError = Color.White,
+  )
 
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+private val HextechShapes =
+  Shapes(
+    small = RoundedCornerShape(10.dp),
+    medium = RoundedCornerShape(14.dp),
+    large = RoundedCornerShape(18.dp),
+    extraLarge = RoundedCornerShape(24.dp),
   )
 
 @Composable
-fun MyApplicationTheme(
-  darkTheme: Boolean = isSystemInDarkTheme(),
-  // Dynamic color is available on Android 12+
-  dynamicColor: Boolean = true,
+fun RiftCompanionTheme(
+  preferences: UserPreferences = UserPreferences(),
   content: @Composable () -> Unit,
 ) {
-  val colorScheme =
-    when {
-      dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-        val context = LocalContext.current
-        if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-      }
+  val strings = AppStrings.get(preferences.language)
+  val colorScheme = buildHextechColorScheme(preferences.highContrastCards)
+  val typography = createScaledTypography(preferences.fontScaleMultiplier)
 
-      darkTheme -> DarkColorScheme
-      else -> LightColorScheme
-    }
-
-  MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
+  CompositionLocalProvider(
+    LocalUserPrefs provides preferences,
+    LocalUiStrings provides strings,
+  ) {
+    MaterialTheme(
+      colorScheme = colorScheme,
+      typography = typography,
+      shapes = HextechShapes,
+      content = content,
+    )
+  }
 }
