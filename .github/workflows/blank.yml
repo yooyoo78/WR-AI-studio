@@ -28,7 +28,7 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - name: Set up Android SDK command-line tools
         uses: android-actions/setup-android@v4
@@ -55,10 +55,8 @@ jobs:
           gradle --version
           sdkmanager --list_installed
 
-      # Robolectric currently reports one unsupported SDK-provider test in this project.
-      # Keep the APK packaging job running while retaining the test result in the Actions log.
-      - name: Run Android unit tests (non-blocking)
-        continue-on-error: true
+      # Robolectric tests targeting Android API 36 require Java 21.
+      - name: Run Android unit tests
         run: gradle :app:testDebugUnitTest --no-daemon
 
       - name: Assemble debug APK
