@@ -120,8 +120,8 @@ fun AnalyzerScreen(
   Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
       modifier = Modifier.fillMaxSize().widthIn(max = 760.dp).testTag("analyzer_lazy_column"),
-      contentPadding = PaddingValues(16.dp),
-      verticalArrangement = Arrangement.spacedBy(14.dp),
+      contentPadding = PaddingValues(12.dp),
+      verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
       // Step 1: Select Your Champion & Lane
       item {

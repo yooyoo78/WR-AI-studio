@@ -26,7 +26,14 @@ object DDragonIconResolver {
       "tahm_kench" -> "TahmKench"
       "twisted_fate" -> "TwistedFate"
       "xin_zhao" -> "XinZhao"
-      else -> nameEn.replace("'", "").replace(".", "").replace(" ", "")
+      "wukong" -> "MonkeyKing"
+      "nunu" -> "Nunu"
+      "ksante" -> "KSante"
+      "chogath" -> "Chogath"
+      "kogmaw" -> "KogMaw"
+      "velkoz" -> "Velkoz"
+      "leblanc" -> "Leblanc"
+      else -> nameEn.replace("'", "").replace(".", "").replace(" ", "").replace("&", "")
     }
 
   fun championPortraitUrl(championId: String, nameEn: String): String {

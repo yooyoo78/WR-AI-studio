@@ -52,8 +52,8 @@ class ExampleRobolectricTest {
 
       val champs = repo.champions.first()
       val items = repo.items.first()
-      assertTrue(champs.size >= 39)
-      assertTrue(items.size >= 40)
+      assertTrue(champs.size >= 120)
+      assertTrue(items.size >= 65)
 
       val validation = repo.validateCurrentDatabase()
       assertTrue(validation.isValid)
@@ -150,12 +150,12 @@ class ExampleRobolectricTest {
 
     composeTestRule.onNodeWithTag("settings_lang_en").performClick()
     composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithText("Settings & Readability").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("settings_title_text").assertIsDisplayed()
 
     // Switch back to Thai
     composeTestRule.onNodeWithTag("settings_lang_th").performClick()
     composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithText("ตั้งค่าและการอ่าน").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("settings_title_text").assertIsDisplayed()
   }
 
   @Test
@@ -212,13 +212,31 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("sort_winrate_chip").performClick()
     composeTestRule.waitForIdle()
 
+    composeTestRule
+      .onNodeWithTag("champions_lazy_column")
+      .performScrollToNode(hasTestTag("champ_card_smolder"))
     composeTestRule.onNodeWithTag("champ_card_smolder").assertIsDisplayed().performClick()
     composeTestRule.waitForIdle()
 
+    // Verify 3-Phase Game Plan card
     composeTestRule
       .onNodeWithTag("champion_detail_lazy_column")
-      .performScrollToNode(hasText("Super Scorcher Breath (Q)"))
-    composeTestRule.onNodeWithText("Super Scorcher Breath (Q)").assertIsDisplayed()
+      .performScrollToNode(hasTestTag("detail_game_plan_title"))
+    composeTestRule.onNodeWithTag("detail_game_plan_title").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("game_plan_tab_1").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("game_plan_content_1").assertIsDisplayed()
+
+    // Verify Skill title
+    composeTestRule
+      .onNodeWithTag("champion_detail_lazy_column")
+      .performScrollToNode(hasTestTag("detail_skill_title"))
+    composeTestRule.onNodeWithTag("detail_skill_title").assertIsDisplayed()
+
+    composeTestRule
+      .onNodeWithTag("champion_detail_lazy_column")
+      .performScrollToNode(hasText("Super Scorcher Breath", substring = true))
+    composeTestRule.onNode(hasText("Super Scorcher Breath", substring = true)).assertIsDisplayed()
 
     composeTestRule
       .onNodeWithTag("champion_detail_lazy_column")

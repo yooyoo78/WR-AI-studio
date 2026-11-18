@@ -36,18 +36,22 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -99,9 +103,9 @@ fun ChampionsScreen(
 
   Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
-      modifier = Modifier.fillMaxSize().widthIn(max = 760.dp),
-      contentPadding = PaddingValues(16.dp),
-      verticalArrangement = Arrangement.spacedBy(12.dp),
+      modifier = Modifier.fillMaxSize().widthIn(max = 760.dp).testTag("champions_lazy_column"),
+      contentPadding = PaddingValues(12.dp),
+      verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
       item {
         OutlinedTextField(
@@ -173,8 +177,8 @@ fun ChampionsScreen(
             onClick = { onOpenDetail(champ.id) },
           ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-              ChampionCrestAvatar(champion = champ, size = 48.dp)
-              Spacer(modifier = Modifier.width(12.dp))
+              ChampionCrestAvatar(champion = champ, size = 40.dp)
+              Spacer(modifier = Modifier.width(10.dp))
               Column(modifier = Modifier.weight(1f)) {
                 Row(
                   verticalAlignment = Alignment.CenterVertically,
@@ -284,15 +288,15 @@ fun ChampionDetailScreen(
     ) {
       LazyColumn(
         modifier = Modifier.fillMaxSize().widthIn(max = 760.dp).testTag("champion_detail_lazy_column"),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        contentPadding = PaddingValues(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
       ) {
         // Identity Header
         item {
           HextechCard(accentColor = HextechGold) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-              ChampionCrestAvatar(champion = champion, size = 60.dp)
-              Spacer(modifier = Modifier.width(14.dp))
+              ChampionCrestAvatar(champion = champion, size = 48.dp)
+              Spacer(modifier = Modifier.width(12.dp))
               Column(modifier = Modifier.weight(1f)) {
                 Row(
                   verticalAlignment = Alignment.CenterVertically,
@@ -309,20 +313,20 @@ fun ChampionDetailScreen(
                   style = MaterialTheme.typography.bodyMedium,
                   color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 DamageTypeBadge(champion.damageType, lang)
               }
             }
-            Spacer(modifier = Modifier.height(10.dp))
-            WinRatePillsRow(champion = champion, language = lang, showBanRate = true)
             Spacer(modifier = Modifier.height(8.dp))
+            WinRatePillsRow(champion = champion, language = lang, showBanRate = true)
+            Spacer(modifier = Modifier.height(6.dp))
             PatchBadgePill(
               patchVersion = champion.patchVersion,
               sourceLabel =
                 if (lang == AppLanguage.TH) champion.sourceType.labelTh
                 else champion.sourceType.labelEn,
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             Button(
               onClick = { onAnalyze1v5(champion.id) },
               modifier =
@@ -347,50 +351,211 @@ fun ChampionDetailScreen(
           }
         }
 
-        // Power Spike Curve & Kit Ratings
+        // 3-Phase Interactive Game Plan Card (Early / Mid / Late)
         item {
+          var selectedGamePlanTab by remember { mutableIntStateOf(0) }
           HextechCard(accentColor = ArcaneCyan) {
-            Text(
-              text =
-                if (lang == AppLanguage.TH) "พลังตามช่วงเกม & ค่าความสามารถ"
-                else "Power Curve & Kit Ratings",
-              style = MaterialTheme.typography.titleMedium,
-            )
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              Text(
+                text = if (lang == AppLanguage.TH) "Game Plan • แผนการเดินเกม" else "Game Plan & Strategy",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.testTag("detail_game_plan_title"),
+              )
+              Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = ArcaneCyan.copy(alpha = 0.16f),
+                border = BorderStroke(1.dp, ArcaneCyan.copy(alpha = 0.5f)),
+              ) {
+                Text(
+                  text = if (lang == AppLanguage.TH) "3 ช่วงเกม" else "3 Phases",
+                  style = MaterialTheme.typography.labelSmall,
+                  fontWeight = FontWeight.Bold,
+                  color = ArcaneCyan,
+                  modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                )
+              }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            SecondaryTabRow(
+              selectedTabIndex = selectedGamePlanTab,
+              containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+              contentColor = HextechGoldBright,
+              modifier = Modifier.clip(RoundedCornerShape(8.dp)),
+            ) {
+              Tab(
+                selected = selectedGamePlanTab == 0,
+                onClick = { selectedGamePlanTab = 0 },
+                modifier = Modifier.testTag("game_plan_tab_0"),
+                text = {
+                  Text(
+                    text = if (lang == AppLanguage.TH) "ต้นเกม (Early)" else "Early Game",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (selectedGamePlanTab == 0) FontWeight.Bold else FontWeight.Normal,
+                  )
+                },
+              )
+              Tab(
+                selected = selectedGamePlanTab == 1,
+                onClick = { selectedGamePlanTab = 1 },
+                modifier = Modifier.testTag("game_plan_tab_1"),
+                text = {
+                  Text(
+                    text = if (lang == AppLanguage.TH) "กลางเกม (Mid)" else "Mid Game",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (selectedGamePlanTab == 1) FontWeight.Bold else FontWeight.Normal,
+                  )
+                },
+              )
+              Tab(
+                selected = selectedGamePlanTab == 2,
+                onClick = { selectedGamePlanTab = 2 },
+                modifier = Modifier.testTag("game_plan_tab_2"),
+                text = {
+                  Text(
+                    text = if (lang == AppLanguage.TH) "ท้ายเกม (Late)" else "Late Game",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (selectedGamePlanTab == 2) FontWeight.Bold else FontWeight.Normal,
+                  )
+                },
+              )
+            }
+
             Spacer(modifier = Modifier.height(10.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-              TacticalMeterBar(
-                label = if (lang == AppLanguage.TH) "ต้นเกม (Early)" else "Early Power",
-                valuePercent = champion.earlyPower * 10,
-                barColor = ArcaneCyan,
-                trailingLabel = "${champion.earlyPower}/10",
-              )
-              TacticalMeterBar(
-                label = if (lang == AppLanguage.TH) "กลางเกม (Mid)" else "Mid Power",
-                valuePercent = champion.midPower * 10,
-                barColor = HextechGold,
-                trailingLabel = "${champion.midPower}/10",
-              )
-              TacticalMeterBar(
-                label = if (lang == AppLanguage.TH) "ท้ายเกม (Late)" else "Late Power",
-                valuePercent = champion.latePower * 10,
-                barColor = AdvantageEmerald,
-                trailingLabel = "${champion.latePower}/10",
-              )
+
+            when (selectedGamePlanTab) {
+              0 -> {
+                TacticalMeterBar(
+                  label = if (lang == AppLanguage.TH) "ระดับพลังต้นเกม (Early Power)" else "Early Game Power",
+                  valuePercent = champion.earlyPower * 10,
+                  barColor = ArcaneCyan,
+                  trailingLabel = "${champion.earlyPower}/10",
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                  text = champion.earlyPlan(lang),
+                  style = MaterialTheme.typography.bodyMedium,
+                  color = MaterialTheme.colorScheme.onSurface,
+                  modifier = Modifier.testTag("game_plan_content_0"),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                  shape = RoundedCornerShape(8.dp),
+                  color = ArcaneCyan.copy(alpha = 0.12f),
+                  border = BorderStroke(1.dp, ArcaneCyan.copy(alpha = 0.35f)),
+                  modifier = Modifier.fillMaxWidth(),
+                ) {
+                  Row(
+                    modifier = Modifier.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                  ) {
+                    Text(
+                      text =
+                        if (lang == AppLanguage.TH)
+                          "💡 ทริคคุมเลน: เน้น Last-hit จัดการเวฟให้อยู่หน้าป้อม ระวังการโดน Jungle แก๊งค์ และสู้เฉพาะตอนสกิลเทรดพร้อม"
+                        else
+                          "💡 Laning Trick: Manage wave near your turret, avoid overextending before level 5, and only trade when key cooldowns are ready.",
+                      style = MaterialTheme.typography.bodySmall,
+                      color = ArcaneCyan,
+                    )
+                  }
+                }
+              }
+              1 -> {
+                TacticalMeterBar(
+                  label = if (lang == AppLanguage.TH) "ระดับพลังกลางเกม (Mid Power)" else "Mid Game Power",
+                  valuePercent = champion.midPower * 10,
+                  barColor = HextechGold,
+                  trailingLabel = "${champion.midPower}/10",
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                  text = champion.midPlan(lang),
+                  style = MaterialTheme.typography.bodyMedium,
+                  color = MaterialTheme.colorScheme.onSurface,
+                  modifier = Modifier.testTag("game_plan_content_1"),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                  shape = RoundedCornerShape(8.dp),
+                  color = HextechGold.copy(alpha = 0.12f),
+                  border = BorderStroke(1.dp, HextechGold.copy(alpha = 0.35f)),
+                  modifier = Modifier.fillMaxWidth(),
+                ) {
+                  Row(
+                    modifier = Modifier.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                  ) {
+                    Text(
+                      text =
+                        if (lang == AppLanguage.TH)
+                          "💡 ทริคคุมออบเจกต์: รวมทีมชิง Dragon และ Herald ดันไซด์เลนแล้วหมุนตัวช่วยทีมเมื่อไอเทม Core ชิ้นที่ 1-2 เสร็จ"
+                        else
+                          "💡 Objective Trick: Group for Dragon/Herald fights, push out side lanes, and rotate when 1st-2nd core spikes are online.",
+                      style = MaterialTheme.typography.bodySmall,
+                      color = HextechGoldBright,
+                    )
+                  }
+                }
+              }
+              else -> {
+                TacticalMeterBar(
+                  label = if (lang == AppLanguage.TH) "ระดับพลังท้ายเกม (Late Power)" else "Late Game Power",
+                  valuePercent = champion.latePower * 10,
+                  barColor = AdvantageEmerald,
+                  trailingLabel = "${champion.latePower}/10",
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                  text = champion.latePlan(lang),
+                  style = MaterialTheme.typography.bodyMedium,
+                  color = MaterialTheme.colorScheme.onSurface,
+                  modifier = Modifier.testTag("game_plan_content_2"),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                  shape = RoundedCornerShape(8.dp),
+                  color = AdvantageEmerald.copy(alpha = 0.12f),
+                  border = BorderStroke(1.dp, AdvantageEmerald.copy(alpha = 0.35f)),
+                  modifier = Modifier.fillMaxWidth(),
+                ) {
+                  Row(
+                    modifier = Modifier.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                  ) {
+                    Text(
+                      text =
+                        if (lang == AppLanguage.TH)
+                          "💡 ทริคทีมไฟต์ 5v5: ห้ามเดินหน้าคนเดียวในจุดที่ไม่มีวิชั่น ยืนตำแหน่งตามหน้าที่ (หน้าชน / หลังทำดาเมจ) และโฟกัส Baron / Elder"
+                        else
+                          "💡 5v5 Teamfight Trick: Never wander alone into fog of war, stick strictly to your role positioning, and contest Baron/Elder Dragon.",
+                      style = MaterialTheme.typography.bodySmall,
+                      color = AdvantageEmerald,
+                    )
+                  }
+                }
+              }
             }
           }
         }
 
-        // Abilities (P, 1, 2, 3, 4)
+        // Skill Section (P, 1, 2, 3, 4)
         item {
           HextechCard {
             Text(
               text =
-                if (lang == AppLanguage.TH) "สกิลทั้งหมด (P, 1, 2, 3, 4) • ลำดับอัป ${champion.skillOrder}"
-                else "Full Kit (P, 1, 2, 3, 4) • Skill Order ${champion.skillOrder}",
+                if (lang == AppLanguage.TH) "Skill • ลำดับอัป ${champion.skillOrder}"
+                else "Skill • Order ${champion.skillOrder}",
               style = MaterialTheme.typography.titleMedium,
+              modifier = Modifier.testTag("detail_skill_title"),
             )
-            Spacer(modifier = Modifier.height(10.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
               champion.abilities.forEach { ab ->
                 val iconUrl = ab.iconUrl.ifBlank { resolvedAbilityIcons[ab.slot].orEmpty() }
                 Surface(
@@ -399,23 +564,23 @@ fun ChampionDetailScreen(
                   border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)),
                 ) {
                   Row(
-                    modifier = Modifier.fillMaxWidth().padding(10.dp),
+                    modifier = Modifier.fillMaxWidth().padding(8.dp),
                     verticalAlignment = Alignment.Top,
                   ) {
                     AbilityIconBadge(
                       slot = ab.slot,
                       iconUrl = iconUrl,
                       contentDescription = if (lang == AppLanguage.TH) ab.nameTh else ab.nameEn,
-                      size = 48.dp,
+                      size = 40.dp,
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
                     Column(modifier = Modifier.weight(1f)) {
                       Text(
                         text = if (lang == AppLanguage.TH) ab.nameTh else ab.nameEn,
                         style = MaterialTheme.typography.titleSmall,
                         color = HextechGoldBright,
                       )
-                      Spacer(modifier = Modifier.height(4.dp))
+                      Spacer(modifier = Modifier.height(3.dp))
                       FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -449,7 +614,7 @@ fun ChampionDetailScreen(
                           }
                         }
                       }
-                      Spacer(modifier = Modifier.height(5.dp))
+                      Spacer(modifier = Modifier.height(4.dp))
                       Text(
                         text = if (lang == AppLanguage.TH) ab.summaryTh else ab.summaryEn,
                         style = MaterialTheme.typography.bodySmall,

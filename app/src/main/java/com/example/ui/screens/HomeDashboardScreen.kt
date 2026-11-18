@@ -85,8 +85,8 @@ fun HomeDashboardScreen(
   Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
       modifier = Modifier.fillMaxSize().widthIn(max = 760.dp),
-      contentPadding = PaddingValues(16.dp),
-      verticalArrangement = Arrangement.spacedBy(16.dp),
+      contentPadding = PaddingValues(12.dp),
+      verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
       // Hero Tactical Command Banner
       item {
@@ -102,25 +102,25 @@ fun HomeDashboardScreen(
                 )
               ),
         ) {
-          Column(modifier = Modifier.padding(18.dp)) {
+          Column(modifier = Modifier.padding(14.dp)) {
             PatchBadgePill(
               patchVersion = state.activePatch?.version ?: state.preferences.activePatchLabel,
               sourceLabel =
                 state.activePatch?.releaseDate ?: "Curated Meta",
             )
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
               text = strings.appTitle,
-              style = MaterialTheme.typography.displaySmall,
+              style = MaterialTheme.typography.headlineMedium,
               color = HextechGoldBright,
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(3.dp))
             Text(
               text = strings.heroTagline,
-              style = MaterialTheme.typography.bodyMedium,
+              style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Button(
               onClick = { onOpenAnalyzer(null) },
@@ -411,8 +411,8 @@ private fun MetaChampionRowCard(
       modifier = Modifier.fillMaxWidth(),
       verticalAlignment = Alignment.CenterVertically,
     ) {
-      ChampionCrestAvatar(champion = champion, size = 46.dp)
-      Spacer(modifier = Modifier.width(12.dp))
+      ChampionCrestAvatar(champion = champion, size = 40.dp)
+      Spacer(modifier = Modifier.width(10.dp))
       Column(modifier = Modifier.weight(1f)) {
         Row(
           verticalAlignment = Alignment.CenterVertically,

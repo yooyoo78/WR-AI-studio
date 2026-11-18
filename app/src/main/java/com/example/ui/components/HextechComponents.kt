@@ -103,14 +103,14 @@ fun HextechCard(
     tonalElevation = 2.dp,
     border = BorderStroke(if (highContrast) 1.5.dp else 1.dp, borderColor),
   ) {
-    Column(modifier = Modifier.padding(16.dp), content = content)
+    Column(modifier = Modifier.padding(12.dp), content = content)
   }
 }
 
 @Composable
 fun ChampionCrestAvatar(
   champion: ChampionData,
-  size: Dp = 48.dp,
+  size: Dp = 40.dp,
   modifier: Modifier = Modifier,
 ) {
   val lang = LocalUserPrefs.current.language
@@ -173,7 +173,7 @@ fun ItemIconSlot(
   language: AppLanguage,
   onClick: () -> Unit,
   modifier: Modifier = Modifier,
-  size: Dp = 52.dp,
+  size: Dp = 44.dp,
   accentColor: Color = HextechGold,
   badgeText: String? = null,
   badgeColor: Color = accentColor,
@@ -289,7 +289,7 @@ fun SpellIconSlot(
   language: AppLanguage,
   onClick: () -> Unit,
   modifier: Modifier = Modifier,
-  size: Dp = 46.dp,
+  size: Dp = 40.dp,
   showLabel: Boolean = true,
 ) {
   val initials = spell.nameEn.take(2).uppercase()
@@ -363,7 +363,7 @@ fun AbilityIconBadge(
   iconUrl: String,
   contentDescription: String,
   modifier: Modifier = Modifier,
-  size: Dp = 46.dp,
+  size: Dp = 40.dp,
 ) {
   val slotColor =
     when (slot.uppercase()) {

@@ -54,8 +54,8 @@ class EngineModuleUnitTests {
       "Expected seed validation to pass, errors=${result.errors}",
       result.isValid,
     )
-    assertTrue("Expected at least 39 champions, found ${result.championsCount}", result.championsCount >= 39)
-    assertTrue("Expected at least 40 items, found ${result.itemsCount}", result.itemsCount >= 40)
+    assertTrue("Expected at least 120 champions, found ${result.championsCount}", result.championsCount >= 120)
+    assertTrue("Expected at least 65 items, found ${result.itemsCount}", result.itemsCount >= 65)
     assertTrue("Expected no warnings, got ${result.warnings}", result.warnings.isEmpty())
 
     seed.champions.forEach { champ ->

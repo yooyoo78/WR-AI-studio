@@ -29,7 +29,7 @@ import kotlinx.coroutines.withContext
 
 private const val TAG = "GameDataRepository"
 private const val SEED_ASSET_FILE = "patch_7_3f_seed.json"
-private const val CURRENT_SEED_REVISION = 2
+private const val CURRENT_SEED_REVISION = 3
 
 sealed interface ImportResult {
   data class Success(val patchVersion: String, val validation: ValidationResult) : ImportResult

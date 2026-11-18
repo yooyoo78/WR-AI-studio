@@ -74,6 +74,10 @@ data class ChampionData(
 
   fun weaknesses(lang: AppLanguage): List<String> =
     if (lang == AppLanguage.TH) weaknessesTh else weaknessesEn
+
+  fun earlyPlan(lang: AppLanguage): String = if (lang == AppLanguage.TH) earlyPlanTh else earlyPlanEn
+  fun midPlan(lang: AppLanguage): String = if (lang == AppLanguage.TH) midPlanTh else midPlanEn
+  fun latePlan(lang: AppLanguage): String = if (lang == AppLanguage.TH) latePlanTh else latePlanEn
 }
 
 @JsonClass(generateAdapter = true)

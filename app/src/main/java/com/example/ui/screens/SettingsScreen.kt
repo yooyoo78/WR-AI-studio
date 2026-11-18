@@ -59,7 +59,7 @@ fun SettingsScreen(
   Scaffold(
     topBar = {
       TopAppBar(
-        title = { Text(strings.settingsTitle) },
+        title = { Text(strings.settingsTitle, modifier = Modifier.testTag("settings_title_text")) },
         navigationIcon = {
           IconButton(
             onClick = onBack,
