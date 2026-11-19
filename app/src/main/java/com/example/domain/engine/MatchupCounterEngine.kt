@@ -137,8 +137,8 @@ class MatchupCounterEngine {
           ThreatTag.CRIT_HYPERCARRY in myChamp.threatTags)
     ) {
       score -= 3
-      reasonsEn.add("Rammus W + Thornmail reflects your rapid auto-attacks.")
-      reasonsTh.add("W + Thornmail ของ Rammus สะท้อนดาเมจใส่การโจมตีต่อเนื่องของคุณ")
+      reasonsEn.add("Rammus Skill 2 + Thornmail reflects your rapid auto-attacks.")
+      reasonsTh.add("สกิล 2 + Thornmail ของ Rammus สะท้อนดาเมจใส่การโจมตีต่อเนื่องของคุณ")
     }
     if (
       enemy.id == "sylas" &&

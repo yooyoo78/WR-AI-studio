@@ -156,6 +156,16 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("settings_lang_th").performClick()
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("settings_title_text").assertIsDisplayed()
+
+    // Toggle In-Game Mini-Window Mode in Settings
+    composeTestRule.onNodeWithTag("settings_mini_mode_switch").performScrollTo().assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("settings_back_button").performClick()
+    composeTestRule.waitForIdle()
+
+    // TopBar mini-mode toggle remains accessible
+    composeTestRule.onNodeWithTag("topbar_mini_mode_button").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
   }
 
   @Test

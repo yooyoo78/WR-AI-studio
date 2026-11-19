@@ -74,6 +74,7 @@ import com.example.ui.theme.HextechGold
 import com.example.ui.theme.HextechGoldBright
 import com.example.ui.theme.HextechSurface
 import com.example.ui.theme.HextechSurfaceHigh
+import com.example.ui.theme.LocalInGameMiniMode
 import com.example.ui.theme.LocalUiStrings
 import com.example.ui.theme.LocalUserPrefs
 import com.example.ui.theme.SkillViolet
@@ -89,6 +90,7 @@ fun HextechCard(
   content: @Composable ColumnScope.() -> Unit,
 ) {
   val highContrast = LocalUserPrefs.current.highContrastCards
+  val isMiniMode = LocalInGameMiniMode.current
   val borderColor =
     accentColor?.copy(alpha = if (highContrast) 0.85f else 0.45f)
       ?: MaterialTheme.colorScheme.outline
@@ -103,7 +105,7 @@ fun HextechCard(
     tonalElevation = 2.dp,
     border = BorderStroke(if (highContrast) 1.5.dp else 1.dp, borderColor),
   ) {
-    Column(modifier = Modifier.padding(12.dp), content = content)
+    Column(modifier = Modifier.padding(if (isMiniMode) 8.dp else 12.dp), content = content)
   }
 }
 
@@ -114,6 +116,8 @@ fun ChampionCrestAvatar(
   modifier: Modifier = Modifier,
 ) {
   val lang = LocalUserPrefs.current.language
+  val isMiniMode = LocalInGameMiniMode.current
+  val effectiveSize = if (isMiniMode) (size * 0.85f).coerceAtLeast(28.dp) else size
   val ringColors =
     when (champion.damageType) {
       DamageType.AD -> listOf(HextechGold, Color(0xFFB45309))
@@ -138,7 +142,7 @@ fun ChampionCrestAvatar(
   Box(
     modifier =
       modifier
-        .size(size)
+        .size(effectiveSize)
         .clip(CircleShape)
         .background(Brush.linearGradient(listOf(HextechSurfaceHigh, HextechSurface)))
         .border(2.dp, Brush.linearGradient(ringColors), CircleShape),
@@ -180,6 +184,8 @@ fun ItemIconSlot(
   showCost: Boolean = true,
   showName: Boolean = false,
 ) {
+  val isMiniMode = LocalInGameMiniMode.current
+  val effectiveSize = if (isMiniMode) (size * 0.84f).coerceAtLeast(34.dp) else size
   val initials =
     item.nameEn
       .split(" ", "'", "-")
@@ -197,7 +203,7 @@ fun ItemIconSlot(
         .padding(2.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
   ) {
-    Box(modifier = Modifier.size(size)) {
+    Box(modifier = Modifier.size(effectiveSize)) {
       Box(
         modifier =
           Modifier.fillMaxSize()
@@ -277,7 +283,7 @@ fun ItemIconSlot(
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
         textAlign = TextAlign.Center,
-        modifier = Modifier.width(size + 14.dp),
+        modifier = Modifier.width(effectiveSize + 14.dp),
       )
     }
   }
@@ -292,6 +298,8 @@ fun SpellIconSlot(
   size: Dp = 40.dp,
   showLabel: Boolean = true,
 ) {
+  val isMiniMode = LocalInGameMiniMode.current
+  val effectiveSize = if (isMiniMode) (size * 0.85f).coerceAtLeast(32.dp) else size
   val initials = spell.nameEn.take(2).uppercase()
   Column(
     modifier =
@@ -304,7 +312,7 @@ fun SpellIconSlot(
   ) {
     Box(
       modifier =
-        Modifier.size(size)
+        Modifier.size(effectiveSize)
           .clip(RoundedCornerShape(10.dp))
           .background(Brush.linearGradient(listOf(HextechSurfaceHigh, HextechSurface)))
           .border(1.5.dp, ArcaneCyan.copy(alpha = 0.78f), RoundedCornerShape(10.dp)),
@@ -365,6 +373,8 @@ fun AbilityIconBadge(
   modifier: Modifier = Modifier,
   size: Dp = 40.dp,
 ) {
+  val isMiniMode = LocalInGameMiniMode.current
+  val effectiveSize = if (isMiniMode) (size * 0.85f).coerceAtLeast(32.dp) else size
   val slotColor =
     when (slot.uppercase()) {
       "P" -> ArcaneCyan
@@ -372,7 +382,7 @@ fun AbilityIconBadge(
       else -> SkillViolet
     }
 
-  Box(modifier = modifier.size(size)) {
+  Box(modifier = modifier.size(effectiveSize)) {
     Box(
       modifier =
         Modifier.fillMaxSize()

@@ -54,6 +54,7 @@ import com.example.ui.components.TierBadge
 import com.example.ui.theme.AdvantageEmerald
 import com.example.ui.theme.ArcaneCyan
 import com.example.ui.theme.HextechGold
+import com.example.ui.theme.LocalInGameMiniMode
 import com.example.ui.theme.LocalUiStrings
 import com.example.ui.theme.LocalUserPrefs
 import com.example.ui.theme.SkillViolet
@@ -72,6 +73,7 @@ fun DraftScreen(
   onClearDraft: () -> Unit,
 ) {
   val strings = LocalUiStrings.current
+  val isMiniMode = LocalInGameMiniMode.current
   val lang = LocalUserPrefs.current.language
 
   var pickingAllies by remember { mutableStateOf(false) }
@@ -80,8 +82,8 @@ fun DraftScreen(
   Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
       modifier = Modifier.fillMaxSize().widthIn(max = 760.dp),
-      contentPadding = PaddingValues(16.dp),
-      verticalArrangement = Arrangement.spacedBy(14.dp),
+      contentPadding = PaddingValues(if (isMiniMode) 8.dp else 12.dp),
+      verticalArrangement = Arrangement.spacedBy(if (isMiniMode) 8.dp else 10.dp),
     ) {
       // Allied & Enemy 5v5 Board
       item {
@@ -325,16 +327,17 @@ private fun DraftFiveSlotRow(
   tagPrefix: String,
   onSlotClick: (ChampionData?) -> Unit,
 ) {
+  val isMiniMode = LocalInGameMiniMode.current
   Row(
     modifier = Modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.spacedBy(6.dp),
+    horizontalArrangement = Arrangement.spacedBy(if (isMiniMode) 4.dp else 6.dp),
   ) {
     for (i in 0 until 5) {
       val champ = champions.getOrNull(i)
       Surface(
         modifier =
           Modifier.weight(1f)
-            .height(74.dp)
+            .height(if (isMiniMode) 58.dp else 68.dp)
             .clip(MaterialTheme.shapes.small)
             .clickable { onSlotClick(champ) }
             .testTag("${tagPrefix}_slot_$i"),

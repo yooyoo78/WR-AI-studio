@@ -39,6 +39,7 @@ import com.example.data.model.TextScalePreset
 import com.example.ui.components.HextechCard
 import com.example.ui.theme.ArcaneCyan
 import com.example.ui.theme.HextechGold
+import com.example.ui.theme.LocalInGameMiniMode
 import com.example.ui.theme.LocalUiStrings
 import kotlin.math.abs
 
@@ -49,11 +50,13 @@ fun SettingsScreen(
   onSelectLanguage: (AppLanguage) -> Unit,
   onChangeFontScale: (Float) -> Unit,
   onToggleHighContrast: (Boolean) -> Unit,
+  onToggleMiniMode: (Boolean) -> Unit,
   onBack: () -> Unit,
 ) {
   BackHandler(onBack = onBack)
 
   val strings = LocalUiStrings.current
+  val isMiniMode = LocalInGameMiniMode.current
   val lang = preferences.language
 
   Scaffold(
@@ -77,8 +80,8 @@ fun SettingsScreen(
     ) {
       LazyColumn(
         modifier = Modifier.fillMaxSize().widthIn(max = 720.dp),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(if (isMiniMode) 8.dp else 12.dp),
+        verticalArrangement = Arrangement.spacedBy(if (isMiniMode) 8.dp else 12.dp),
       ) {
         // Language Selector (Thai default + English)
         item {
@@ -149,13 +152,42 @@ fun SettingsScreen(
             Text(
               text =
                 if (lang == AppLanguage.TH) {
-                  "ตัวอย่างข้อความ: ออก Stasis Enchant ก่อนไฟต์มังกรที่ 2 เพื่อกันอัลติของ Zed และเก็บ E ไว้หนี"
+                  "ตัวอย่างข้อความ: ออก Stasis Enchant ก่อนไฟต์มังกรที่ 2 เพื่อกันอัลติของ Zed และเก็บสกิล 3 ไว้หนี"
                 } else {
                   "Preview: Prioritize Stasis Enchant before 2nd Dragon to nullify Zed's Death Mark combo."
                 },
               style = MaterialTheme.typography.bodyMedium,
               color = MaterialTheme.colorScheme.onSurface,
             )
+          }
+        }
+
+        // In-Game Mini-Window Mode
+        item {
+          HextechCard(accentColor = ArcaneCyan) {
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                Text(
+                  text = strings.miniModeTitle,
+                  style = MaterialTheme.typography.titleMedium,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                  text = strings.miniModeDesc,
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+              }
+              Switch(
+                checked = preferences.inGameMiniMode,
+                onCheckedChange = onToggleMiniMode,
+                modifier = Modifier.testTag("settings_mini_mode_switch"),
+              )
+            }
           }
         }
 

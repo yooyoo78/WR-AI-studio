@@ -56,6 +56,7 @@ import com.example.ui.components.ChampionPickerBottomSheet
 import com.example.ui.components.HextechCard
 import com.example.ui.theme.ArcaneCyan
 import com.example.ui.theme.HextechGold
+import com.example.ui.theme.LocalInGameMiniMode
 import com.example.ui.theme.LocalUiStrings
 import com.example.ui.theme.ThreatCrimson
 import com.example.ui.viewmodel.CoachChatMessage
@@ -74,6 +75,7 @@ fun CoachScreen(
   onClearChat: () -> Unit,
 ) {
   val strings = LocalUiStrings.current
+  val isMiniMode = LocalInGameMiniMode.current
   val lang = state.language
   var selectedTab by remember { mutableIntStateOf(0) }
   var showChampPicker by remember { mutableStateOf(false) }
@@ -97,7 +99,13 @@ fun CoachScreen(
   Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     Column(modifier = Modifier.fillMaxSize().widthIn(max = 760.dp)) {
       // Champion & Lane Context Header
-      Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+      Column(
+        modifier =
+          Modifier.padding(
+            horizontal = if (isMiniMode) 8.dp else 12.dp,
+            vertical = if (isMiniMode) 6.dp else 10.dp,
+          )
+      ) {
         state.selectedChampion?.let { champ ->
           Surface(
             modifier =
@@ -165,8 +173,8 @@ fun CoachScreen(
       if (selectedTab == 0) {
         LazyColumn(
           modifier = Modifier.fillMaxSize(),
-          contentPadding = PaddingValues(16.dp),
-          verticalArrangement = Arrangement.spacedBy(12.dp),
+          contentPadding = PaddingValues(if (isMiniMode) 8.dp else 12.dp),
+          verticalArrangement = Arrangement.spacedBy(if (isMiniMode) 8.dp else 10.dp),
         ) {
           items(state.offlinePlaybook) { section ->
             HextechCard(accentColor = HextechGold) {
@@ -184,8 +192,8 @@ fun CoachScreen(
         Column(modifier = Modifier.fillMaxSize()) {
           LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(if (isMiniMode) 8.dp else 12.dp),
+            verticalArrangement = Arrangement.spacedBy(if (isMiniMode) 8.dp else 10.dp),
           ) {
             item {
               LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

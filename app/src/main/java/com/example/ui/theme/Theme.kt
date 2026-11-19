@@ -15,6 +15,7 @@ import com.example.data.local.UserPreferences
 
 val LocalUserPrefs = staticCompositionLocalOf { UserPreferences() }
 val LocalUiStrings = staticCompositionLocalOf { AppStrings.get(com.example.data.model.AppLanguage.TH) }
+val LocalInGameMiniMode = staticCompositionLocalOf { false }
 
 private fun buildHextechColorScheme(highContrast: Boolean) =
   darkColorScheme(
@@ -55,6 +56,7 @@ private val HextechShapes =
 @Composable
 fun RiftCompanionTheme(
   preferences: UserPreferences = UserPreferences(),
+  inGameMiniMode: Boolean = preferences.inGameMiniMode,
   content: @Composable () -> Unit,
 ) {
   val strings = AppStrings.get(preferences.language)
@@ -64,6 +66,7 @@ fun RiftCompanionTheme(
   CompositionLocalProvider(
     LocalUserPrefs provides preferences,
     LocalUiStrings provides strings,
+    LocalInGameMiniMode provides inGameMiniMode,
   ) {
     MaterialTheme(
       colorScheme = colorScheme,

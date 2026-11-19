@@ -126,6 +126,10 @@ class HomeAndPatchViewModel(
     viewModelScope.launch { preferencesRepository.setHighContrastCards(enabled) }
   }
 
+  fun setInGameMiniMode(enabled: Boolean) {
+    viewModelScope.launch { preferencesRepository.setInGameMiniMode(enabled) }
+  }
+
   fun importPatchJsonUri(uri: Uri) {
     viewModelScope.launch {
       _patchActionStatus.value = PatchActionStatus.Working

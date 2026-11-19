@@ -144,11 +144,11 @@ class SmartItemEngine {
       val names = profile.tankThreats.joinToString(", ") { it.nameEn }
       val antiTankItem =
         when {
-          isApChampion -> itemMap["liandrys_torment"] ?: itemMap["cryptbloom"]
-          isMarksman -> itemMap["botrk"] ?: itemMap["mortal_reminder"]
+          isApChampion -> itemMap["liandrys_torment"] ?: itemMap["riftmaker"] ?: itemMap["oceanids_trident"]
+          isMarksman -> itemMap["terminus"] ?: itemMap["botrk"] ?: itemMap["mortal_reminder"]
           isTankOrFrontline -> null
           myChampion.damageType == DamageType.AD ->
-            itemMap["divine_sunderer"] ?: itemMap["black_cleaver"] ?: itemMap["seryldas_grudge"]
+            itemMap["divine_sunderer"] ?: itemMap["black_cleaver"] ?: itemMap["sundered_sky"] ?: itemMap["seryldas_grudge"]
           else -> itemMap["riftmaker"]
         }
       if (antiTankItem != null && alreadyChosenIds.add(antiTankItem.id)) {
@@ -529,7 +529,7 @@ class SmartItemEngine {
     when {
       isSquishyCarry && hasPointClickBurst -> {
         chosen = itemMap["stasis_enchant"] ?: defaultEnchant
-        reasonEn = "Stasis nullifies point-and-click assassin/burst ultimates (Zed R, Syndra R, Evelynn R)."
+        reasonEn = "Stasis nullifies point-and-click assassin/burst ultimates (Zed (4), Syndra (4), Evelynn (4))."
         reasonTh = "Stasis กดเป็นอมตะ 2.5 วิ หลบอัลติล็อกเป้าสายเบิร์สอย่าง Zed, Syndra, Evelynn ได้ทันที"
         targetEn = enemies.filter { it.id in listOf("zed", "evelynn", "syndra", "vi", "camille") }.joinToString { it.nameEn }
         targetTh = enemies.filter { it.id in listOf("zed", "evelynn", "syndra", "vi", "camille") }.joinToString { it.nameTh }

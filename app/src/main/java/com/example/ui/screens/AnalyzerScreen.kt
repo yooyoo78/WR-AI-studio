@@ -85,6 +85,7 @@ import com.example.ui.theme.AdvantageEmerald
 import com.example.ui.theme.ArcaneCyan
 import com.example.ui.theme.HextechGold
 import com.example.ui.theme.HextechGoldBright
+import com.example.ui.theme.LocalInGameMiniMode
 import com.example.ui.theme.LocalUiStrings
 import com.example.ui.theme.LocalUserPrefs
 import com.example.ui.theme.SkillViolet
@@ -107,6 +108,7 @@ fun AnalyzerScreen(
   onAskCoachForMatchup: () -> Unit,
 ) {
   val strings = LocalUiStrings.current
+  val isMiniMode = LocalInGameMiniMode.current
   val lang = LocalUserPrefs.current.language
 
   var showMyChampPicker by remember { mutableStateOf(false) }
@@ -120,8 +122,8 @@ fun AnalyzerScreen(
   Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
       modifier = Modifier.fillMaxSize().widthIn(max = 760.dp).testTag("analyzer_lazy_column"),
-      contentPadding = PaddingValues(12.dp),
-      verticalArrangement = Arrangement.spacedBy(10.dp),
+      contentPadding = PaddingValues(if (isMiniMode) 8.dp else 12.dp),
+      verticalArrangement = Arrangement.spacedBy(if (isMiniMode) 7.dp else 10.dp),
     ) {
       // Step 1: Select Your Champion & Lane
       item {
@@ -156,10 +158,10 @@ fun AnalyzerScreen(
               border = BorderStroke(1.dp, HextechGold.copy(alpha = 0.6f)),
             ) {
               Row(
-                modifier = Modifier.padding(12.dp),
+                modifier = Modifier.padding(if (isMiniMode) 8.dp else 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
               ) {
-                ChampionCrestAvatar(champion = myChamp, size = 48.dp)
+                ChampionCrestAvatar(champion = myChamp, size = 44.dp)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                   Row(
@@ -232,14 +234,14 @@ fun AnalyzerScreen(
           // 5 Enemy Slots Row
           Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (isMiniMode) 4.dp else 8.dp),
           ) {
             for (index in 0 until 5) {
               val enemy = state.selectedEnemies.getOrNull(index)
               Surface(
                 modifier =
                   Modifier.weight(1f)
-                    .height(78.dp)
+                    .height(if (isMiniMode) 60.dp else 72.dp)
                     .clip(MaterialTheme.shapes.small)
                     .clickable {
                       if (enemy != null) onToggleEnemy(enemy.id) else showEnemyPicker = true

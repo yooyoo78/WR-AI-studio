@@ -8,10 +8,13 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CloseFullscreen
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
@@ -137,48 +140,50 @@ fun RiftCompanionApp(appContainer: AppContainer) {
   val geminiState by coachVm.geminiState.collectAsStateWithLifecycle()
   val coachMessages by coachVm.messages.collectAsStateWithLifecycle()
 
-  RiftCompanionTheme(preferences = prefs) {
-    val navController = rememberNavController()
-    val backStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = backStackEntry?.destination?.route ?: NavRoutes.HOME
-    val strings = LocalUiStrings.current
+  BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+    val useNavRail = maxWidth >= 680.dp
+    val autoCompactWindow = maxWidth < 380.dp || maxHeight < 560.dp
+    val effectiveMiniMode = prefs.inGameMiniMode || autoCompactWindow
 
-    val navItems =
-      listOf(
-        TopLevelNavItem(NavRoutes.HOME, { strings.navHome }, Icons.Default.Home, "nav_home"),
-        TopLevelNavItem(
-          NavRoutes.ANALYZER,
-          { strings.navAnalyzer },
-          Icons.Default.Security,
-          "nav_analyzer",
-        ),
-        TopLevelNavItem(
-          NavRoutes.CHAMPIONS,
-          { strings.navChampions },
-          Icons.Default.Shield,
-          "nav_champions",
-        ),
-        TopLevelNavItem(NavRoutes.DRAFT, { strings.navDraft }, Icons.Default.Groups, "nav_draft"),
-        TopLevelNavItem(
-          NavRoutes.COACH,
-          { strings.navCoach },
-          Icons.Default.AutoAwesome,
-          "nav_coach",
-        ),
-      )
+    RiftCompanionTheme(preferences = prefs, inGameMiniMode = effectiveMiniMode) {
+      val navController = rememberNavController()
+      val backStackEntry by navController.currentBackStackEntryAsState()
+      val currentRoute = backStackEntry?.destination?.route ?: NavRoutes.HOME
+      val strings = LocalUiStrings.current
 
-    val showChrome = currentRoute in navItems.map { it.route }
+      val navItems =
+        listOf(
+          TopLevelNavItem(NavRoutes.HOME, { strings.navHome }, Icons.Default.Home, "nav_home"),
+          TopLevelNavItem(
+            NavRoutes.ANALYZER,
+            { strings.navAnalyzer },
+            Icons.Default.Security,
+            "nav_analyzer",
+          ),
+          TopLevelNavItem(
+            NavRoutes.CHAMPIONS,
+            { strings.navChampions },
+            Icons.Default.Shield,
+            "nav_champions",
+          ),
+          TopLevelNavItem(NavRoutes.DRAFT, { strings.navDraft }, Icons.Default.Groups, "nav_draft"),
+          TopLevelNavItem(
+            NavRoutes.COACH,
+            { strings.navCoach },
+            Icons.Default.AutoAwesome,
+            "nav_coach",
+          ),
+        )
 
-    fun navigateTopLevel(route: String) {
-      navController.navigate(route) {
-        popUpTo(NavRoutes.HOME) { saveState = true }
-        launchSingleTop = true
-        restoreState = true
+      val showChrome = currentRoute in navItems.map { it.route }
+
+      fun navigateTopLevel(route: String) {
+        navController.navigate(route) {
+          popUpTo(NavRoutes.HOME) { saveState = true }
+          launchSingleTop = true
+          restoreState = true
+        }
       }
-    }
-
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-      val useNavRail = maxWidth >= 680.dp
 
       Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -197,6 +202,9 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                       NavRoutes.COACH -> strings.navCoach
                       else -> strings.appTitle
                     },
+                  style =
+                    if (effectiveMiniMode) MaterialTheme.typography.titleMedium
+                    else MaterialTheme.typography.titleLarge,
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis,
                 )
@@ -207,6 +215,20 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                   titleContentColor = HextechGold,
                 ),
               actions = {
+                IconButton(
+                  onClick = { homePatchVm.setInGameMiniMode(!prefs.inGameMiniMode) },
+                  modifier =
+                    Modifier.minimumInteractiveComponentSize().testTag("topbar_mini_mode_button"),
+                ) {
+                  Icon(
+                    if (prefs.inGameMiniMode) Icons.Default.CloseFullscreen
+                    else Icons.Default.PictureInPictureAlt,
+                    contentDescription = strings.miniModeTitle,
+                    tint =
+                      if (effectiveMiniMode) HextechGold
+                      else MaterialTheme.colorScheme.onSurfaceVariant,
+                  )
+                }
                 IconButton(
                   onClick = { navController.navigate(NavRoutes.PATCH_CENTER) },
                   modifier =
@@ -235,12 +257,16 @@ fun RiftCompanionApp(appContainer: AppContainer) {
         },
         bottomBar = {
           if (showChrome && !useNavRail) {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+            NavigationBar(
+              containerColor = MaterialTheme.colorScheme.surface,
+              modifier = if (effectiveMiniMode) Modifier.height(60.dp) else Modifier,
+            ) {
               navItems.forEach { item ->
                 val selected = currentRoute == item.route
                 NavigationBarItem(
                   selected = selected,
                   onClick = { navigateTopLevel(item.route) },
+                  alwaysShowLabel = !effectiveMiniMode,
                   modifier = Modifier.testTag(item.testTag),
                   icon = { Icon(item.icon, contentDescription = item.labelProvider()) },
                   label = {
@@ -396,6 +422,7 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                   onSelectLanguage = homePatchVm::setLanguage,
                   onChangeFontScale = homePatchVm::setFontScale,
                   onToggleHighContrast = homePatchVm::setHighContrastCards,
+                  onToggleMiniMode = homePatchVm::setInGameMiniMode,
                   onBack = { navController.popBackStack() },
                 )
               }

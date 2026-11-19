@@ -79,6 +79,7 @@ import com.example.ui.theme.AdvantageEmerald
 import com.example.ui.theme.ArcaneCyan
 import com.example.ui.theme.HextechGold
 import com.example.ui.theme.HextechGoldBright
+import com.example.ui.theme.LocalInGameMiniMode
 import com.example.ui.theme.LocalUiStrings
 import com.example.ui.theme.LocalUserPrefs
 import com.example.ui.theme.SkillViolet
@@ -99,13 +100,14 @@ fun ChampionsScreen(
   onOpenDetail: (String) -> Unit,
 ) {
   val strings = LocalUiStrings.current
+  val isMiniMode = LocalInGameMiniMode.current
   val lang = LocalUserPrefs.current.language
 
   Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
       modifier = Modifier.fillMaxSize().widthIn(max = 760.dp).testTag("champions_lazy_column"),
-      contentPadding = PaddingValues(12.dp),
-      verticalArrangement = Arrangement.spacedBy(8.dp),
+      contentPadding = PaddingValues(if (isMiniMode) 8.dp else 12.dp),
+      verticalArrangement = Arrangement.spacedBy(if (isMiniMode) 6.dp else 8.dp),
     ) {
       item {
         OutlinedTextField(
@@ -242,6 +244,7 @@ fun ChampionDetailScreen(
 ) {
   BackHandler(onBack = onBack)
 
+  val isMiniMode = LocalInGameMiniMode.current
   val lang = LocalUserPrefs.current.language
   val isFav = champion.id in state.favoriteIds
   val champMap = state.allChampions.associateBy { it.id }
@@ -288,8 +291,8 @@ fun ChampionDetailScreen(
     ) {
       LazyColumn(
         modifier = Modifier.fillMaxSize().widthIn(max = 760.dp).testTag("champion_detail_lazy_column"),
-        contentPadding = PaddingValues(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(if (isMiniMode) 8.dp else 12.dp),
+        verticalArrangement = Arrangement.spacedBy(if (isMiniMode) 7.dp else 10.dp),
       ) {
         // Identity Header
         item {

@@ -23,6 +23,7 @@ data class UserPreferences(
   val activePatchLabel: String = "7.3f",
   val lastImportedPackInfo: String = "",
   val seedRevision: Int = 0,
+  val inGameMiniMode: Boolean = false,
 )
 
 class PreferencesRepository(private val context: Context) {
@@ -33,6 +34,7 @@ class PreferencesRepository(private val context: Context) {
     val ACTIVE_PATCH = stringPreferencesKey("active_patch_label")
     val LAST_IMPORT = stringPreferencesKey("last_imported_pack_info")
     val SEED_REVISION = intPreferencesKey("seed_revision")
+    val IN_GAME_MINI_MODE = booleanPreferencesKey("in_game_mini_mode")
   }
 
   val preferencesFlow: Flow<UserPreferences> =
@@ -46,6 +48,7 @@ class PreferencesRepository(private val context: Context) {
         activePatchLabel = prefs[Keys.ACTIVE_PATCH] ?: "7.3f",
         lastImportedPackInfo = prefs[Keys.LAST_IMPORT] ?: "",
         seedRevision = prefs[Keys.SEED_REVISION] ?: 0,
+        inGameMiniMode = prefs[Keys.IN_GAME_MINI_MODE] ?: false,
       )
     }
 
@@ -70,5 +73,9 @@ class PreferencesRepository(private val context: Context) {
 
   suspend fun setSeedRevision(revision: Int) {
     context.dataStore.edit { it[Keys.SEED_REVISION] = revision }
+  }
+
+  suspend fun setInGameMiniMode(enabled: Boolean) {
+    context.dataStore.edit { it[Keys.IN_GAME_MINI_MODE] = enabled }
   }
 }

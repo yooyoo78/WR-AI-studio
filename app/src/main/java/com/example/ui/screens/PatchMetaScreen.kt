@@ -51,6 +51,7 @@ import com.example.ui.components.HextechCard
 import com.example.ui.theme.AdvantageEmerald
 import com.example.ui.theme.ArcaneCyan
 import com.example.ui.theme.HextechGold
+import com.example.ui.theme.LocalInGameMiniMode
 import com.example.ui.theme.LocalUiStrings
 import com.example.ui.theme.ThreatCrimson
 import com.example.ui.theme.WarningAmber
@@ -72,6 +73,7 @@ fun PatchMetaScreen(
   BackHandler(onBack = onBack)
 
   val strings = LocalUiStrings.current
+  val isMiniMode = LocalInGameMiniMode.current
   val lang = homeState.preferences.language
   var showSampleSchema by remember { mutableStateOf(false) }
 
@@ -103,8 +105,8 @@ fun PatchMetaScreen(
     ) {
       LazyColumn(
         modifier = Modifier.fillMaxSize().widthIn(max = 760.dp),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        contentPadding = PaddingValues(if (isMiniMode) 8.dp else 12.dp),
+        verticalArrangement = Arrangement.spacedBy(if (isMiniMode) 8.dp else 12.dp),
       ) {
         // Active Patch & Data Source Attribution Card
         item {

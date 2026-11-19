@@ -62,6 +62,7 @@ import com.example.ui.theme.HextechGold
 import com.example.ui.theme.HextechGoldBright
 import com.example.ui.theme.HextechSurface
 import com.example.ui.theme.HextechSurfaceHigh
+import com.example.ui.theme.LocalInGameMiniMode
 import com.example.ui.theme.LocalUiStrings
 import com.example.ui.theme.ThreatCrimson
 import com.example.ui.theme.WarningAmber
@@ -80,167 +81,223 @@ fun HomeDashboardScreen(
   onOpenSettings: () -> Unit,
 ) {
   val strings = LocalUiStrings.current
+  val isMiniMode = LocalInGameMiniMode.current
   val lang = state.preferences.language
 
   Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
       modifier = Modifier.fillMaxSize().widthIn(max = 760.dp),
-      contentPadding = PaddingValues(12.dp),
-      verticalArrangement = Arrangement.spacedBy(10.dp),
+      contentPadding = PaddingValues(if (isMiniMode) 8.dp else 12.dp),
+      verticalArrangement = Arrangement.spacedBy(if (isMiniMode) 8.dp else 10.dp),
     ) {
-      // Hero Tactical Command Banner
+      // Hero Tactical Command Banner (slim quick-bar in Mini-Window Mode)
       item {
-        Surface(
-          shape = MaterialTheme.shapes.large,
-          color = Color.Transparent,
-          modifier =
-            Modifier.fillMaxWidth()
-              .clip(MaterialTheme.shapes.large)
-              .background(
-                Brush.linearGradient(
-                  listOf(Color(0xFF14213D), HextechSurfaceHigh, Color(0xFF1E293B))
-                )
-              ),
-        ) {
-          Column(modifier = Modifier.padding(14.dp)) {
-            PatchBadgePill(
-              patchVersion = state.activePatch?.version ?: state.preferences.activePatchLabel,
-              sourceLabel =
-                state.activePatch?.releaseDate ?: "Curated Meta",
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-              text = strings.appTitle,
-              style = MaterialTheme.typography.headlineMedium,
-              color = HextechGoldBright,
-            )
-            Spacer(modifier = Modifier.height(3.dp))
-            Text(
-              text = strings.heroTagline,
-              style = MaterialTheme.typography.bodySmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Button(
-              onClick = { onOpenAnalyzer(null) },
-              modifier =
-                Modifier.fillMaxWidth()
-                  .minimumInteractiveComponentSize()
-                  .testTag("home_launch_analyzer_button"),
-              colors =
-                ButtonDefaults.buttonColors(
-                  containerColor = HextechGold,
-                  contentColor = Color(0xFF0A0F1A),
-                ),
-            ) {
-              Icon(Icons.Default.Security, contentDescription = null)
-              Spacer(modifier = Modifier.width(8.dp))
-              Text(
-                text = strings.quickAnalyzeCta,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-              )
-              Spacer(modifier = Modifier.width(6.dp))
-              Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
+        if (isMiniMode) {
+          HextechCard(accentColor = HextechGold) {
             Row(
               modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.spacedBy(10.dp),
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+              verticalAlignment = Alignment.CenterVertically,
             ) {
-              OutlinedButton(
-                onClick = onOpenDraft,
+              Button(
+                onClick = { onOpenAnalyzer(null) },
                 modifier =
                   Modifier.weight(1f)
                     .minimumInteractiveComponentSize()
-                    .testTag("home_open_draft_button"),
+                    .testTag("home_launch_analyzer_button"),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                colors =
+                  ButtonDefaults.buttonColors(
+                    containerColor = HextechGold,
+                    contentColor = Color(0xFF0A0F1A),
+                  ),
               ) {
-                Icon(Icons.Default.Groups, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                  text = strings.openDraftCta,
+                  text = strings.navAnalyzer,
+                  style = MaterialTheme.typography.labelLarge,
+                  fontWeight = FontWeight.Bold,
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis,
                 )
               }
               OutlinedButton(
+                onClick = onOpenDraft,
+                modifier = Modifier.minimumInteractiveComponentSize().testTag("home_open_draft_button"),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+              ) {
+                Icon(Icons.Default.Groups, contentDescription = strings.openDraftCta, modifier = Modifier.size(16.dp))
+              }
+              OutlinedButton(
                 onClick = onOpenCoach,
-                modifier =
-                  Modifier.weight(1f)
-                    .minimumInteractiveComponentSize()
-                    .testTag("home_open_coach_button"),
+                modifier = Modifier.minimumInteractiveComponentSize().testTag("home_open_coach_button"),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
               ) {
                 Icon(
                   Icons.Default.AutoAwesome,
-                  contentDescription = null,
+                  contentDescription = strings.openCoachCta,
                   tint = ArcaneCyan,
-                  modifier = Modifier.size(18.dp),
+                  modifier = Modifier.size(16.dp),
+                )
+              }
+            }
+          }
+        } else {
+          Surface(
+            shape = MaterialTheme.shapes.large,
+            color = Color.Transparent,
+            modifier =
+              Modifier.fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
+                .background(
+                  Brush.linearGradient(
+                    listOf(Color(0xFF14213D), HextechSurfaceHigh, Color(0xFF1E293B))
+                  )
+                ),
+          ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+              PatchBadgePill(
+                patchVersion = state.activePatch?.version ?: state.preferences.activePatchLabel,
+                sourceLabel =
+                  state.activePatch?.releaseDate ?: "Curated Meta",
+              )
+              Spacer(modifier = Modifier.height(8.dp))
+              Text(
+                text = strings.appTitle,
+                style = MaterialTheme.typography.headlineMedium,
+                color = HextechGoldBright,
+              )
+              Spacer(modifier = Modifier.height(3.dp))
+              Text(
+                text = strings.heroTagline,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+              Spacer(modifier = Modifier.height(10.dp))
+
+              Button(
+                onClick = { onOpenAnalyzer(null) },
+                modifier =
+                  Modifier.fillMaxWidth()
+                    .minimumInteractiveComponentSize()
+                    .testTag("home_launch_analyzer_button"),
+                colors =
+                  ButtonDefaults.buttonColors(
+                    containerColor = HextechGold,
+                    contentColor = Color(0xFF0A0F1A),
+                  ),
+              ) {
+                Icon(Icons.Default.Security, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                  text = strings.quickAnalyzeCta,
+                  style = MaterialTheme.typography.labelLarge,
+                  fontWeight = FontWeight.Bold,
                 )
                 Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                  text = strings.openCoachCta,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis,
-                )
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+              }
+
+              Spacer(modifier = Modifier.height(10.dp))
+
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+              ) {
+                OutlinedButton(
+                  onClick = onOpenDraft,
+                  modifier =
+                    Modifier.weight(1f)
+                      .minimumInteractiveComponentSize()
+                      .testTag("home_open_draft_button"),
+                ) {
+                  Icon(Icons.Default.Groups, contentDescription = null, modifier = Modifier.size(18.dp))
+                  Spacer(modifier = Modifier.width(6.dp))
+                  Text(
+                    text = strings.openDraftCta,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                  )
+                }
+                OutlinedButton(
+                  onClick = onOpenCoach,
+                  modifier =
+                    Modifier.weight(1f)
+                      .minimumInteractiveComponentSize()
+                      .testTag("home_open_coach_button"),
+                ) {
+                  Icon(
+                    Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    tint = ArcaneCyan,
+                    modifier = Modifier.size(18.dp),
+                  )
+                  Spacer(modifier = Modifier.width(6.dp))
+                  Text(
+                    text = strings.openCoachCta,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                  )
+                }
               }
             }
           }
         }
       }
 
-      // Quick Utility Shortcuts (Patch Center + Settings/Readability + DB Snapshot)
-      item {
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-          HextechCard(
-            modifier = Modifier.weight(1f).testTag("home_patch_card"),
-            accentColor = ArcaneCyan,
-            onClick = onOpenPatchCenter,
+      // Quick Utility Shortcuts (hidden in Mini-Window Mode since TopBar already has shortcuts)
+      if (!isMiniMode) {
+        item {
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
           ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              Icon(Icons.Default.Update, contentDescription = null, tint = ArcaneCyan)
-              Spacer(modifier = Modifier.width(8.dp))
+            HextechCard(
+              modifier = Modifier.weight(1f).testTag("home_patch_card"),
+              accentColor = ArcaneCyan,
+              onClick = onOpenPatchCenter,
+            ) {
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Update, contentDescription = null, tint = ArcaneCyan)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                  text = strings.patchCenterTitle,
+                  style = MaterialTheme.typography.titleSmall,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                )
+              }
+              Spacer(modifier = Modifier.height(6.dp))
               Text(
-                text = strings.patchCenterTitle,
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                text = "${state.totalChampions} Champs • ${state.totalItems} Items",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
               )
             }
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-              text = "${state.totalChampions} Champs • ${state.totalItems} Items",
-              style = MaterialTheme.typography.bodySmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-          }
-          HextechCard(
-            modifier = Modifier.weight(1f).testTag("home_settings_card"),
-            accentColor = HextechGold,
-            onClick = onOpenSettings,
-          ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              Icon(Icons.Default.Settings, contentDescription = null, tint = HextechGold)
-              Spacer(modifier = Modifier.width(8.dp))
+            HextechCard(
+              modifier = Modifier.weight(1f).testTag("home_settings_card"),
+              accentColor = HextechGold,
+              onClick = onOpenSettings,
+            ) {
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Settings, contentDescription = null, tint = HextechGold)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                  text = strings.settingsTitle,
+                  style = MaterialTheme.typography.titleSmall,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                )
+              }
+              Spacer(modifier = Modifier.height(6.dp))
               Text(
-                text = strings.settingsTitle,
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                text =
+                  "${state.preferences.language.displayLabel} • ${(state.preferences.fontScaleMultiplier * 100).toInt()}%",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
               )
             }
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-              text =
-                "${state.preferences.language.displayLabel} • ${(state.preferences.fontScaleMultiplier * 100).toInt()}%",
-              style = MaterialTheme.typography.bodySmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
           }
         }
       }

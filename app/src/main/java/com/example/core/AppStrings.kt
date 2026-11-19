@@ -56,6 +56,9 @@ data class UiStrings(
   val sampleJsonButton: String,
   val saveMatchupButton: String,
   val savedMatchupsTitle: String,
+  val miniModeTitle: String,
+  val miniModeDesc: String,
+  val miniModeBadge: String,
 )
 
 object AppStrings {
@@ -117,6 +120,9 @@ object AppStrings {
       sampleJsonButton = "ดูโครงสร้างตัวอย่าง JSON",
       saveMatchupButton = "บันทึกชุด Matchup",
       savedMatchupsTitle = "Matchup ที่บันทึกไว้",
+      miniModeTitle = "โหมดหน้าต่างย่อขณะเล่นเกม (Mini-Window)",
+      miniModeDesc = "ย่อระยะห่าง การ์ด และแถบหัวเรื่องให้กระชับสุด เหมาะสำหรับเปิดลอย/แบ่งหน้าจอข้างเกม Wild Rift",
+      miniModeBadge = "โหมดหน้าต่างย่อ",
     )
 
   private val englishStrings =
@@ -174,5 +180,8 @@ object AppStrings {
       sampleJsonButton = "View Sample JSON Schema",
       saveMatchupButton = "Save Matchup",
       savedMatchupsTitle = "Saved Matchups",
+      miniModeTitle = "In-Game Mini-Window Mode",
+      miniModeDesc = "Compacts cards, icons, and chrome for floating pop-up or split-screen overlays while playing Wild Rift.",
+      miniModeBadge = "Mini Mode",
     )
 }

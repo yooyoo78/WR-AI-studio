@@ -84,6 +84,30 @@ class EngineModuleUnitTests {
       assertTrue("Spell ${spell.id} missing iconUrl", spell.iconUrl.startsWith("https://"))
       assertTrue("Spell ${spell.id} missing cooldownNote", spell.cooldownNote.isNotBlank())
     }
+
+    val itemIds = seed.items.map { it.id }.toSet()
+    val pcOnlyItems = listOf("ravenous_hydra", "cryptbloom", "echoes_of_helia", "redemption_enchant")
+    pcOnlyItems.forEach { pcId ->
+      assertFalse("PC-only item $pcId should not be in Wild Rift seed", pcId in itemIds)
+    }
+    listOf("titanic_hydra", "sundered_sky", "oceanids_trident", "terminus", "staff_of_flowing_water")
+      .forEach { wrId ->
+        assertTrue("Wild Rift item $wrId should exist in seed", wrId in itemIds)
+      }
+
+    val pcKeyRegex = Regex("\\([QWER]\\)")
+    seed.champions.forEach { champ ->
+      assertFalse(
+        "Champion ${champ.id} skillOrder '${champ.skillOrder}' uses PC Q/W/E/R notation",
+        champ.skillOrder.any { it in setOf('Q', 'W', 'E', 'R') },
+      )
+      champ.abilities.forEach { ab ->
+        assertFalse(
+          "Champion ${champ.id} ability '${ab.nameEn}' has PC (Q)/(W)/(E)/(R) tag",
+          pcKeyRegex.containsMatchIn(ab.nameEn) || pcKeyRegex.containsMatchIn(ab.nameTh),
+        )
+      }
+    }
   }
 
   @Test
