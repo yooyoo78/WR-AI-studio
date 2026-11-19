@@ -49,6 +49,7 @@ jobs:
         run: |
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
           sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
 
       - name: Generate CI debug keystore for unit tests
         run: |
@@ -62,7 +63,14 @@ jobs:
         run: |
           if [ ! -f app/google-services.json ]; then
             if [ -n "$GOOGLE_SERVICES_JSON_BASE64" ]; then
-              echo "$GOOGLE_SERVICES_JSON_BASE64" | tr -d '\r\n ' | base64 -d > app/google-services.json
+              if ! echo "$GOOGLE_SERVICES_JSON_BASE64" | tr -d '\r\n ' | base64 -d > app/google-services.json; then
+                echo "::error::Failed to decode GOOGLE_SERVICES_JSON_BASE64 secret. Make sure it is valid Base64."
+                exit 1
+              fi
+              if ! python3 -m json.tool app/google-services.json > /dev/null 2>&1; then
+                echo "::error::Decoded GOOGLE_SERVICES_JSON_BASE64 is not valid JSON."
+                exit 1
+              fi
               echo "Restored app/google-services.json from GOOGLE_SERVICES_JSON_BASE64 secret."
             else
               echo "::warning::app/google-services.json not found. Gemini AI Coach will require Firebase config at build time."
@@ -98,19 +106,27 @@ jobs:
             exit 1
           fi
 
-      - name: Decode release upload keystore
+      - name: Decode & verify release upload keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: |
-          echo "$KEYSTORE_BASE64" | tr -d '\r\n ' | base64 -d > "${{ github.workspace }}/my-upload-key.jks"
+          if ! echo "$KEYSTORE_BASE64" | tr -d '\r\n ' | base64 -d > "${{ github.workspace }}/my-upload-key.jks"; then
+            echo "::error::Failed to decode KEYSTORE_BASE64 secret. Make sure it is valid Base64 of your .jks file."
+            exit 1
+          fi
           ls -lh "${{ github.workspace }}/my-upload-key.jks"
+          if ! keytool -list -keystore "${{ github.workspace }}/my-upload-key.jks" -storepass "$STORE_PASSWORD" -alias upload > /dev/null 2>&1; then
+            echo "::error::Could not open keystore or find keyAlias 'upload'. Check STORE_PASSWORD and ensure your keystore contains alias 'upload'."
+            exit 1
+          fi
 
       - name: Assemble signed Release APK
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: gradle :app:assembleRelease --no-daemon
+        run: gradle :app:assembleRelease --no-daemon --stacktrace
 
       - name: Package release APK output
         id: package_apk
@@ -146,6 +162,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.package_apk.outputs.tag_name }}
+          target_commitish: ${{ github.sha }}
           name: "Rift Companion ${{ steps.package_apk.outputs.tag_name }}"
           files: ${{ steps.package_apk.outputs.apk_path }}
           generate_release_notes: true
