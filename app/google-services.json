@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "523075615321",
+    "project_id": "project-25f05be3-3f5f-44ef-a0d",
+    "storage_bucket": "project-25f05be3-3f5f-44ef-a0d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:523075615321:android:847a3c0e1f0b2c1cd04f48",
+        "android_client_info": {
+          "package_name": "com.aistudio.applet.lbggda"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCRz6VoJ99slLKN6ZbpAZmKvDo3yUziHcg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:523075615321:android:a7bdbf9578232713d04f48",
+        "android_client_info": {
+          "package_name": "com.aistudio.wildriftcompanion.wrxkpz"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCRz6VoJ99slLKN6ZbpAZmKvDo3yUziHcg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
