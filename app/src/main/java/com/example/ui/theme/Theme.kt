@@ -16,7 +16,6 @@ import com.example.data.local.UserPreferences
 val LocalUserPrefs = staticCompositionLocalOf { UserPreferences() }
 val LocalUiStrings = staticCompositionLocalOf { AppStrings.get(com.example.data.model.AppLanguage.TH) }
 val LocalInGameMiniMode = staticCompositionLocalOf { false }
-val LocalInGameMiniMode = staticCompositionLocalOf { false }
 
 private fun buildHextechColorScheme(highContrast: Boolean) =
   darkColorScheme(
