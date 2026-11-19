@@ -38,7 +38,7 @@ class AppContainer(context: Context) {
   val smartItemEngine: SmartItemEngine by lazy { SmartItemEngine() }
   val draftAssistantEngine: DraftAssistantEngine by lazy { DraftAssistantEngine() }
   val offlineCoachEngine: OfflineCoachEngine by lazy { OfflineCoachEngine() }
-  val geminiCoachService: GeminiCoachService by lazy { GeminiCoachService() }
+  val geminiCoachService: GeminiCoachService by lazy { GeminiCoachService(appContext) }
 
   private val _sharedMatchupContext = MutableStateFlow(ActiveMatchupContext())
   val sharedMatchupContext: StateFlow<ActiveMatchupContext> = _sharedMatchupContext.asStateFlow()

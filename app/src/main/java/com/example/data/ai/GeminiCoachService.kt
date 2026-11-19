@@ -1,10 +1,12 @@
 package com.example.data.ai
 
+import android.content.Context
 import android.util.Log
 import com.example.data.model.AppLanguage
 import com.example.data.model.ChampionData
 import com.example.data.model.Lane
 import com.google.firebase.Firebase
+import com.google.firebase.FirebaseApp
 import com.google.firebase.ai.ai
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
@@ -22,7 +24,7 @@ sealed interface CoachStreamEvent {
   data class Error(val message: String) : CoachStreamEvent
 }
 
-class GeminiCoachService {
+class GeminiCoachService(private val context: Context? = null) {
   // Lazily initialized per firebase-ai-logic-android guidelines
   private val model by lazy { Firebase.ai.generativeModel("gemini-3.8-flash") }
 
@@ -34,6 +36,23 @@ class GeminiCoachService {
     patchVersion: String,
     language: AppLanguage,
   ): Flow<CoachStreamEvent> = flow {
+    val appCtx = context?.applicationContext
+    if (appCtx != null && FirebaseApp.getApps(appCtx).isEmpty()) {
+      FirebaseApp.initializeApp(appCtx)
+    }
+    if (appCtx != null && FirebaseApp.getApps(appCtx).isEmpty()) {
+      emit(
+        CoachStreamEvent.Error(
+          if (language == AppLanguage.TH) {
+            "ยังไม่ได้ตั้งค่า Firebase ในไฟล์ APK นี้ (ไม่พบ app/google-services.json ตอน Build) กรุณาใช้แท็บ 'คู่มือโค้ชออฟไลน์' หรือเพิ่ม google-services.json ก่อน Build APK ใหม่"
+          } else {
+            "Firebase is not configured in this APK build (missing app/google-services.json at compile time). Use the 'Offline Playbook' tab or rebuild with google-services.json."
+          }
+        )
+      )
+      return@flow
+    }
+
     val prompt = buildTacticalPrompt(question, champion, lane, enemies, patchVersion, language)
     val accumulated = StringBuilder()
     try {

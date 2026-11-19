@@ -39,6 +39,10 @@ class ExampleRobolectricTest {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val appName = context.getString(R.string.app_name)
     assertEquals("Rift Companion", appName)
+    assertTrue(
+      "FirebaseApp should initialize from google-services.json resources",
+      com.google.firebase.FirebaseApp.getApps(context).isNotEmpty(),
+    )
   }
 
   @Test
