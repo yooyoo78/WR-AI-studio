@@ -42,7 +42,7 @@ enum class ItemCategory(val labelEn: String, val labelTh: String) {
   STARTER("Starter", "ไอเทมเริ่มต้น"),
   CORE("Core", "ไอเทมหลัก"),
   BOOTS("Boots", "รองเท้า"),
-  ENCHANTMENT("Enchantment", "เอ็นแชนท์รองเท้า"),
+  ENCHANTMENT("Active Item", "ไอเทมกดใช้ (Active)"),
   DEFENSIVE("Defensive", "ป้องกัน"),
   OFFENSIVE("Offensive", "โจมตี / เจาะเกราะ"),
 }

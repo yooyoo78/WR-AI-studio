@@ -1,6 +1,9 @@
 package com.example
 
+import com.example.data.ai.CoachErrorKind
+import com.example.data.ai.GeminiCoachService
 import com.example.data.model.AbilityInfo
+import com.example.data.model.AppLanguage
 import com.example.data.model.ChampionData
 import com.example.data.model.ChampionRole
 import com.example.data.model.DamageType
@@ -54,8 +57,9 @@ class EngineModuleUnitTests {
       "Expected seed validation to pass, errors=${result.errors}",
       result.isValid,
     )
-    assertTrue("Expected at least 120 champions, found ${result.championsCount}", result.championsCount >= 120)
-    assertTrue("Expected at least 65 items, found ${result.itemsCount}", result.itemsCount >= 65)
+    assertTrue("Expected at least 135 champions, found ${result.championsCount}", result.championsCount >= 135)
+    assertTrue("Expected at least 75 items, found ${result.itemsCount}", result.itemsCount >= 75)
+    assertTrue("Expected at least 44 runes, found ${result.runesCount}", result.runesCount >= 44)
     assertTrue("Expected no warnings, got ${result.warnings}", result.warnings.isEmpty())
 
     seed.champions.forEach { champ ->
@@ -80,19 +84,89 @@ class EngineModuleUnitTests {
     seed.items.forEach { item ->
       assertTrue("Item ${item.id} missing iconUrl", item.iconUrl.startsWith("https://"))
     }
+    val validTrees = setOf("PRECISION", "DOMINATION", "RESOLVE", "INSPIRATION")
+    seed.runes.forEach { rune ->
+      assertTrue("Rune ${rune.id} missing iconUrl", rune.iconUrl.startsWith("https://"))
+      assertTrue("Rune ${rune.id} invalid tree '${rune.tree}'", rune.tree in validTrees)
+    }
     seed.spells.forEach { spell ->
       assertTrue("Spell ${spell.id} missing iconUrl", spell.iconUrl.startsWith("https://"))
       assertTrue("Spell ${spell.id} missing cooldownNote", spell.cooldownNote.isNotBlank())
     }
 
+    val itemById = seed.items.associateBy { it.id }
+    assertNotEquals(
+      "gluttonous_greaves and boots_of_dynamism should have distinct icons",
+      itemById.getValue("gluttonous_greaves").iconUrl,
+      itemById.getValue("boots_of_dynamism").iconUrl,
+    )
+    assertNotEquals(
+      "harmonic_echo and echoes_of_helia should have distinct icons",
+      itemById.getValue("harmonic_echo").iconUrl,
+      itemById.getValue("echoes_of_helia").iconUrl,
+    )
+    assertNotEquals(
+      "amaranths_twinguard and kaenic_rookern should have distinct icons",
+      itemById.getValue("amaranths_twinguard").iconUrl,
+      itemById.getValue("kaenic_rookern").iconUrl,
+    )
+    assertNotEquals(
+      "divine_sunderer and sundered_sky should have distinct icons",
+      itemById.getValue("divine_sunderer").iconUrl,
+      itemById.getValue("sundered_sky").iconUrl,
+    )
+
+    val duplicateIcons = seed.items.groupBy { it.iconUrl }.filter { it.value.size > 1 }
+    assertTrue("All items must have distinct icons, duplicates=$duplicateIcons", duplicateIcons.isEmpty())
+
     val itemIds = seed.items.map { it.id }.toSet()
-    val pcOnlyItems = listOf("ravenous_hydra", "cryptbloom", "echoes_of_helia", "redemption_enchant")
-    pcOnlyItems.forEach { pcId ->
-      assertFalse("PC-only item $pcId should not be in Wild Rift seed", pcId in itemIds)
+    val retiredOrPcOnlyItems = listOf(
+      "ravenous_hydra",
+      "cryptbloom",
+      "redemption_enchant",
+      "crystalline_reflector",
+      "protectors_vow",
+      "repulsor_enchant",
+      "teleport_enchant",
+      "searing_crown",
+      "magnetic_blaster",
+      "psychic_projector",
+    )
+    retiredOrPcOnlyItems.forEach { oldId ->
+      assertFalse("Retired/PC-only item $oldId should not be in latest WR 7.3f seed", oldId in itemIds)
     }
-    listOf("titanic_hydra", "sundered_sky", "oceanids_trident", "terminus", "staff_of_flowing_water")
+    listOf(
+        "yun_tal_wildarrows",
+        "hexoptics_c44",
+        "rapid_firecannon",
+        "statikk_shiv",
+        "fiendhunter_bolts",
+        "guinsoos_rageblade",
+        "kaenic_rookern",
+        "echoes_of_helia",
+        "diadem_of_songs",
+        "yordle_trap",
+        "mikaels_blessing",
+        "stridebreaker",
+        "goredrinker",
+        "galeforce",
+        "titanic_hydra",
+        "sundered_sky",
+        "oceanids_trident",
+        "terminus",
+        "staff_of_flowing_water",
+        "redemption",
+        "solari_chargeblade",
+        "malignance",
+      )
       .forEach { wrId ->
-        assertTrue("Wild Rift item $wrId should exist in seed", wrId in itemIds)
+        assertTrue("Wild Rift 7.3f item $wrId should exist in seed", wrId in itemIds)
+      }
+
+    val champIds = seed.champions.map { it.id }.toSet()
+    listOf("talon", "lissandra", "poppy", "rumble", "gnar", "ryze", "nocturne", "zilean", "aurora", "velkoz", "kogmaw", "nidalee", "rell", "mel")
+      .forEach { wrChamp ->
+        assertTrue("Wild Rift champion $wrChamp should exist in seed", wrChamp in champIds)
       }
 
     val pcKeyRegex = Regex("\\([QWER]\\)")
@@ -299,5 +373,19 @@ class EngineModuleUnitTests {
           existingSpells = seed.spells,
         )
     assertTrue("Errors: ${result.errors}", result.isValid)
+  }
+
+  @Test
+  fun `GeminiCoachService classifies quota limits for model fallback and Thai guidance`() {
+    val quotaEx = RuntimeException("429 RESOURCE_EXHAUSTED: Quota exceeded for metric limit")
+    assertEquals(CoachErrorKind.QUOTA_LIMIT, GeminiCoachService.classifyError(quotaEx))
+    assertTrue(GeminiCoachService.shouldFallbackToSecondaryModel(quotaEx))
+
+    val thMsg = GeminiCoachService.buildDetailedErrorMessage(quotaEx, AppLanguage.TH)
+    assertTrue("Expected Thai quota message, got: $thMsg", thMsg.contains("โควตา") && thMsg.contains("คู่มือโค้ชออฟไลน์"))
+
+    val appCheckEx = RuntimeException("403 App Check token rejected")
+    assertEquals(CoachErrorKind.APP_CHECK, GeminiCoachService.classifyError(appCheckEx))
+    assertFalse(GeminiCoachService.shouldFallbackToSecondaryModel(appCheckEx))
   }
 }

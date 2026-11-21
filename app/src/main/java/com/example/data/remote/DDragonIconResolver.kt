@@ -27,11 +27,11 @@ object DDragonIconResolver {
       "twisted_fate" -> "TwistedFate"
       "xin_zhao" -> "XinZhao"
       "wukong" -> "MonkeyKing"
-      "nunu" -> "Nunu"
-      "ksante" -> "KSante"
-      "chogath" -> "Chogath"
-      "kogmaw" -> "KogMaw"
-      "velkoz" -> "Velkoz"
+      "nunu", "nunu_willump" -> "Nunu"
+      "ksante", "k_sante" -> "KSante"
+      "chogath", "cho_gath" -> "Chogath"
+      "kogmaw", "kog_maw" -> "KogMaw"
+      "velkoz", "vel_koz" -> "Velkoz"
       "leblanc" -> "Leblanc"
       else -> nameEn.replace("'", "").replace(".", "").replace(" ", "").replace("&", "")
     }

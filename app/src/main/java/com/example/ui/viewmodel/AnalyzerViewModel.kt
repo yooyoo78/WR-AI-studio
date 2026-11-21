@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.core.AppContainer
 import com.example.data.local.SavedMatchupEntity
 import com.example.data.model.ChampionData
+import com.example.data.model.CustomBuildData
 import com.example.data.model.Lane
 import com.example.data.repository.GameDataRepository
 import com.example.domain.engine.EnemyMatchupAnalysis
@@ -30,6 +31,7 @@ data class AnalyzerUiState(
   val threatProfile: EnemyTeamThreatProfile? = null,
   val smartBuild: SmartBuildRecommendation? = null,
   val savedMatchups: List<SavedMatchupEntity> = emptyList(),
+  val customBuildsForChampion: List<CustomBuildData> = emptyList(),
 )
 
 class AnalyzerViewModel(
@@ -51,6 +53,7 @@ class AnalyzerViewModel(
         repository.spells,
         repository.matchupRules,
         repository.savedMatchups,
+        repository.customBuilds,
         _selectedChampId,
         _selectedLane,
         _selectedEnemyIds,
@@ -67,10 +70,12 @@ class AnalyzerViewModel(
         val rules = values[4] as List<com.example.data.model.MatchupRuleData>
         @Suppress("UNCHECKED_CAST")
         val saved = values[5] as List<SavedMatchupEntity>
-        val myChampId = values[6] as String?
-        val lane = values[7] as Lane
         @Suppress("UNCHECKED_CAST")
-        val enemyIds = values[8] as List<String>
+        val allCustomBuilds = values[6] as List<CustomBuildData>
+        val myChampId = values[7] as String?
+        val lane = values[8] as Lane
+        @Suppress("UNCHECKED_CAST")
+        val enemyIds = values[9] as List<String>
 
         val champMap = champions.associateBy { it.id }
         val myChamp = champMap[myChampId] ?: champions.firstOrNull()
@@ -109,6 +114,7 @@ class AnalyzerViewModel(
             threatProfile = profile,
             smartBuild = smartBuild,
             savedMatchups = saved,
+            customBuildsForChampion = allCustomBuilds.filter { it.championId == myChamp.id },
           )
         }
       }
@@ -182,6 +188,38 @@ class AnalyzerViewModel(
 
   fun deleteSavedMatchup(id: Long) {
     viewModelScope.launch { repository.deleteSavedMatchup(id) }
+  }
+
+  fun saveSmartBuildAsCustom(customName: String? = null) {
+    val state = uiState.value
+    val myChamp = state.selectedChampion ?: return
+    val build = state.smartBuild ?: return
+    val enemySuffix =
+      if (state.selectedEnemies.isNotEmpty()) {
+        " vs ${state.selectedEnemies.take(2).joinToString("/") { it.nameEn }}"
+      } else {
+        " Counter"
+      }
+    val buildName = customName?.takeIf { it.isNotBlank() } ?: "${myChamp.nameEn}$enemySuffix"
+    val entity =
+      CustomBuildData(
+        name = buildName,
+        championId = myChamp.id,
+        lane = state.selectedLane,
+        starterItemId = build.starterItem?.id ?: myChamp.starterItemId,
+        coreItemIds =
+          build.buildDiff.adaptedCoreItems
+            .map { it.id }
+            .ifEmpty { myChamp.coreItemIds },
+        bootsId = build.recommendedBoots.item.id,
+        enchantId = build.recommendedEnchant.item.id,
+        keystoneId = build.keystone?.id ?: myChamp.defaultKeystoneId,
+        minorRuneIds =
+          build.minorRunes.map { it.id }.ifEmpty { myChamp.defaultMinorRuneIds },
+        spellIds = build.spells.map { it.id }.ifEmpty { myChamp.defaultSpellIds },
+        notes = build.buildDiff.adaptationHeadlineTh,
+      )
+    viewModelScope.launch { repository.saveCustomBuild(entity) }
   }
 
   fun syncSharedContext() {

@@ -65,6 +65,7 @@ import com.example.data.model.ChampionData
 import com.example.data.model.DamageType
 import com.example.data.model.ItemData
 import com.example.data.model.Lane
+import com.example.data.model.RuneData
 import com.example.data.model.SpellData
 import com.example.data.model.TierRank
 import com.example.data.remote.DDragonIconResolver
@@ -157,11 +158,7 @@ fun ChampionCrestAvatar(
       )
     }
     SubcomposeAsyncImage(
-      model =
-        ImageRequest.Builder(LocalContext.current)
-          .data(imageUrl)
-          .crossfade(true)
-          .build(),
+      model = buildCoilImageRequest(LocalContext.current, imageUrl),
       contentDescription = champion.displayName(lang),
       contentScale = ContentScale.Crop,
       modifier = Modifier.fillMaxSize().clip(CircleShape),
@@ -230,11 +227,7 @@ fun ItemIconSlot(
         }
         if (item.iconUrl.isNotBlank()) {
           SubcomposeAsyncImage(
-            model =
-              ImageRequest.Builder(LocalContext.current)
-                .data(item.iconUrl)
-                .crossfade(true)
-                .build(),
+            model = buildCoilImageRequest(LocalContext.current, item.iconUrl),
             contentDescription = item.displayName(language),
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)),
@@ -328,11 +321,7 @@ fun SpellIconSlot(
       }
       if (spell.iconUrl.isNotBlank()) {
         SubcomposeAsyncImage(
-          model =
-            ImageRequest.Builder(LocalContext.current)
-              .data(spell.iconUrl)
-              .crossfade(true)
-              .build(),
+          model = buildCoilImageRequest(LocalContext.current, spell.iconUrl),
           contentDescription = spell.displayName(language),
           contentScale = ContentScale.Crop,
           modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)),
@@ -409,11 +398,7 @@ fun AbilityIconBadge(
       }
       if (iconUrl.isNotBlank()) {
         SubcomposeAsyncImage(
-          model =
-            ImageRequest.Builder(LocalContext.current)
-              .data(iconUrl)
-              .crossfade(true)
-              .build(),
+          model = buildCoilImageRequest(LocalContext.current, iconUrl),
           contentDescription = contentDescription,
           contentScale = ContentScale.Crop,
           modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)),
@@ -750,6 +735,219 @@ fun SpellDetailBottomSheet(
   }
 }
 
+private fun runeAccentColor(rune: RuneData): Color =
+  when (rune.tree.uppercase()) {
+    "PRECISION" -> HextechGold
+    "DOMINATION" -> ThreatCrimson
+    "RESOLVE" -> AdvantageEmerald
+    "INSPIRATION" -> ArcaneCyan
+    else -> if (rune.slotType.equals("KEYSTONE", ignoreCase = true)) HextechGoldBright else SkillViolet
+  }
+
+@Composable
+fun RuneIconSlot(
+  rune: RuneData,
+  language: AppLanguage,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+  size: Dp = 42.dp,
+  showLabel: Boolean = true,
+) {
+  val isMiniMode = LocalInGameMiniMode.current
+  val effectiveSize = if (isMiniMode) (size * 0.85f).coerceAtLeast(32.dp) else size
+  val isKeystone = rune.slotType.equals("KEYSTONE", ignoreCase = true)
+  val accentColor = runeAccentColor(rune)
+  val initials =
+    rune.nameEn
+      .split(" ", "'", "-", ":")
+      .filter { it.isNotBlank() }
+      .take(2)
+      .joinToString("") { it.first().uppercaseChar().toString() }
+      .take(2)
+
+  Column(
+    modifier =
+      modifier
+        .minimumInteractiveComponentSize()
+        .clip(RoundedCornerShape(10.dp))
+        .clickable(onClick = onClick)
+        .padding(2.dp),
+    horizontalAlignment = Alignment.CenterHorizontally,
+  ) {
+    Box(modifier = Modifier.size(effectiveSize)) {
+      Box(
+        modifier =
+          Modifier.fillMaxSize()
+            .clip(CircleShape)
+            .background(Brush.linearGradient(listOf(HextechSurfaceHigh, HextechSurface)))
+            .border(
+              if (isKeystone) 2.dp else 1.5.dp,
+              accentColor.copy(alpha = 0.85f),
+              CircleShape,
+            ),
+        contentAlignment = Alignment.Center,
+      ) {
+        val fallback: @Composable () -> Unit = {
+          Text(
+            text = initials,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = accentColor,
+          )
+        }
+        if (rune.iconUrl.isNotBlank()) {
+          SubcomposeAsyncImage(
+            model = buildCoilImageRequest(LocalContext.current, rune.iconUrl),
+            contentDescription = rune.displayName(language),
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize().clip(CircleShape),
+            loading = { fallback() },
+            error = { fallback() },
+          )
+        } else {
+          fallback()
+        }
+      }
+
+      if (isKeystone) {
+        Surface(
+          shape = RoundedCornerShape(5.dp),
+          color = accentColor,
+          modifier = Modifier.align(Alignment.BottomEnd),
+        ) {
+          Text(
+            text = "★",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF070B14),
+            modifier = Modifier.padding(horizontal = 3.dp),
+          )
+        }
+      }
+    }
+
+    if (showLabel) {
+      Spacer(modifier = Modifier.height(3.dp))
+      Text(
+        text = rune.displayName(language),
+        style = MaterialTheme.typography.labelSmall,
+        color = if (isKeystone) HextechGoldBright else MaterialTheme.colorScheme.onSurface,
+        fontWeight = if (isKeystone) FontWeight.SemiBold else FontWeight.Normal,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.width(effectiveSize + 18.dp),
+      )
+    }
+  }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RuneDetailBottomSheet(
+  rune: RuneData,
+  language: AppLanguage,
+  onDismiss: () -> Unit,
+) {
+  val accentColor = runeAccentColor(rune)
+  val isKeystone = rune.slotType.equals("KEYSTONE", ignoreCase = true)
+
+  ModalBottomSheet(
+    onDismissRequest = onDismiss,
+    containerColor = MaterialTheme.colorScheme.surface,
+    modifier = Modifier.testTag("rune_detail_sheet"),
+  ) {
+    Column(
+      modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp)
+    ) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        RuneIconSlot(
+          rune = rune,
+          language = language,
+          onClick = {},
+          size = 62.dp,
+          showLabel = false,
+        )
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = rune.displayName(language),
+            style = MaterialTheme.typography.titleLarge,
+            color = accentColor,
+          )
+          Spacer(modifier = Modifier.height(4.dp))
+          Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Surface(
+              shape = RoundedCornerShape(6.dp),
+              color = accentColor.copy(alpha = 0.16f),
+              border = BorderStroke(1.dp, accentColor.copy(alpha = 0.55f)),
+            ) {
+              Text(
+                text =
+                  if (isKeystone) {
+                    if (language == AppLanguage.TH) "Keystone รูนหลัก" else "Keystone"
+                  } else {
+                    if (language == AppLanguage.TH) "รูนรอง" else "Minor Rune"
+                  },
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = accentColor,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+              )
+            }
+            if (rune.tree.isNotBlank()) {
+              Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+              ) {
+                Text(
+                  text = rune.tree,
+                  style = MaterialTheme.typography.labelSmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                )
+              }
+            }
+          }
+        }
+        IconButton(
+          onClick = onDismiss,
+          modifier = Modifier.minimumInteractiveComponentSize().testTag("close_rune_sheet_button"),
+        ) {
+          Icon(Icons.Default.Close, contentDescription = "Close")
+        }
+      }
+
+      Spacer(modifier = Modifier.height(14.dp))
+
+      Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.45f)),
+        modifier = Modifier.fillMaxWidth(),
+      ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+          Text(
+            text = if (language == AppLanguage.TH) "เอฟเฟกต์รูน (Wild Rift)" else "Rune Effect (Wild Rift)",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+          Spacer(modifier = Modifier.height(6.dp))
+          Text(
+            text = rune.desc(language),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+        }
+      }
+    }
+  }
+}
+
 @Composable
 fun TierBadge(tierRank: TierRank, modifier: Modifier = Modifier) {
   val bg =
@@ -1026,3 +1224,11 @@ fun ChampionPickerBottomSheet(
     }
   }
 }
+
+private fun buildCoilImageRequest(context: android.content.Context, url: String): ImageRequest =
+  ImageRequest.Builder(context)
+    .data(url)
+    .addHeader("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36")
+    .crossfade(true)
+    .build()
+

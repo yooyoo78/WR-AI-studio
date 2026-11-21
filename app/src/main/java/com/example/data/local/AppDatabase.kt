@@ -19,8 +19,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
       PatchNoteEntity::class,
       FavoriteChampionEntity::class,
       SavedMatchupEntity::class,
+      CustomBuildEntity::class,
     ],
-  version = 2,
+  version = 4,
   exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -43,6 +44,39 @@ abstract class AppDatabase : RoomDatabase() {
         }
       }
 
+    val MIGRATION_2_3 =
+      object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+          db.execSQL("ALTER TABLE runes ADD COLUMN iconUrl TEXT NOT NULL DEFAULT ''")
+          db.execSQL("ALTER TABLE runes ADD COLUMN tree TEXT NOT NULL DEFAULT ''")
+        }
+      }
+
+    val MIGRATION_3_4 =
+      object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+          db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS custom_builds (
+              id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+              name TEXT NOT NULL,
+              championId TEXT NOT NULL,
+              lane TEXT NOT NULL,
+              starterItemId TEXT NOT NULL,
+              coreItemIds TEXT NOT NULL,
+              bootsId TEXT NOT NULL,
+              enchantId TEXT NOT NULL,
+              keystoneId TEXT NOT NULL,
+              minorRuneIds TEXT NOT NULL,
+              spellIds TEXT NOT NULL,
+              notes TEXT NOT NULL,
+              updatedAt INTEGER NOT NULL
+            )
+            """.trimIndent()
+          )
+        }
+      }
+
     fun getInstance(context: Context): AppDatabase {
       return INSTANCE
         ?: synchronized(this) {
@@ -52,7 +86,7 @@ abstract class AppDatabase : RoomDatabase() {
                 AppDatabase::class.java,
                 "wild_rift_companion.db",
               )
-              .addMigrations(MIGRATION_1_2)
+              .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
               .fallbackToDestructiveMigration(dropAllTables = true)
               .build()
               .also { INSTANCE = it }

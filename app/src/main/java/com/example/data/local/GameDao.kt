@@ -41,6 +41,9 @@ interface GameDao {
   @Query("SELECT * FROM saved_matchups ORDER BY savedAt DESC LIMIT 20")
   fun observeSavedMatchups(): Flow<List<SavedMatchupEntity>>
 
+  @Query("SELECT * FROM custom_builds ORDER BY updatedAt DESC")
+  fun observeCustomBuilds(): Flow<List<CustomBuildEntity>>
+
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun upsertChampions(champions: List<ChampionEntity>)
 
@@ -72,6 +75,12 @@ interface GameDao {
 
   @Query("DELETE FROM saved_matchups WHERE id = :id")
   suspend fun deleteSavedMatchup(id: Long)
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun upsertCustomBuild(build: CustomBuildEntity): Long
+
+  @Query("DELETE FROM custom_builds WHERE id = :id")
+  suspend fun deleteCustomBuild(id: Long)
 
   @Query("SELECT COUNT(*) FROM champions") suspend fun getChampionCount(): Int
 

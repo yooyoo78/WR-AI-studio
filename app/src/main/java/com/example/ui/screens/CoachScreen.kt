@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -38,6 +39,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -72,6 +74,7 @@ fun CoachScreen(
   onSelectChampion: (ChampionData) -> Unit,
   onSelectLane: (Lane) -> Unit,
   onAskGemini: (String) -> Unit,
+  onRetryGemini: () -> Unit,
   onClearChat: () -> Unit,
 ) {
   val strings = LocalUiStrings.current
@@ -189,17 +192,28 @@ fun CoachScreen(
           }
         }
       } else {
+        val chatListState = rememberLazyListState()
+        LaunchedEffect(messages.size, geminiState) {
+          if (messages.isNotEmpty() || geminiState !is GeminiUiState.Idle) {
+            val targetIdx = (chatListState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
+            chatListState.animateScrollToItem(targetIdx)
+          }
+        }
         Column(modifier = Modifier.fillMaxSize()) {
           LazyColumn(
+            state = chatListState,
             modifier = Modifier.weight(1f).fillMaxWidth(),
             contentPadding = PaddingValues(if (isMiniMode) 8.dp else 12.dp),
             verticalArrangement = Arrangement.spacedBy(if (isMiniMode) 8.dp else 10.dp),
           ) {
             item {
+              val isBusy =
+                geminiState is GeminiUiState.Loading || geminiState is GeminiUiState.Streaming
               LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(quickPrompts) { prompt ->
                   FilterChip(
                     selected = false,
+                    enabled = !isBusy,
                     onClick = { onAskGemini(prompt) },
                     label = { Text(prompt) },
                   )
@@ -246,11 +260,28 @@ fun CoachScreen(
             when (geminiState) {
               GeminiUiState.Loading -> {
                 item {
-                  Row(
-                    modifier = Modifier.fillMaxWidth().padding(8.dp),
-                    horizontalArrangement = Arrangement.Center,
-                  ) {
-                    CircularProgressIndicator(color = ArcaneCyan)
+                  HextechCard(accentColor = ArcaneCyan) {
+                    Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      verticalAlignment = Alignment.CenterVertically,
+                      horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                      CircularProgressIndicator(
+                        color = ArcaneCyan,
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                      )
+                      Text(
+                        text =
+                          if (lang == AppLanguage.TH) {
+                            "กำลังวิเคราะห์แมตช์อัปกับ Gemini AI Coach..."
+                          } else {
+                            "Analyzing matchup with Gemini AI Coach..."
+                          },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ArcaneCyan,
+                      )
+                    }
                   }
                 }
               }
@@ -275,6 +306,21 @@ fun CoachScreen(
                       style = MaterialTheme.typography.bodySmall,
                       color = ThreatCrimson,
                     )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                      FilterChip(
+                        selected = false,
+                        onClick = onRetryGemini,
+                        modifier = Modifier.testTag("coach_retry_gemini_button"),
+                        label = { Text(if (lang == AppLanguage.TH) "ลองใหม่" else "Retry") },
+                      )
+                      FilterChip(
+                        selected = false,
+                        onClick = { selectedTab = 0 },
+                        modifier = Modifier.testTag("coach_fallback_offline_button"),
+                        label = { Text(strings.offlinePlaybookTab) },
+                      )
+                    }
                   }
                 }
               }
@@ -310,7 +356,10 @@ fun CoachScreen(
                   questionInput = ""
                   onAskGemini(q)
                 },
-                enabled = questionInput.isNotBlank() && geminiState !is GeminiUiState.Loading,
+                enabled =
+                  questionInput.isNotBlank() &&
+                    geminiState !is GeminiUiState.Loading &&
+                    geminiState !is GeminiUiState.Streaming,
                 modifier = Modifier.minimumInteractiveComponentSize().testTag("coach_send_button"),
               ) {
                 Icon(

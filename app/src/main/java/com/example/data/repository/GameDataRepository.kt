@@ -10,6 +10,7 @@ import com.example.data.local.SavedMatchupEntity
 import com.example.data.local.toDomain
 import com.example.data.local.toEntity
 import com.example.data.model.ChampionData
+import com.example.data.model.CustomBuildData
 import com.example.data.model.ItemData
 import com.example.data.model.Lane
 import com.example.data.model.MatchupRuleData
@@ -29,7 +30,7 @@ import kotlinx.coroutines.withContext
 
 private const val TAG = "GameDataRepository"
 private const val SEED_ASSET_FILE = "patch_7_3f_seed.json"
-private const val CURRENT_SEED_REVISION = 4
+private const val CURRENT_SEED_REVISION = 6
 
 sealed interface ImportResult {
   data class Success(val patchVersion: String, val validation: ValidationResult) : ImportResult
@@ -66,12 +67,15 @@ class GameDataRepository(
 
   val savedMatchups: Flow<List<SavedMatchupEntity>> = dao.observeSavedMatchups()
 
+  val customBuilds: Flow<List<CustomBuildData>> =
+    dao.observeCustomBuilds().map { list -> list.map { it.toDomain() } }
+
   suspend fun ensureSeeded() {
     withContext(Dispatchers.IO) {
       val currentRev = preferencesRepository.preferencesFlow.first().seedRevision
       val isEmpty = dao.getChampionCount() == 0
       if (isEmpty || currentRev < CURRENT_SEED_REVISION) {
-        val result = seedFromAssets(replaceExisting = isEmpty)
+        val result = seedFromAssets(replaceExisting = true)
         if (result is ImportResult.Success) {
           preferencesRepository.setSeedRevision(CURRENT_SEED_REVISION)
         }
@@ -148,6 +152,10 @@ class GameDataRepository(
           message = validation.errors.joinToString("\n"),
           validation = validation,
         )
+      }
+
+      if (replaceExisting) {
+        dao.clearAllGameData()
       }
 
       dao.applyPatchPack(
@@ -238,5 +246,14 @@ class GameDataRepository(
 
   suspend fun deleteSavedMatchup(id: Long) {
     withContext(Dispatchers.IO) { dao.deleteSavedMatchup(id) }
+  }
+
+  suspend fun saveCustomBuild(build: CustomBuildData): Long =
+    withContext(Dispatchers.IO) {
+      dao.upsertCustomBuild(build.copy(updatedAt = System.currentTimeMillis()).toEntity())
+    }
+
+  suspend fun deleteCustomBuild(id: Long) {
+    withContext(Dispatchers.IO) { dao.deleteCustomBuild(id) }
   }
 }

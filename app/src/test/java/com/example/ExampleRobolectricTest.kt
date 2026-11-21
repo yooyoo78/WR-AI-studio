@@ -11,11 +11,15 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextClearance
+import androidx.compose.ui.test.performTextInput
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.local.AppDatabase
 import com.example.data.local.PreferencesRepository
 import com.example.data.model.AppLanguage
+import com.example.data.model.CustomBuildData
+import com.example.data.model.Lane
 import com.example.data.repository.GameDataRepository
 import com.example.data.repository.ImportResult
 import kotlinx.coroutines.flow.first
@@ -264,5 +268,93 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("item_detail_sheet").assertIsDisplayed()
     composeTestRule.onNodeWithTag("close_item_sheet_button").performClick()
     composeTestRule.waitForIdle()
+  }
+
+  @Test
+  fun `cuj catalog tabs browse items and runes with detail sheets`() {
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("nav_champions").performClick()
+    composeTestRule.waitForIdle()
+
+    // Items Catalog Tab
+    composeTestRule.onNodeWithTag("catalog_tab_items").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("items_catalog_lazy_column")
+      .performScrollToNode(hasTestTag("catalog_item_kaenic_rookern"))
+    composeTestRule.onNodeWithTag("catalog_item_kaenic_rookern").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("item_detail_sheet").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("close_item_sheet_button").performClick()
+    composeTestRule.waitForIdle()
+
+    // Runes Catalog Tab
+    composeTestRule.onNodeWithTag("catalog_tab_runes").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("runes_catalog_lazy_column")
+      .performScrollToNode(hasTestTag("catalog_rune_dark_harvest"))
+    composeTestRule.onNodeWithTag("catalog_rune_dark_harvest").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("rune_detail_sheet").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("close_rune_sheet_button").performClick()
+    composeTestRule.waitForIdle()
+  }
+
+  @Test
+  fun `repository persists and deletes custom builds cleanly`() = runBlocking {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
+    try {
+      val prefs = PreferencesRepository(context)
+      val repo = GameDataRepository(context, db.gameDao(), prefs)
+      repo.ensureSeeded()
+
+      val buildId =
+        repo.saveCustomBuild(
+          CustomBuildData(
+            name = "Jinx Crit Melt",
+            championId = "jinx",
+            lane = Lane.DRAGON,
+            starterItemId = "long_sword",
+            coreItemIds = listOf("yun_tal_wildarrows", "runaans_hurricane", "infinity_edge", "mortal_reminder"),
+            bootsId = "berserkers_greaves",
+            enchantId = "quicksilver_enchant",
+            keystoneId = "lethal_tempo",
+            minorRuneIds = listOf("brutal", "giant_slayer", "bloodline"),
+            spellIds = listOf("flash", "barrier"),
+            notes = "Anti-tank hypercarry build",
+          )
+        )
+      val savedList = repo.customBuilds.first()
+      assertEquals(1, savedList.size)
+      assertEquals("Jinx Crit Melt", savedList.first().name)
+      assertEquals("yun_tal_wildarrows", savedList.first().coreItemIds.first())
+
+      repo.deleteCustomBuild(buildId)
+      assertTrue(repo.customBuilds.first().isEmpty())
+    } finally {
+      db.close()
+    }
+  }
+
+  @Test
+  fun `cuj custom builds tab creates edits and displays custom item set`() {
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("nav_champions").performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("catalog_tab_custom_builds").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("create_custom_build_button").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("custom_build_editor_sheet").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("custom_build_name_input").performTextClearance()
+    composeTestRule.onNodeWithTag("custom_build_name_input").performTextInput("My WR 7.3f Test Build")
+    composeTestRule.onNodeWithTag("custom_build_save_button").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithText("My WR 7.3f Test Build").assertIsDisplayed()
   }
 }

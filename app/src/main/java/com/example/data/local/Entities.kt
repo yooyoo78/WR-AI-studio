@@ -5,6 +5,7 @@ import androidx.room.PrimaryKey
 import com.example.data.model.AbilityInfo
 import com.example.data.model.ChampionData
 import com.example.data.model.ChampionRole
+import com.example.data.model.CustomBuildData
 import com.example.data.model.DamageType
 import com.example.data.model.DataSourceType
 import com.example.data.model.ItemCategory
@@ -102,6 +103,8 @@ data class RuneEntity(
   val descTh: String,
   val patchVersion: String,
   val sourceType: DataSourceType,
+  val iconUrl: String = "",
+  val tree: String = "",
 )
 
 @Entity(tableName = "spells")
@@ -161,6 +164,23 @@ data class SavedMatchupEntity(
   val enemyIds: List<String>,
   val label: String,
   val savedAt: Long = System.currentTimeMillis(),
+)
+
+@Entity(tableName = "custom_builds")
+data class CustomBuildEntity(
+  @PrimaryKey(autoGenerate = true) val id: Long = 0,
+  val name: String,
+  val championId: String,
+  val lane: Lane,
+  val starterItemId: String,
+  val coreItemIds: List<String>,
+  val bootsId: String,
+  val enchantId: String,
+  val keystoneId: String,
+  val minorRuneIds: List<String>,
+  val spellIds: List<String>,
+  val notes: String = "",
+  val updatedAt: Long = System.currentTimeMillis(),
 )
 
 fun ChampionEntity.toDomain() =
@@ -308,10 +328,10 @@ fun ItemData.toEntity() =
   )
 
 fun RuneEntity.toDomain() =
-  RuneData(id, nameEn, nameTh, slotType, descEn, descTh, patchVersion, sourceType)
+  RuneData(id, nameEn, nameTh, slotType, descEn, descTh, patchVersion, sourceType, iconUrl, tree)
 
 fun RuneData.toEntity() =
-  RuneEntity(id, nameEn, nameTh, slotType, descEn, descTh, patchVersion, sourceType)
+  RuneEntity(id, nameEn, nameTh, slotType, descEn, descTh, patchVersion, sourceType, iconUrl, tree)
 
 fun SpellEntity.toDomain() =
   SpellData(id, nameEn, nameTh, descEn, descTh, patchVersion, sourceType, iconUrl, cooldownNote)
@@ -378,3 +398,38 @@ fun PatchNoteData.toEntity() =
     isActive,
     changes,
   )
+
+fun CustomBuildEntity.toDomain() =
+  CustomBuildData(
+    id = id,
+    name = name,
+    championId = championId,
+    lane = lane,
+    starterItemId = starterItemId,
+    coreItemIds = coreItemIds,
+    bootsId = bootsId,
+    enchantId = enchantId,
+    keystoneId = keystoneId,
+    minorRuneIds = minorRuneIds,
+    spellIds = spellIds,
+    notes = notes,
+    updatedAt = updatedAt,
+  )
+
+fun CustomBuildData.toEntity() =
+  CustomBuildEntity(
+    id = id,
+    name = name,
+    championId = championId,
+    lane = lane,
+    starterItemId = starterItemId,
+    coreItemIds = coreItemIds,
+    bootsId = bootsId,
+    enchantId = enchantId,
+    keystoneId = keystoneId,
+    minorRuneIds = minorRuneIds,
+    spellIds = spellIds,
+    notes = notes,
+    updatedAt = updatedAt,
+  )
+

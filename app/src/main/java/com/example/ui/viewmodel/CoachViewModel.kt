@@ -65,6 +65,7 @@ class CoachViewModel(
   val messages: StateFlow<List<CoachChatMessage>> = _messages.asStateFlow()
 
   private var streamJob: Job? = null
+  private var lastQuestion: String? = null
 
   val uiState: StateFlow<CoachUiState> =
     combine(
@@ -122,17 +123,26 @@ class CoachViewModel(
   fun askGeminiCoach(question: String) {
     val trimmed = question.trim()
     if (trimmed.isBlank()) return
+    lastQuestion = trimmed
+    _messages.value = _messages.value + CoachChatMessage(isUser = true, text = trimmed)
+    launchCoachRequest(trimmed)
+  }
+
+  fun retryLastQuestion() {
+    val q = lastQuestion ?: _messages.value.lastOrNull { it.isUser }?.text ?: return
+    launchCoachRequest(q)
+  }
+
+  private fun launchCoachRequest(question: String) {
     val current = uiState.value
     streamJob?.cancel()
-
-    _messages.value = _messages.value + CoachChatMessage(isUser = true, text = trimmed)
     _geminiState.value = GeminiUiState.Loading
 
     streamJob =
       viewModelScope.launch {
         geminiCoachService
           .streamCoachingAdvice(
-            question = trimmed,
+            question = question,
             champion = current.selectedChampion,
             lane = current.selectedLane,
             enemies = current.enemyContext,
@@ -159,6 +169,7 @@ class CoachViewModel(
 
   fun clearChat() {
     streamJob?.cancel()
+    lastQuestion = null
     _messages.value = emptyList()
     _geminiState.value = GeminiUiState.Idle
   }

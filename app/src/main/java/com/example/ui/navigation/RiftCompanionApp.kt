@@ -333,6 +333,7 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                   onSaveMatchup = analyzerVm::saveCurrentMatchup,
                   onLoadSavedMatchup = analyzerVm::loadSavedMatchup,
                   onDeleteSavedMatchup = analyzerVm::deleteSavedMatchup,
+                  onSaveSmartBuildAsCustom = analyzerVm::saveSmartBuildAsCustom,
                   onAskCoachForMatchup = {
                     analyzerVm.syncSharedContext()
                     navigateTopLevel(NavRoutes.COACH)
@@ -349,6 +350,8 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                   onToggleOnlyFavorites = championsVm::setOnlyFavorites,
                   onSortModeChange = championsVm::setSortMode,
                   onToggleFavorite = championsVm::toggleFavorite,
+                  onSaveCustomBuild = championsVm::saveCustomBuild,
+                  onDeleteCustomBuild = championsVm::deleteCustomBuild,
                   onOpenDetail = { champId ->
                     navController.navigate(NavRoutes.championDetail(champId))
                   },
@@ -367,6 +370,8 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                     champion = champion,
                     state = championsState,
                     onToggleFavorite = championsVm::toggleFavorite,
+                    onSaveCustomBuild = championsVm::saveCustomBuild,
+                    onDeleteCustomBuild = championsVm::deleteCustomBuild,
                     onAnalyze1v5 = { id ->
                       analyzerVm.selectMyChampionById(id)
                       navController.popBackStack()
@@ -396,6 +401,7 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                   onSelectChampion = coachVm::selectChampion,
                   onSelectLane = coachVm::selectLane,
                   onAskGemini = coachVm::askGeminiCoach,
+                  onRetryGemini = coachVm::retryLastQuestion,
                   onClearChat = coachVm::clearChat,
                 )
               }

@@ -66,6 +66,7 @@ import com.example.data.model.ChampionData
 import com.example.data.model.ItemData
 import com.example.data.model.Lane
 import com.example.data.model.LaneDifficulty
+import com.example.data.model.RuneData
 import com.example.data.model.SpellData
 import com.example.domain.engine.EnemyMatchupAnalysis
 import com.example.domain.engine.EnemyTeamThreatProfile
@@ -77,6 +78,8 @@ import com.example.ui.components.DamageTypeBadge
 import com.example.ui.components.HextechCard
 import com.example.ui.components.ItemDetailBottomSheet
 import com.example.ui.components.ItemIconSlot
+import com.example.ui.components.RuneDetailBottomSheet
+import com.example.ui.components.RuneIconSlot
 import com.example.ui.components.SpellDetailBottomSheet
 import com.example.ui.components.SpellIconSlot
 import com.example.ui.components.TacticalMeterBar
@@ -105,6 +108,7 @@ fun AnalyzerScreen(
   onSaveMatchup: () -> Unit,
   onLoadSavedMatchup: (SavedMatchupEntity) -> Unit,
   onDeleteSavedMatchup: (Long) -> Unit,
+  onSaveSmartBuildAsCustom: () -> Unit,
   onAskCoachForMatchup: () -> Unit,
 ) {
   val strings = LocalUiStrings.current
@@ -115,6 +119,7 @@ fun AnalyzerScreen(
   var showEnemyPicker by remember { mutableStateOf(false) }
   var selectedReportTab by remember { mutableIntStateOf(0) }
   var inspectedItem by remember { mutableStateOf<ItemData?>(null) }
+  var inspectedRune by remember { mutableStateOf<RuneData?>(null) }
   var inspectedSpell by remember { mutableStateOf<SpellData?>(null) }
 
   val myChamp = state.selectedChampion
@@ -494,6 +499,33 @@ fun AnalyzerScreen(
               )
             }
             item {
+              var justSavedCustom by remember(build) { mutableStateOf(false) }
+              OutlinedButton(
+                onClick = {
+                  onSaveSmartBuildAsCustom()
+                  justSavedCustom = true
+                },
+                modifier =
+                  Modifier.fillMaxWidth()
+                    .minimumInteractiveComponentSize()
+                    .testTag("analyzer_save_custom_build_button"),
+              ) {
+                Icon(Icons.Default.BookmarkAdd, contentDescription = null, tint = HextechGold)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                  text =
+                    when {
+                      justSavedCustom && lang == AppLanguage.TH -> "บันทึกเข้า 'เซ็ตฉัน' เรียบร้อย ✓"
+                      justSavedCustom -> "Saved to My Custom Builds ✓"
+                      lang == AppLanguage.TH -> "บันทึกบิลด์นี้เป็นเซ็ตของฉัน"
+                      else -> "Save as My Custom Build"
+                    },
+                  color = if (justSavedCustom) AdvantageEmerald else HextechGoldBright,
+                  fontWeight = FontWeight.SemiBold,
+                )
+              }
+            }
+            item {
               Text(text = strings.smartBuildTitle, style = MaterialTheme.typography.titleMedium)
             }
             items(build.prioritizedItems, key = { "${it.priorityLabelEn}_${it.item.id}" }) { entry ->
@@ -508,7 +540,14 @@ fun AnalyzerScreen(
           2 -> {
             val build = state.smartBuild
             item {
-              RunesAndSpellsCard(
+              RunesRecommendationCard(
+                build = build,
+                lang = lang,
+                onInspectRune = { inspectedRune = it },
+              )
+            }
+            item {
+              SpellsAndSkillOrderCard(
                 build = build,
                 skillOrder = myChamp?.skillOrder.orEmpty(),
                 lang = lang,
@@ -567,6 +606,14 @@ fun AnalyzerScreen(
       spell = spell,
       language = lang,
       onDismiss = { inspectedSpell = null },
+    )
+  }
+
+  inspectedRune?.let { rune ->
+    RuneDetailBottomSheet(
+      rune = rune,
+      language = lang,
+      onDismiss = { inspectedRune = null },
     )
   }
 }
@@ -973,11 +1020,10 @@ private fun SmartItemDetailCard(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun RunesAndSpellsCard(
+private fun RunesRecommendationCard(
   build: SmartBuildRecommendation,
-  skillOrder: String,
   lang: AppLanguage,
-  onInspectSpell: (SpellData) -> Unit,
+  onInspectRune: (RuneData) -> Unit,
 ) {
   val strings = LocalUiStrings.current
   HextechCard(accentColor = SkillViolet) {
@@ -988,35 +1034,60 @@ private fun RunesAndSpellsCard(
       style = MaterialTheme.typography.bodySmall,
       color = ArcaneCyan,
     )
-    Spacer(modifier = Modifier.height(10.dp))
+    Spacer(modifier = Modifier.height(8.dp))
 
-    build.keystone?.let { ks ->
-      Text(
-        text = "Keystone: ${ks.displayName(lang)}",
-        style = MaterialTheme.typography.titleSmall,
-        color = HextechGoldBright,
-      )
-      Text(text = ks.desc(lang), style = MaterialTheme.typography.bodySmall)
-      Spacer(modifier = Modifier.height(8.dp))
-    }
+    Text(
+      text =
+        if (lang == AppLanguage.TH) "กดที่รูปรูนเพื่อดูเอฟเฟกต์และรายละเอียด"
+        else "Tap any rune icon to view effects & tree",
+      style = MaterialTheme.typography.labelSmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(modifier = Modifier.height(8.dp))
 
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    FlowRow(
+      horizontalArrangement = Arrangement.spacedBy(10.dp),
+      verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+      build.keystone?.let { ks ->
+        RuneIconSlot(
+          rune = ks,
+          language = lang,
+          onClick = { onInspectRune(ks) },
+          size = 46.dp,
+          modifier = Modifier.testTag("analyzer_rune_${ks.id}"),
+        )
+      }
       build.minorRunes.forEach { rune ->
-        Surface(
-          shape = RoundedCornerShape(8.dp),
-          color = MaterialTheme.colorScheme.surfaceContainerHigh,
-          border = BorderStroke(1.dp, SkillViolet.copy(alpha = 0.5f)),
-        ) {
-          Text(
-            text = rune.displayName(lang),
-            style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-          )
-        }
+        RuneIconSlot(
+          rune = rune,
+          language = lang,
+          onClick = { onInspectRune(rune) },
+          size = 40.dp,
+          modifier = Modifier.testTag("analyzer_rune_${rune.id}"),
+        )
       }
     }
 
-    Spacer(modifier = Modifier.height(12.dp))
+    build.keystone?.let { ks ->
+      Spacer(modifier = Modifier.height(8.dp))
+      Text(
+        text = "${ks.displayName(lang)}: ${ks.desc(lang)}",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
+  }
+}
+
+@Composable
+private fun SpellsAndSkillOrderCard(
+  build: SmartBuildRecommendation,
+  skillOrder: String,
+  lang: AppLanguage,
+  onInspectSpell: (SpellData) -> Unit,
+) {
+  HextechCard(accentColor = ArcaneCyan) {
     Text(
       text = if (lang == AppLanguage.TH) "Summoner Spells & อัปสกิล ($skillOrder):" else "Summoner Spells & Skill Order ($skillOrder):",
       style = MaterialTheme.typography.titleSmall,

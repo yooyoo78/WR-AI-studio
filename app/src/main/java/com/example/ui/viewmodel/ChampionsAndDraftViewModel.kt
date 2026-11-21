@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.model.ChampionData
 import com.example.data.model.ChampionRole
+import com.example.data.model.CustomBuildData
 import com.example.data.model.ItemData
 import com.example.data.model.Lane
 import com.example.data.model.RuneData
@@ -36,6 +37,7 @@ data class ChampionsUiState(
   val itemsById: Map<String, ItemData> = emptyMap(),
   val runesById: Map<String, RuneData> = emptyMap(),
   val spellsById: Map<String, SpellData> = emptyMap(),
+  val customBuilds: List<CustomBuildData> = emptyList(),
 )
 
 class ChampionsViewModel(private val repository: GameDataRepository) : ViewModel() {
@@ -52,6 +54,7 @@ class ChampionsViewModel(private val repository: GameDataRepository) : ViewModel
         repository.runes,
         repository.spells,
         repository.favoriteChampionIds,
+        repository.customBuilds,
         _searchQuery,
         _selectedLane,
         _selectedRole,
@@ -68,11 +71,13 @@ class ChampionsViewModel(private val repository: GameDataRepository) : ViewModel
         val spells = values[3] as List<SpellData>
         @Suppress("UNCHECKED_CAST")
         val favIds = values[4] as Set<String>
-        val query = (values[5] as String).trim().lowercase()
-        val lane = values[6] as Lane?
-        val role = values[7] as ChampionRole?
-        val onlyFav = values[8] as Boolean
-        val sortMode = values[9] as ChampionSortMode
+        @Suppress("UNCHECKED_CAST")
+        val customBuilds = values[5] as List<CustomBuildData>
+        val query = (values[6] as String).trim().lowercase()
+        val lane = values[7] as Lane?
+        val role = values[8] as ChampionRole?
+        val onlyFav = values[9] as Boolean
+        val sortMode = values[10] as ChampionSortMode
 
         val filtered =
           champions
@@ -112,6 +117,7 @@ class ChampionsViewModel(private val repository: GameDataRepository) : ViewModel
           itemsById = items.associateBy { it.id },
           runesById = runes.associateBy { it.id },
           spellsById = spells.associateBy { it.id },
+          customBuilds = customBuilds,
         )
       }
       .stateIn(
@@ -143,6 +149,14 @@ class ChampionsViewModel(private val repository: GameDataRepository) : ViewModel
   fun toggleFavorite(championId: String) {
     val isFav = championId in uiState.value.favoriteIds
     viewModelScope.launch { repository.toggleFavorite(championId, isFav) }
+  }
+
+  fun saveCustomBuild(build: CustomBuildData) {
+    viewModelScope.launch { repository.saveCustomBuild(build) }
+  }
+
+  fun deleteCustomBuild(id: Long) {
+    viewModelScope.launch { repository.deleteCustomBuild(id) }
   }
 
   class Factory(private val repository: GameDataRepository) : ViewModelProvider.Factory {

@@ -118,6 +118,8 @@ data class RuneData(
   val descTh: String,
   val patchVersion: String,
   val sourceType: DataSourceType,
+  val iconUrl: String = "",
+  val tree: String = "",
 ) {
   fun displayName(lang: AppLanguage): String = if (lang == AppLanguage.TH) nameTh else nameEn
 
@@ -192,3 +194,20 @@ data class PatchPackPayload(
   val matchupRules: List<MatchupRuleData> = emptyList(),
   val patchNotes: List<PatchNoteData> = emptyList(),
 )
+
+data class CustomBuildData(
+  val id: Long = 0,
+  val name: String,
+  val championId: String,
+  val lane: Lane,
+  val starterItemId: String,
+  val coreItemIds: List<String>,
+  val bootsId: String,
+  val enchantId: String,
+  val keystoneId: String,
+  val minorRuneIds: List<String>,
+  val spellIds: List<String>,
+  val notes: String = "",
+  val updatedAt: Long = System.currentTimeMillis(),
+)
+

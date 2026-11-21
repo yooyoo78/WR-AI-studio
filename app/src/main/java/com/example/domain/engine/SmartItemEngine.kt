@@ -177,8 +177,13 @@ class SmartItemEngine {
       val names = profile.apThreats.joinToString(", ") { it.nameEn }
       val antiApItem =
         when {
-          isTankOrFrontline -> itemMap["force_of_nature"] ?: itemMap["amaranths_twinguard"]
-          isApChampion || isSupportEnchanter -> itemMap["crown_shattered_queen"]
+          isTankOrFrontline ->
+            if (profile.apBurstScore >= 60) {
+              itemMap["kaenic_rookern"] ?: itemMap["force_of_nature"] ?: itemMap["amaranths_twinguard"]
+            } else {
+              itemMap["force_of_nature"] ?: itemMap["kaenic_rookern"] ?: itemMap["abyssal_mask"]
+            }
+          isApChampion || isSupportEnchanter -> itemMap["crown_shattered_queen"] ?: itemMap["banshees_veil"]
           isMarksman -> itemMap["wits_end"] ?: itemMap["maw_of_malmortius"]
           else -> itemMap["maw_of_malmortius"]
         }
@@ -217,7 +222,7 @@ class SmartItemEngine {
           isTankOrFrontline -> itemMap["thornmail"]
           isMarksman -> itemMap["guardian_angel"]
           !isApChampion -> itemMap["deaths_dance"]
-          else -> itemMap["crown_shattered_queen"]
+          else -> itemMap["stasis_enchant"] ?: itemMap["crown_shattered_queen"]
         }
       if (antiAdItem != null && alreadyChosenIds.add(antiAdItem.id)) {
         counterInjections.add(
@@ -249,7 +254,7 @@ class SmartItemEngine {
     val urgentFirst =
       counterInjections.firstOrNull {
         it.item.category == ItemCategory.CORE ||
-          (isTankOrFrontline && it.item.id in listOf("frozen_heart", "thornmail", "force_of_nature"))
+          (isTankOrFrontline && it.item.id in listOf("frozen_heart", "thornmail", "kaenic_rookern", "force_of_nature"))
       }
 
     val rushItem =
@@ -516,6 +521,8 @@ class SmartItemEngine {
         ChampionRole.MAGE in myChamp.roles ||
         myChamp.tankinessRating <= 4
 
+    val isEnchanterSupport =
+      ChampionRole.SUPPORT in myChamp.roles && ChampionRole.TANK !in myChamp.roles
     val hasPointClickBurst = enemies.any { it.id in listOf("zed", "evelynn", "syndra", "vi", "camille") }
     val hasCriticalLockdown =
       enemies.any { it.id in listOf("rammus", "leona", "nautilus", "thresh", "lux", "ahri") }
@@ -529,22 +536,29 @@ class SmartItemEngine {
     when {
       isSquishyCarry && hasPointClickBurst -> {
         chosen = itemMap["stasis_enchant"] ?: defaultEnchant
-        reasonEn = "Stasis nullifies point-and-click assassin/burst ultimates (Zed (4), Syndra (4), Evelynn (4))."
-        reasonTh = "Stasis กดเป็นอมตะ 2.5 วิ หลบอัลติล็อกเป้าสายเบิร์สอย่าง Zed, Syndra, Evelynn ได้ทันที"
+        reasonEn = "Zhonya's Stasis nullifies point-and-click assassin/burst ultimates (Zed (4), Syndra (4), Evelynn (4))."
+        reasonTh = "Zhonya's (Stasis) กดเป็นอมตะ 2.5 วิ หลบอัลติล็อกเป้าสายเบิร์สอย่าง Zed, Syndra, Evelynn ได้ทันที"
         targetEn = enemies.filter { it.id in listOf("zed", "evelynn", "syndra", "vi", "camille") }.joinToString { it.nameEn }
         targetTh = enemies.filter { it.id in listOf("zed", "evelynn", "syndra", "vi", "camille") }.joinToString { it.nameTh }
       }
+      isEnchanterSupport && profile.ccScore >= 55 && hasCriticalLockdown -> {
+        chosen = itemMap["mikaels_blessing"] ?: itemMap["locket_enchant"] ?: defaultEnchant
+        reasonEn = "Enemy team stacks lethal lockdown CC—Mikael's Blessing cleanses and heals your carry immediately."
+        reasonTh = "ศัตรูมี CC จับตายหลายสกิล Mikael's Blessing ช่วยล้างสถานะและฮีลแครี่ให้รอดในทีมไฟต์"
+        targetEn = profile.ccThreats.take(3).joinToString { it.nameEn }.ifBlank { "Hard CC" }
+        targetTh = profile.ccThreats.take(3).joinToString { it.nameTh }.ifBlank { "CC หนัก" }
+      }
       profile.ccScore >= 55 && hasCriticalLockdown && ChampionRole.TANK !in myChamp.roles -> {
         chosen = itemMap["quicksilver_enchant"] ?: defaultEnchant
-        reasonEn = "Enemy team relies on lethal CC chains—Quicksilver cleanses stuns/taunts immediately so you keep dealing DPS."
-        reasonTh = "ศัตรูมี CC จับตายหลายสกิล Quicksilver ล้างสตั๊น/ยั่วยุทันทีเพื่อไม่ให้โดนจับตาย"
+        reasonEn = "Enemy team relies on lethal CC chains—Quicksilver Sash cleanses stuns/taunts immediately so you keep dealing DPS."
+        reasonTh = "ศัตรูมี CC จับตายหลายสกิล Quicksilver Sash ล้างสตั๊น/ยั่วยุทันทีเพื่อไม่ให้โดนจับตาย"
         targetEn = profile.ccThreats.take(3).joinToString { it.nameEn }.ifBlank { "Hard CC" }
         targetTh = profile.ccThreats.take(3).joinToString { it.nameTh }.ifBlank { "CC หนัก" }
       }
       myChamp.id in listOf("darius", "sett", "rammus") && profile.diveScore == 0 -> {
         chosen = itemMap["glory_enchant"] ?: defaultEnchant
-        reasonEn = "Glory Enchant closes the gap onto backline carries who want to kite you."
-        reasonTh = "Glory Enchant ช่วยพุ่งเข้าประชิดตัวตีไกลที่พยายามไคท์หนี"
+        reasonEn = "Shurelya's Battlesong closes the gap onto backline carries who want to kite you."
+        reasonTh = "Shurelya's Battlesong เร่งความเร็วทีมเข้าประชิดตัวตีไกลที่พยายามไคท์หนี"
         targetEn = "Kiting Backline"
         targetTh = "ไล่จับตัวตีไกล"
       }
@@ -559,16 +573,16 @@ class SmartItemEngine {
 
     return ItemRecommendationEntry(
       item = chosen,
-      priorityLabelEn = if (chosen.id != defaultEnchant.id) "Enchant (Adapted)" else "Enchantment",
-      priorityLabelTh = if (chosen.id != defaultEnchant.id) "เอ็นแชนท์ (ปรับแก้ทาง)" else "เอ็นแชนท์แนะนำ",
+      priorityLabelEn = if (chosen.id != defaultEnchant.id) "Active Item (Adapted)" else "Active Item",
+      priorityLabelTh = if (chosen.id != defaultEnchant.id) "ไอเทมกดใช้ (ปรับแก้ทาง)" else "ไอเทมกดใช้แนะนำ",
       isAdapted = chosen.id != defaultEnchant.id,
       replacedStandardItemName = if (chosen.id != defaultEnchant.id) defaultEnchant.nameEn else null,
       reasonEn = reasonEn,
       reasonTh = reasonTh,
       targetThreatEn = targetEn,
       targetThreatTh = targetTh,
-      buyTimingEn = "Upgrade before 2nd Dragon / Teamfight phase",
-      buyTimingTh = "อัปเกรดก่อนเข้าสู่ช่วงทีมไฟต์มังกรตัวที่ 2",
+      buyTimingEn = "Dedicated Active Slot before 2nd Dragon / Teamfight phase",
+      buyTimingTh = "ออกในช่อง Active ก่อนเข้าสู่ช่วงทีมไฟต์มังกรตัวที่ 2",
       tacticalBenefitEn = chosen.passiveDescEn,
       tacticalBenefitTh = chosen.passiveDescTh,
     )
