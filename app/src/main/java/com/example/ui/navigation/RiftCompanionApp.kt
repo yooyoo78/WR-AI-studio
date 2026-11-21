@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CloseFullscreen
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
@@ -48,6 +49,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.core.AppContainer
+import com.example.ui.components.QuickScanBottomSheet
 import com.example.ui.screens.AnalyzerScreen
 import com.example.ui.screens.ChampionDetailScreen
 import com.example.ui.screens.ChampionsScreen
@@ -56,6 +58,7 @@ import com.example.ui.screens.DraftScreen
 import com.example.ui.screens.HomeDashboardScreen
 import com.example.ui.screens.PatchMetaScreen
 import com.example.ui.screens.SettingsScreen
+import com.example.ui.theme.AdvantageEmerald
 import com.example.ui.theme.ArcaneCyan
 import com.example.ui.theme.HextechGold
 import com.example.ui.theme.LocalUiStrings
@@ -115,6 +118,7 @@ fun RiftCompanionApp(appContainer: AppContainer) {
         DraftViewModel.Factory(
           appContainer.gameDataRepository,
           appContainer.draftAssistantEngine,
+          appContainer,
         )
     )
   val coachVm: CoachViewModel =
@@ -139,6 +143,7 @@ fun RiftCompanionApp(appContainer: AppContainer) {
   val coachState by coachVm.uiState.collectAsStateWithLifecycle()
   val geminiState by coachVm.geminiState.collectAsStateWithLifecycle()
   val coachMessages by coachVm.messages.collectAsStateWithLifecycle()
+  val quickScanState by appContainer.quickScanCoordinator.uiState.collectAsStateWithLifecycle()
 
   BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
     val useNavRail = maxWidth >= 680.dp
@@ -215,6 +220,19 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                   titleContentColor = HextechGold,
                 ),
               actions = {
+                IconButton(
+                  onClick = { appContainer.quickScanCoordinator.openSheet() },
+                  modifier =
+                    Modifier.minimumInteractiveComponentSize().testTag("topbar_quick_scan_button"),
+                ) {
+                  Icon(
+                    Icons.Default.CameraAlt,
+                    contentDescription = strings.quickScanTitle,
+                    tint =
+                      if (quickScanState.isQuickCaptureActive) AdvantageEmerald
+                      else ArcaneCyan,
+                  )
+                }
                 IconButton(
                   onClick = { homePatchVm.setInGameMiniMode(!prefs.inGameMiniMode) },
                   modifier =
@@ -317,6 +335,7 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                   },
                   onOpenDraft = { navigateTopLevel(NavRoutes.DRAFT) },
                   onOpenCoach = { navigateTopLevel(NavRoutes.COACH) },
+                  onOpenQuickScan = { appContainer.quickScanCoordinator.openSheet() },
                   onOpenPatchCenter = { navController.navigate(NavRoutes.PATCH_CENTER) },
                   onOpenSettings = { navController.navigate(NavRoutes.SETTINGS) },
                 )
@@ -435,6 +454,18 @@ fun RiftCompanionApp(appContainer: AppContainer) {
             }
           }
         }
+      }
+
+      if (quickScanState.isSheetOpen) {
+        QuickScanBottomSheet(
+          state = quickScanState,
+          language = prefs.language,
+          coordinator = appContainer.quickScanCoordinator,
+          onNavigateToAnalyzer = { navigateTopLevel(NavRoutes.ANALYZER) },
+          onNavigateToDraft = { navigateTopLevel(NavRoutes.DRAFT) },
+          onNavigateToCoach = { navigateTopLevel(NavRoutes.COACH) },
+          onDismiss = { appContainer.quickScanCoordinator.dismissSheet() },
+        )
       }
     }
   }

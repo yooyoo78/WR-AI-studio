@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
@@ -77,6 +78,7 @@ fun HomeDashboardScreen(
   onOpenChampionDetail: (String) -> Unit,
   onOpenDraft: () -> Unit,
   onOpenCoach: () -> Unit,
+  onOpenQuickScan: () -> Unit = {},
   onOpenPatchCenter: () -> Unit,
   onOpenSettings: () -> Unit,
 ) {
@@ -138,6 +140,18 @@ fun HomeDashboardScreen(
                   Icons.Default.AutoAwesome,
                   contentDescription = strings.openCoachCta,
                   tint = ArcaneCyan,
+                  modifier = Modifier.size(16.dp),
+                )
+              }
+              OutlinedButton(
+                onClick = onOpenQuickScan,
+                modifier = Modifier.minimumInteractiveComponentSize().testTag("home_quick_scan_button"),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+              ) {
+                Icon(
+                  Icons.Default.CameraAlt,
+                  contentDescription = strings.quickScanCta,
+                  tint = AdvantageEmerald,
                   modifier = Modifier.size(16.dp),
                 )
               }
@@ -240,6 +254,31 @@ fun HomeDashboardScreen(
                     overflow = TextOverflow.Ellipsis,
                   )
                 }
+              }
+
+              Spacer(modifier = Modifier.height(8.dp))
+
+              OutlinedButton(
+                onClick = onOpenQuickScan,
+                modifier =
+                  Modifier.fillMaxWidth()
+                    .minimumInteractiveComponentSize()
+                    .testTag("home_quick_scan_button"),
+              ) {
+                Icon(
+                  Icons.Default.CameraAlt,
+                  contentDescription = null,
+                  tint = AdvantageEmerald,
+                  modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                  text = strings.quickScanCta,
+                  color = AdvantageEmerald,
+                  fontWeight = FontWeight.SemiBold,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                )
               }
             }
           }

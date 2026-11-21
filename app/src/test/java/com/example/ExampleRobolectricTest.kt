@@ -15,6 +15,7 @@ import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.example.core.AppContainer
 import com.example.data.local.AppDatabase
 import com.example.data.local.PreferencesRepository
 import com.example.data.model.AppLanguage
@@ -22,6 +23,8 @@ import com.example.data.model.CustomBuildData
 import com.example.data.model.Lane
 import com.example.data.repository.GameDataRepository
 import com.example.data.repository.ImportResult
+import com.example.domain.engine.ChampionScanMatcher
+import com.example.domain.engine.RawChampionScanPayload
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -385,5 +388,76 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("coach_chat_list").assertIsDisplayed()
     composeTestRule.onNodeWithTag("coach_question_input").assertIsDisplayed()
     composeTestRule.onNodeWithTag("coach_send_button").assertIsDisplayed()
+  }
+
+  @Test
+  fun `champion scan matcher skips unpicked slots and resolves wild rift roster`() = runBlocking {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
+    try {
+      val prefs = PreferencesRepository(context)
+      val repo = GameDataRepository(context, db.gameDao(), prefs)
+      repo.ensureSeeded()
+      val catalog = repo.champions.first()
+
+      val matcher = ChampionScanMatcher()
+      val result =
+        matcher.resolve(
+          RawChampionScanPayload(
+            screenType = "CHAMP_SELECT",
+            myChampionName = "Kai'Sa",
+            detectedLane = "DRAGON",
+            allies = listOf("Kai'Sa", "Picking...", "Lee Sin", ""),
+            enemies = listOf("Dr. Mundo", "empty", "Ahri", "กำลังเลือก..."),
+            skippedEmptySlots = 4,
+            confidenceNote = "Partial draft captured",
+          ),
+          catalog,
+        )
+
+      assertEquals("kaisa", result.myChampion?.id)
+      assertEquals(Lane.DRAGON, result.detectedLane)
+      assertEquals(listOf("kaisa", "lee_sin"), result.allies.map { it.id })
+      assertEquals(listOf("dr_mundo", "ahri"), result.enemies.map { it.id })
+      assertTrue(result.skippedUnpickedCount >= 6)
+    } finally {
+      db.close()
+    }
+  }
+
+  @Test
+  fun `app container applyDetectedRoster syncs 1v5 draft and ai coach contexts`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val container = AppContainer(context)
+
+    container.applyDetectedRoster(
+      myChampionId = "jinx",
+      lane = Lane.DRAGON,
+      allyIds = listOf("jinx", "lulu"),
+      enemyIds = listOf("draven", "thresh", "zed"),
+    )
+
+    val matchup = container.sharedMatchupContext.value
+    val draft = container.sharedDraftContext.value
+    assertEquals("jinx", matchup.myChampionId)
+    assertEquals(Lane.DRAGON, matchup.lane)
+    assertEquals(listOf("draven", "thresh", "zed"), matchup.enemyIds)
+    assertEquals(listOf("jinx", "lulu"), draft.allyIds)
+    assertEquals(listOf("draven", "thresh", "zed"), draft.enemyIds)
+    assertTrue(matchup.externalUpdateSeq > 0L)
+    assertEquals(matchup.externalUpdateSeq, draft.externalUpdateSeq)
+  }
+
+  @Test
+  fun `cuj topbar quick scan opens capture and picker sheet`() {
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("topbar_quick_scan_button").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("quick_scan_sheet").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("quick_scan_start_capture_button").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("quick_scan_pick_image_button").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("quick_scan_close_button").performClick()
+    composeTestRule.waitForIdle()
   }
 }

@@ -3,6 +3,7 @@ package com.example.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.core.AppContainer
 import com.example.data.model.ChampionData
 import com.example.data.model.ChampionRole
 import com.example.data.model.CustomBuildData
@@ -178,11 +179,29 @@ data class DraftUiState(
 class DraftViewModel(
   private val repository: GameDataRepository,
   private val draftEngine: DraftAssistantEngine,
+  private val appContainer: AppContainer? = null,
 ) : ViewModel() {
   private val _allyIds = MutableStateFlow<List<String>>(emptyList())
   private val _enemyIds = MutableStateFlow<List<String>>(emptyList())
   private val _intendedLane = MutableStateFlow(Lane.MID)
   private val _preferredRole = MutableStateFlow<ChampionRole?>(null)
+  private var lastAppliedExternalSeq = 0L
+
+  init {
+    appContainer?.let { container ->
+      viewModelScope.launch {
+        container.sharedDraftContext.collect { ctx ->
+          if (ctx.externalUpdateSeq > lastAppliedExternalSeq) {
+            lastAppliedExternalSeq = ctx.externalUpdateSeq
+            _allyIds.value = ctx.allyIds
+            _enemyIds.value = ctx.enemyIds
+            _intendedLane.value = ctx.intendedLane
+            _preferredRole.value = ctx.preferredRole
+          }
+        }
+      }
+    }
+  }
 
   val uiState: StateFlow<DraftUiState> =
     combine(
@@ -263,9 +282,10 @@ class DraftViewModel(
   class Factory(
     private val repository: GameDataRepository,
     private val draftEngine: DraftAssistantEngine,
+    private val appContainer: AppContainer? = null,
   ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T =
-      DraftViewModel(repository, draftEngine) as T
+      DraftViewModel(repository, draftEngine, appContainer) as T
   }
 }

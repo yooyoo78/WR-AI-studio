@@ -59,6 +59,8 @@ data class UiStrings(
   val miniModeTitle: String,
   val miniModeDesc: String,
   val miniModeBadge: String,
+  val quickScanTitle: String,
+  val quickScanCta: String,
 )
 
 object AppStrings {
@@ -123,6 +125,8 @@ object AppStrings {
       miniModeTitle = "โหมดหน้าต่างย่อขณะเล่นเกม (Mini-Window)",
       miniModeDesc = "ย่อระยะห่าง การ์ด และแถบหัวเรื่องให้กระชับสุด เหมาะสำหรับเปิดลอย/แบ่งหน้าจอข้างเกม Wild Rift",
       miniModeBadge = "โหมดหน้าต่างย่อ",
+      quickScanTitle = "แคปเร็ว & สแกนแชมเปี้ยนอัตโนมัติ",
+      quickScanCta = "แคปเร็ว & สแกนภาพ",
     )
 
   private val englishStrings =
@@ -183,5 +187,7 @@ object AppStrings {
       miniModeTitle = "In-Game Mini-Window Mode",
       miniModeDesc = "Compacts cards, icons, and chrome for floating pop-up or split-screen overlays while playing Wild Rift.",
       miniModeBadge = "Mini Mode",
+      quickScanTitle = "Quick Screen Capture & Scan",
+      quickScanCta = "Quick Capture & Scan",
     )
 }

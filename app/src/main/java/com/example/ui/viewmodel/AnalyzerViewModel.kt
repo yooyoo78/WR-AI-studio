@@ -44,6 +44,22 @@ class AnalyzerViewModel(
   private val _selectedChampId = MutableStateFlow<String?>(null)
   private val _selectedLane = MutableStateFlow(Lane.BARON)
   private val _selectedEnemyIds = MutableStateFlow<List<String>>(emptyList())
+  private var lastAppliedExternalSeq = 0L
+
+  init {
+    viewModelScope.launch {
+      appContainer.sharedMatchupContext.collect { ctx ->
+        if (ctx.externalUpdateSeq > lastAppliedExternalSeq) {
+          lastAppliedExternalSeq = ctx.externalUpdateSeq
+          if (ctx.myChampionId != null) {
+            _selectedChampId.value = ctx.myChampionId
+          }
+          _selectedLane.value = ctx.lane
+          _selectedEnemyIds.value = ctx.enemyIds
+        }
+      }
+    }
+  }
 
   val uiState: StateFlow<AnalyzerUiState> =
     combine(
@@ -228,6 +244,7 @@ class AnalyzerViewModel(
       myChampionId = champId,
       lane = _selectedLane.value,
       enemyIds = _selectedEnemyIds.value,
+      isExternal = false,
     )
   }
 

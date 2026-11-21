@@ -99,11 +99,18 @@ class CoachViewModel(
         initialValue = CoachUiState(),
       )
 
+  private var lastAppliedExternalSeq = 0L
+
   init {
     viewModelScope.launch {
       appContainer.sharedMatchupContext.collect { ctx ->
-        if (ctx.myChampionId != null) {
-          _selectedChampId.value = ctx.myChampionId
+        if (ctx.externalUpdateSeq > lastAppliedExternalSeq || ctx.myChampionId != null) {
+          if (ctx.externalUpdateSeq > lastAppliedExternalSeq) {
+            lastAppliedExternalSeq = ctx.externalUpdateSeq
+          }
+          if (ctx.myChampionId != null) {
+            _selectedChampId.value = ctx.myChampionId
+          }
           _selectedLane.value = ctx.lane
           _enemyIds.value = ctx.enemyIds
         }
