@@ -357,4 +357,33 @@ class ExampleRobolectricTest {
 
     composeTestRule.onNodeWithText("My WR 7.3f Test Build").assertIsDisplayed()
   }
+
+  @Test
+  fun `cuj coach screen keeps advice spotlight prominent in normal and mini mode`() {
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("nav_coach").performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("coach_compact_topbar").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("coach_advice_spotlight").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("coach_playbook_list").assertIsDisplayed()
+
+    // Change lane via compact dropdown pill
+    composeTestRule.onNodeWithTag("coach_select_lane_button").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("coach_lane_option_JUNGLE").performClick()
+    composeTestRule.waitForIdle()
+
+    // Toggle Mini-Window mode and ensure spotlight advice stays visible
+    composeTestRule.onNodeWithTag("topbar_mini_mode_button").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("coach_advice_spotlight").assertIsDisplayed()
+
+    // Switch to Gemini AI Coach tab
+    composeTestRule.onNodeWithTag("coach_gemini_tab").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("coach_chat_list").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("coach_question_input").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("coach_send_button").assertIsDisplayed()
+  }
 }
