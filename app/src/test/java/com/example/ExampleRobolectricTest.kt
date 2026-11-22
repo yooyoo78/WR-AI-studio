@@ -16,6 +16,9 @@ import androidx.compose.ui.test.performTextInput
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.example.core.AppContainer
+import com.example.data.ai.CoachSpeechController
+import com.example.data.ai.LiveCoachVisionService
+import com.example.data.ai.LiveScreenPhase
 import com.example.data.local.AppDatabase
 import com.example.data.local.PreferencesRepository
 import com.example.data.model.AppLanguage
@@ -25,6 +28,7 @@ import com.example.data.repository.GameDataRepository
 import com.example.data.repository.ImportResult
 import com.example.domain.engine.ChampionScanMatcher
 import com.example.domain.engine.RawChampionScanPayload
+import com.example.ui.viewmodel.CoachViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -45,7 +49,7 @@ class ExampleRobolectricTest {
   fun `read app name from context`() {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val appName = context.getString(R.string.app_name)
-    assertEquals("Rift Companion", appName)
+    assertEquals("WR-AI", appName)
     val googleAppIdRes =
       context.resources.getIdentifier("google_app_id", "string", context.packageName)
     if (googleAppIdRes != 0) {
@@ -184,7 +188,7 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `cuj analyzer item and spell icon taps open detail bottom sheets`() {
+  fun `cuj analyzer item and spell icon taps open mini box then detail sheets`() {
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("home_launch_analyzer_button").assertIsDisplayed().performClick()
     composeTestRule.waitForIdle()
@@ -193,7 +197,7 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("preset_heal_burst").performScrollTo().assertIsDisplayed().performClick()
     composeTestRule.waitForIdle()
 
-    // Switch to Smart Build tab and tap Rush Item Icon
+    // Switch to Smart Build tab and tap Rush Item Icon -> Stage 1 Mini Info Box -> Expand -> Stage 2 Sheet
     composeTestRule
       .onNodeWithTag("analyzer_lazy_column")
       .performScrollToNode(hasTestTag("analyzer_report_tab_1"))
@@ -206,11 +210,15 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("analyzer_rush_item_icon").performClick()
     composeTestRule.waitForIdle()
 
+    composeTestRule.onNodeWithTag("mini_info_box").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("mini_box_expand_button").performClick()
+    composeTestRule.waitForIdle()
+
     composeTestRule.onNodeWithTag("item_detail_sheet").assertIsDisplayed()
     composeTestRule.onNodeWithTag("close_item_sheet_button").performClick()
     composeTestRule.waitForIdle()
 
-    // Switch to Runes & Plan tab and tap Flash Spell Icon
+    // Switch to Runes & Plan tab and tap Flash Spell Icon -> Stage 1 Mini Info Box -> Expand -> Stage 2 Sheet
     composeTestRule
       .onNodeWithTag("analyzer_lazy_column")
       .performScrollToNode(hasTestTag("analyzer_report_tab_2"))
@@ -221,6 +229,10 @@ class ExampleRobolectricTest {
       .onNodeWithTag("analyzer_lazy_column")
       .performScrollToNode(hasTestTag("analyzer_spell_flash"))
     composeTestRule.onNodeWithTag("analyzer_spell_flash").performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("mini_info_box").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("mini_box_expand_button").performClick()
     composeTestRule.waitForIdle()
 
     composeTestRule.onNodeWithTag("spell_detail_sheet").assertIsDisplayed()
@@ -252,7 +264,7 @@ class ExampleRobolectricTest {
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("game_plan_content_1").assertIsDisplayed()
 
-    // Verify Skill title
+    // Verify Skill Strip + Mini Box -> Skill Detail Sheet
     composeTestRule
       .onNodeWithTag("champion_detail_lazy_column")
       .performScrollToNode(hasTestTag("detail_skill_title"))
@@ -263,10 +275,22 @@ class ExampleRobolectricTest {
       .performScrollToNode(hasText("Super Scorcher Breath", substring = true))
     composeTestRule.onNode(hasText("Super Scorcher Breath", substring = true)).assertIsDisplayed()
 
+    composeTestRule.onNodeWithTag("detail_skill_1").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("mini_info_box").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("mini_box_expand_button").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("skill_detail_sheet").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("close_skill_sheet_button").performClick()
+    composeTestRule.waitForIdle()
+
     composeTestRule
       .onNodeWithTag("champion_detail_lazy_column")
       .performScrollToNode(hasTestTag("detail_item_essence_reaver"))
     composeTestRule.onNodeWithTag("detail_item_essence_reaver").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("mini_info_box").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("mini_box_expand_button").performClick()
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("item_detail_sheet").assertIsDisplayed()
     composeTestRule.onNodeWithTag("close_item_sheet_button").performClick()
@@ -274,12 +298,12 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `cuj catalog tabs browse items and runes with detail sheets`() {
+  fun `cuj catalog tabs browse items and runes with mini box and detail sheets`() {
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("nav_champions").performClick()
     composeTestRule.waitForIdle()
 
-    // Items Catalog Tab
+    // Items Catalog Tab -> Mini Box -> Expand -> Item Detail Sheet
     composeTestRule.onNodeWithTag("catalog_tab_items").performClick()
     composeTestRule.waitForIdle()
     composeTestRule
@@ -287,17 +311,23 @@ class ExampleRobolectricTest {
       .performScrollToNode(hasTestTag("catalog_item_kaenic_rookern"))
     composeTestRule.onNodeWithTag("catalog_item_kaenic_rookern").performClick()
     composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("mini_info_box").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("mini_box_expand_button").performClick()
+    composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("item_detail_sheet").assertIsDisplayed()
     composeTestRule.onNodeWithTag("close_item_sheet_button").performClick()
     composeTestRule.waitForIdle()
 
-    // Runes Catalog Tab
+    // Runes Catalog Tab -> Mini Box -> Expand -> Rune Detail Sheet
     composeTestRule.onNodeWithTag("catalog_tab_runes").performClick()
     composeTestRule.waitForIdle()
     composeTestRule
       .onNodeWithTag("runes_catalog_lazy_column")
       .performScrollToNode(hasTestTag("catalog_rune_dark_harvest"))
     composeTestRule.onNodeWithTag("catalog_rune_dark_harvest").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("mini_info_box").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("mini_box_expand_button").performClick()
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("rune_detail_sheet").assertIsDisplayed()
     composeTestRule.onNodeWithTag("close_rune_sheet_button").performClick()
@@ -370,6 +400,7 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("coach_compact_topbar").assertIsDisplayed()
     composeTestRule.onNodeWithTag("coach_advice_spotlight").assertIsDisplayed()
     composeTestRule.onNodeWithTag("coach_playbook_list").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("coach_speak_button_playbook_0").assertIsDisplayed()
 
     // Change lane via compact dropdown pill
     composeTestRule.onNodeWithTag("coach_select_lane_button").performClick()
@@ -382,12 +413,23 @@ class ExampleRobolectricTest {
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("coach_advice_spotlight").assertIsDisplayed()
 
-    // Switch to Gemini AI Coach tab
+    // Switch to Gemini AI Coach tab and verify curated quick prompts
     composeTestRule.onNodeWithTag("coach_gemini_tab").performClick()
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("coach_chat_list").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("coach_quick_prompt_0").assertIsDisplayed()
     composeTestRule.onNodeWithTag("coach_question_input").assertIsDisplayed()
     composeTestRule.onNodeWithTag("coach_send_button").assertIsDisplayed()
+
+    // Switch to Live Coach tab and verify on-demand manual capture controls & voice toggle
+    composeTestRule.onNodeWithTag("coach_live_tab").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("coach_live_list").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("coach_live_capture_button").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("coach_live_pick_button").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("coach_live_autospeak_toggle").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("coach_live_empty_card").assertIsDisplayed()
   }
 
   @Test
@@ -458,6 +500,118 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("quick_scan_start_capture_button").assertIsDisplayed()
     composeTestRule.onNodeWithTag("quick_scan_pick_image_button").assertIsDisplayed()
     composeTestRule.onNodeWithTag("quick_scan_close_button").performClick()
+    composeTestRule.waitForIdle()
+  }
+
+  @Test
+  fun `coach speech sanitizer strips markdown and cleans bullets`() {
+    val raw =
+      """
+      ### แผนต้นเกม **Ahri**
+      - เก็บสกิล 1 เคลียร์เวฟ
+      • ระวัง *Zed* เลเวล 5 `Shadow`
+      """.trimIndent()
+    val cleaned = CoachSpeechController.sanitizeForSpeech(raw)
+    assertTrue(!cleaned.contains("**"))
+    assertTrue(!cleaned.contains("###"))
+    assertTrue(!cleaned.contains("`"))
+    assertTrue(cleaned.contains("Ahri"))
+    assertTrue(cleaned.contains("Zed"))
+  }
+
+  @Test
+  fun `coach quick prompts adapt to champion lane and enemy context`() = runBlocking {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
+    try {
+      val prefs = PreferencesRepository(context)
+      val repo = GameDataRepository(context, db.gameDao(), prefs)
+      repo.ensureSeeded()
+      val champs = repo.champions.first()
+      val ahri = champs.first { it.id == "ahri" }
+      val zed = champs.first { it.id == "zed" }
+
+      val thPrompts = CoachViewModel.buildQuickPrompts(ahri, Lane.MID, listOf(zed), AppLanguage.TH)
+      assertEquals(5, thPrompts.size)
+      assertTrue(thPrompts.any { it.shortLabel.contains("Zed", ignoreCase = true) })
+      assertTrue(thPrompts.all { it.fullQuestion.contains("Ahri", ignoreCase = true) })
+
+      val enPrompts = CoachViewModel.buildQuickPrompts(ahri, Lane.MID, listOf(zed), AppLanguage.EN)
+      assertEquals(5, enPrompts.size)
+      assertTrue(enPrompts.any { it.shortLabel.contains("Zed", ignoreCase = true) })
+    } finally {
+      db.close()
+    }
+  }
+
+  @Test
+  fun `live coach vision service parses champ select and loading JSON cleanly`() = runBlocking {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
+    try {
+      val prefs = PreferencesRepository(context)
+      val repo = GameDataRepository(context, db.gameDao(), prefs)
+      repo.ensureSeeded()
+      val catalog = repo.champions.first()
+      val service = LiveCoachVisionService(context)
+
+      val draftJson =
+        """
+        {
+          "screenPhase": "CHAMP_SELECT",
+          "myChampionName": "",
+          "detectedLane": "MID",
+          "allies": ["Lee Sin", "Picking..."],
+          "enemies": ["Zed", "Dr. Mundo", "empty"],
+          "skippedEmptySlots": 2,
+          "headline": "ควรหยิบเมจมีกันเบิร์สและแก้ทางฮีล",
+          "recommendedPicks": [
+            {"championName": "Lissandra", "reason": "ล็อก Zed ในไฟต์และคุมโซนง่าย"},
+            {"championName": "Ahri", "reason": "หนีคอมโบ Zed ด้วยอัลติ"}
+          ],
+          "recommendedItems": ["Plated Steelcaps + Stasis", "Oblivion Orb"],
+          "earlyLanePlan": "คุมเวฟใกล้ป้อมก่อน Lv 5 แล้วเก็บ Stasis",
+          "threatAlert": "ระวัง Zed Lv 5 all-in",
+          "spokenBriefing": "แนะนำ Lissandra หรือ Ahri เพื่อคุม Zed และออก Stasis กับตัดฮีล"
+        }
+        """.trimIndent()
+
+      val draftParsed = service.parseAndResolve(draftJson, catalog, null, Lane.MID)
+      assertEquals(LiveScreenPhase.CHAMP_SELECT, draftParsed.phase)
+      assertEquals(Lane.MID, draftParsed.detectedLane)
+      assertEquals(listOf("lee_sin"), draftParsed.allies.map { it.id })
+      assertEquals(listOf("zed", "dr_mundo"), draftParsed.enemies.map { it.id })
+      assertEquals(2, draftParsed.recommendedPicks.size)
+      assertEquals("ahri", draftParsed.recommendedPicks[1].resolvedChampion?.id)
+      assertEquals(2, draftParsed.recommendedItems.size)
+      assertTrue(draftParsed.skippedUnpickedCount >= 2)
+    } finally {
+      db.close()
+    }
+  }
+
+  @Test
+  fun `cuj tapping champion portrait in 1v5 analyzer opens profile while swap opens picker`() {
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("home_launch_analyzer_button").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+
+    // Swap button still opens picker
+    composeTestRule.onNodeWithTag("select_my_champion_card").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("close_picker_button").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+
+    // Apply preset enemies, then tap enemy slot portrait to open Champion Profile
+    composeTestRule.onNodeWithTag("analyzer_lazy_column").performScrollToIndex(1)
+    composeTestRule.onNodeWithTag("preset_heal_burst").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("analyzer_lazy_column").performScrollToIndex(1)
+    composeTestRule.onNodeWithTag("enemy_slot_profile_0").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("champion_detail_lazy_column").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("detail_back_button").performClick()
     composeTestRule.waitForIdle()
   }
 }

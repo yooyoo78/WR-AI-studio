@@ -3,6 +3,7 @@ package com.example.core
 import android.content.Context
 import com.example.capture.QuickScanCoordinator
 import com.example.data.ai.GeminiCoachService
+import com.example.data.ai.LiveCoachVisionService
 import com.example.data.ai.ScreenChampionScanner
 import com.example.data.local.AppDatabase
 import com.example.data.local.PreferencesRepository
@@ -34,7 +35,7 @@ data class ActiveDraftContext(
 )
 
 class AppContainer(context: Context) {
-  private val appContext = context.applicationContext
+  val appContext: Context = context.applicationContext
   private val database: AppDatabase by lazy { AppDatabase.getInstance(appContext) }
 
   val preferencesRepository: PreferencesRepository by lazy { PreferencesRepository(appContext) }
@@ -55,6 +56,9 @@ class AppContainer(context: Context) {
   val championScanMatcher: ChampionScanMatcher by lazy { ChampionScanMatcher() }
   val screenChampionScanner: ScreenChampionScanner by lazy {
     ScreenChampionScanner(appContext, championScanMatcher)
+  }
+  val liveCoachVisionService: LiveCoachVisionService by lazy {
+    LiveCoachVisionService(appContext, championScanMatcher)
   }
   val quickScanCoordinator: QuickScanCoordinator by lazy {
     QuickScanCoordinator(

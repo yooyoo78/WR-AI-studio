@@ -1,6 +1,6 @@
 <resources>
-    <string name="app_name">Rift Companion</string>
-    <string name="quick_scan_tile_label">Rift Scan</string>
-    <string name="quick_capture_channel_name">Quick Champion Scan</string>
-    <string name="quick_capture_channel_desc">Controls for quick screenshot capture and automatic champion detection</string>
+    <string name="app_name">WR-AI</string>
+    <string name="quick_scan_tile_label">WR-AI Scan</string>
+    <string name="quick_capture_channel_name">WR-AI Quick Scan</string>
+    <string name="quick_capture_channel_desc">Controls for quick screenshot capture and Live AI Coach screen analysis</string>
 </resources>

@@ -49,6 +49,8 @@ class MainActivity : ComponentActivity() {
       if (imageUri != null) {
         appContainer.quickScanCoordinator.scanUriAsync(imageUri, openSheet = true)
       }
+    } else if (intent.getBooleanExtra(EXTRA_OPEN_LIVE_COACH, false)) {
+      appContainer.quickScanCoordinator.requestOpenLiveCoach()
     } else if (intent.getBooleanExtra(EXTRA_OPEN_QUICK_SCAN, false)) {
       appContainer.quickScanCoordinator.openSheet()
     }
@@ -56,5 +58,6 @@ class MainActivity : ComponentActivity() {
 
   companion object {
     const val EXTRA_OPEN_QUICK_SCAN = "extra_open_quick_scan"
+    const val EXTRA_OPEN_LIVE_COACH = "extra_open_live_coach"
   }
 }

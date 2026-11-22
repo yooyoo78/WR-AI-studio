@@ -34,6 +34,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -125,10 +126,12 @@ fun RiftCompanionApp(appContainer: AppContainer) {
     viewModel(
       factory =
         CoachViewModel.Factory(
+          appContainer.appContext,
           appContainer.gameDataRepository,
           appContainer.preferencesRepository,
           appContainer.offlineCoachEngine,
           appContainer.geminiCoachService,
+          appContainer.liveCoachVisionService,
           appContainer,
         )
     )
@@ -143,7 +146,11 @@ fun RiftCompanionApp(appContainer: AppContainer) {
   val coachState by coachVm.uiState.collectAsStateWithLifecycle()
   val geminiState by coachVm.geminiState.collectAsStateWithLifecycle()
   val coachMessages by coachVm.messages.collectAsStateWithLifecycle()
+  val coachSpeechState by coachVm.speechState.collectAsStateWithLifecycle()
+  val coachLiveState by coachVm.liveState.collectAsStateWithLifecycle()
   val quickScanState by appContainer.quickScanCoordinator.uiState.collectAsStateWithLifecycle()
+  val openLiveCoachRequested by
+    appContainer.quickScanCoordinator.openLiveCoachRequested.collectAsStateWithLifecycle()
 
   BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
     val useNavRail = maxWidth >= 680.dp
@@ -187,6 +194,12 @@ fun RiftCompanionApp(appContainer: AppContainer) {
           popUpTo(NavRoutes.HOME) { saveState = true }
           launchSingleTop = true
           restoreState = true
+        }
+      }
+
+      LaunchedEffect(openLiveCoachRequested) {
+        if (openLiveCoachRequested) {
+          navigateTopLevel(NavRoutes.COACH)
         }
       }
 
@@ -357,6 +370,9 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                     analyzerVm.syncSharedContext()
                     navigateTopLevel(NavRoutes.COACH)
                   },
+                  onOpenChampionDetail = { champId ->
+                    navController.navigate(NavRoutes.championDetail(champId))
+                  },
                 )
               }
 
@@ -396,6 +412,9 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                       navController.popBackStack()
                       navigateTopLevel(NavRoutes.ANALYZER)
                     },
+                    onOpenChampionDetail = { id ->
+                      navController.navigate(NavRoutes.championDetail(id))
+                    },
                     onBack = { navController.popBackStack() },
                   )
                 }
@@ -409,6 +428,9 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                   onSelectLane = draftVm::setIntendedLane,
                   onSelectRole = draftVm::setPreferredRole,
                   onClearDraft = draftVm::clearDraft,
+                  onOpenChampionDetail = { champId ->
+                    navController.navigate(NavRoutes.championDetail(champId))
+                  },
                 )
               }
 
@@ -417,11 +439,34 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                   state = coachState,
                   geminiState = geminiState,
                   messages = coachMessages,
+                  speechState = coachSpeechState,
+                  liveState = coachLiveState,
+                  isQuickCaptureActive = quickScanState.isQuickCaptureActive,
+                  openLiveTabRequest = openLiveCoachRequested,
+                  onConsumeOpenLiveTabRequest = {
+                    appContainer.quickScanCoordinator.consumeOpenLiveCoachRequest()
+                  },
                   onSelectChampion = coachVm::selectChampion,
                   onSelectLane = coachVm::selectLane,
                   onAskGemini = coachVm::askGeminiCoach,
                   onRetryGemini = coachVm::retryLastQuestion,
                   onClearChat = coachVm::clearChat,
+                  onToggleSpeak = coachVm::toggleSpeak,
+                  onClearSpeechError = coachVm::clearSpeechError,
+                  onLiveModeVisible = coachVm::setLiveModeActive,
+                  onStartLiveCountdown = { fire ->
+                    coachVm.startLiveCaptureCountdown(onFireCapture = fire)
+                  },
+                  onCancelLiveCountdown = coachVm::cancelLiveCountdown,
+                  onPickLiveUri = coachVm::analyzeLiveUri,
+                  onToggleAutoSpeakLive = coachVm::toggleAutoSpeakLive,
+                  onSpeakLiveBriefing = coachVm::speakLiveBriefing,
+                  onLivePermissionDeclined = coachVm::reportLiveError,
+                  onOpenAnalyzer = { navigateTopLevel(NavRoutes.ANALYZER) },
+                  onOpenDraft = { navigateTopLevel(NavRoutes.DRAFT) },
+                  onOpenChampionDetail = { champId ->
+                    navController.navigate(NavRoutes.championDetail(champId))
+                  },
                 )
               }
 

@@ -93,20 +93,20 @@ fun HextechCard(
   val highContrast = LocalUserPrefs.current.highContrastCards
   val isMiniMode = LocalInGameMiniMode.current
   val borderColor =
-    accentColor?.copy(alpha = if (highContrast) 0.85f else 0.45f)
-      ?: MaterialTheme.colorScheme.outline
+    accentColor?.copy(alpha = if (highContrast) 0.85f else 0.28f)
+      ?: MaterialTheme.colorScheme.outline.copy(alpha = if (highContrast) 0.95f else 0.55f)
 
   Surface(
     modifier =
       modifier.then(
-        if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
+        if (onClick != null) Modifier.clip(MaterialTheme.shapes.medium).clickable(onClick = onClick) else Modifier
       ),
     shape = MaterialTheme.shapes.medium,
     color = MaterialTheme.colorScheme.surfaceContainer,
-    tonalElevation = 2.dp,
-    border = BorderStroke(if (highContrast) 1.5.dp else 1.dp, borderColor),
+    tonalElevation = 1.dp,
+    border = BorderStroke(if (highContrast) 1.4.dp else 0.75.dp, borderColor),
   ) {
-    Column(modifier = Modifier.padding(if (isMiniMode) 8.dp else 12.dp), content = content)
+    Column(modifier = Modifier.padding(if (isMiniMode) 8.dp else 11.dp), content = content)
   }
 }
 
@@ -115,6 +115,7 @@ fun ChampionCrestAvatar(
   champion: ChampionData,
   size: Dp = 40.dp,
   modifier: Modifier = Modifier,
+  onClick: (() -> Unit)? = null,
 ) {
   val lang = LocalUserPrefs.current.language
   val isMiniMode = LocalInGameMiniMode.current
@@ -143,10 +144,12 @@ fun ChampionCrestAvatar(
   Box(
     modifier =
       modifier
+        .then(if (onClick != null) Modifier.minimumInteractiveComponentSize() else Modifier)
         .size(effectiveSize)
         .clip(CircleShape)
         .background(Brush.linearGradient(listOf(HextechSurfaceHigh, HextechSurface)))
-        .border(2.dp, Brush.linearGradient(ringColors), CircleShape),
+        .border(1.75.dp, Brush.linearGradient(ringColors), CircleShape)
+        .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
     contentAlignment = Alignment.Center,
   ) {
     val fallbackContent: @Composable () -> Unit = {
@@ -361,6 +364,7 @@ fun AbilityIconBadge(
   contentDescription: String,
   modifier: Modifier = Modifier,
   size: Dp = 40.dp,
+  onClick: (() -> Unit)? = null,
 ) {
   val isMiniMode = LocalInGameMiniMode.current
   val effectiveSize = if (isMiniMode) (size * 0.85f).coerceAtLeast(32.dp) else size
@@ -371,13 +375,20 @@ fun AbilityIconBadge(
       else -> SkillViolet
     }
 
-  Box(modifier = modifier.size(effectiveSize)) {
+  Box(
+    modifier =
+      modifier
+        .then(if (onClick != null) Modifier.minimumInteractiveComponentSize() else Modifier)
+        .size(effectiveSize)
+        .clip(RoundedCornerShape(10.dp))
+        .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+  ) {
     Box(
       modifier =
         Modifier.fillMaxSize()
           .clip(RoundedCornerShape(10.dp))
           .background(Brush.linearGradient(listOf(HextechSurfaceHigh, HextechSurface)))
-          .border(1.5.dp, slotColor.copy(alpha = 0.75f), RoundedCornerShape(10.dp)),
+          .border(1.25.dp, slotColor.copy(alpha = 0.72f), RoundedCornerShape(10.dp)),
       contentAlignment = Alignment.Center,
     ) {
       val fallback: @Composable () -> Unit = {

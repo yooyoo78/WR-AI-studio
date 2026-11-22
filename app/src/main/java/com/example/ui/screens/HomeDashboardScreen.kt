@@ -1,11 +1,12 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,10 +20,13 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
@@ -38,6 +42,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,7 +69,6 @@ import com.example.ui.theme.AdvantageEmerald
 import com.example.ui.theme.ArcaneCyan
 import com.example.ui.theme.HextechGold
 import com.example.ui.theme.HextechGoldBright
-import com.example.ui.theme.HextechSurface
 import com.example.ui.theme.HextechSurfaceHigh
 import com.example.ui.theme.LocalInGameMiniMode
 import com.example.ui.theme.LocalUiStrings
@@ -69,7 +76,6 @@ import com.example.ui.theme.ThreatCrimson
 import com.example.ui.theme.WarningAmber
 import com.example.ui.viewmodel.HomeUiState
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HomeDashboardScreen(
   state: HomeUiState,
@@ -85,6 +91,7 @@ fun HomeDashboardScreen(
   val strings = LocalUiStrings.current
   val isMiniMode = LocalInGameMiniMode.current
   val lang = state.preferences.language
+  var patchExpanded by remember { mutableStateOf(false) }
 
   Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
@@ -161,34 +168,43 @@ fun HomeDashboardScreen(
           Surface(
             shape = MaterialTheme.shapes.large,
             color = Color.Transparent,
+            border = BorderStroke(0.75.dp, HextechGold.copy(alpha = 0.25f)),
             modifier =
               Modifier.fillMaxWidth()
                 .clip(MaterialTheme.shapes.large)
                 .background(
                   Brush.linearGradient(
-                    listOf(Color(0xFF14213D), HextechSurfaceHigh, Color(0xFF1E293B))
+                    listOf(Color(0xFF101B30), HextechSurfaceHigh, Color(0xFF142138))
                   )
                 ),
           ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-              PatchBadgePill(
-                patchVersion = state.activePatch?.version ?: state.preferences.activePatchLabel,
-                sourceLabel =
-                  state.activePatch?.releaseDate ?: "Curated Meta",
-              )
-              Spacer(modifier = Modifier.height(8.dp))
-              Text(
-                text = strings.appTitle,
-                style = MaterialTheme.typography.headlineMedium,
-                color = HextechGoldBright,
-              )
-              Spacer(modifier = Modifier.height(3.dp))
-              Text(
-                text = strings.heroTagline,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-              )
-              Spacer(modifier = Modifier.height(10.dp))
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+              ) {
+                Column(modifier = Modifier.weight(1f)) {
+                  Text(
+                    text = strings.appTitle,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = HextechGoldBright,
+                    fontWeight = FontWeight.Bold,
+                  )
+                  Text(
+                    text = strings.heroTagline,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                  )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                PatchBadgePill(
+                  patchVersion = state.activePatch?.version ?: state.preferences.activePatchLabel,
+                  sourceLabel = state.activePatch?.releaseDate ?: "Meta",
+                )
+              }
 
               Button(
                 onClick = { onOpenAnalyzer(null) },
@@ -202,40 +218,43 @@ fun HomeDashboardScreen(
                     contentColor = Color(0xFF0A0F1A),
                   ),
               ) {
-                Icon(Icons.Default.Security, contentDescription = null)
+                Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                   text = strings.quickAnalyzeCta,
                   style = MaterialTheme.typography.labelLarge,
                   fontWeight = FontWeight.Bold,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(modifier = Modifier.width(6.dp))
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
               }
-
-              Spacer(modifier = Modifier.height(10.dp))
 
               Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
               ) {
                 OutlinedButton(
                   onClick = onOpenDraft,
+                  contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
                   modifier =
                     Modifier.weight(1f)
                       .minimumInteractiveComponentSize()
                       .testTag("home_open_draft_button"),
                 ) {
-                  Icon(Icons.Default.Groups, contentDescription = null, modifier = Modifier.size(18.dp))
-                  Spacer(modifier = Modifier.width(6.dp))
+                  Icon(Icons.Default.Groups, contentDescription = null, modifier = Modifier.size(16.dp))
+                  Spacer(modifier = Modifier.width(4.dp))
                   Text(
                     text = strings.openDraftCta,
+                    style = MaterialTheme.typography.labelMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                   )
                 }
                 OutlinedButton(
                   onClick = onOpenCoach,
+                  contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
                   modifier =
                     Modifier.weight(1f)
                       .minimumInteractiveComponentSize()
@@ -245,52 +264,51 @@ fun HomeDashboardScreen(
                     Icons.Default.AutoAwesome,
                     contentDescription = null,
                     tint = ArcaneCyan,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(16.dp),
                   )
-                  Spacer(modifier = Modifier.width(6.dp))
+                  Spacer(modifier = Modifier.width(4.dp))
                   Text(
                     text = strings.openCoachCta,
+                    style = MaterialTheme.typography.labelMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                   )
                 }
-              }
-
-              Spacer(modifier = Modifier.height(8.dp))
-
-              OutlinedButton(
-                onClick = onOpenQuickScan,
-                modifier =
-                  Modifier.fillMaxWidth()
-                    .minimumInteractiveComponentSize()
-                    .testTag("home_quick_scan_button"),
-              ) {
-                Icon(
-                  Icons.Default.CameraAlt,
-                  contentDescription = null,
-                  tint = AdvantageEmerald,
-                  modifier = Modifier.size(18.dp),
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                  text = strings.quickScanCta,
-                  color = AdvantageEmerald,
-                  fontWeight = FontWeight.SemiBold,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis,
-                )
+                OutlinedButton(
+                  onClick = onOpenQuickScan,
+                  contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                  modifier =
+                    Modifier.weight(1f)
+                      .minimumInteractiveComponentSize()
+                      .testTag("home_quick_scan_button"),
+                ) {
+                  Icon(
+                    Icons.Default.CameraAlt,
+                    contentDescription = null,
+                    tint = AdvantageEmerald,
+                    modifier = Modifier.size(16.dp),
+                  )
+                  Spacer(modifier = Modifier.width(4.dp))
+                  Text(
+                    text = if (lang == AppLanguage.TH) "สแกนจอ" else "Scan",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = AdvantageEmerald,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                  )
+                }
               }
             }
           }
         }
       }
 
-      // Quick Utility Shortcuts (hidden in Mini-Window Mode since TopBar already has shortcuts)
+      // Quick Utility Shortcuts (hidden in Mini-Window Mode)
       if (!isMiniMode) {
         item {
           Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
           ) {
             HextechCard(
               modifier = Modifier.weight(1f).testTag("home_patch_card"),
@@ -298,8 +316,8 @@ fun HomeDashboardScreen(
               onClick = onOpenPatchCenter,
             ) {
               Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Update, contentDescription = null, tint = ArcaneCyan)
-                Spacer(modifier = Modifier.width(8.dp))
+                Icon(Icons.Default.Update, contentDescription = null, tint = ArcaneCyan, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
                   text = strings.patchCenterTitle,
                   style = MaterialTheme.typography.titleSmall,
@@ -307,7 +325,7 @@ fun HomeDashboardScreen(
                   overflow = TextOverflow.Ellipsis,
                 )
               }
-              Spacer(modifier = Modifier.height(6.dp))
+              Spacer(modifier = Modifier.height(4.dp))
               Text(
                 text = "${state.totalChampions} Champs • ${state.totalItems} Items",
                 style = MaterialTheme.typography.bodySmall,
@@ -320,8 +338,8 @@ fun HomeDashboardScreen(
               onClick = onOpenSettings,
             ) {
               Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Settings, contentDescription = null, tint = HextechGold)
-                Spacer(modifier = Modifier.width(8.dp))
+                Icon(Icons.Default.Settings, contentDescription = null, tint = HextechGold, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
                   text = strings.settingsTitle,
                   style = MaterialTheme.typography.titleSmall,
@@ -329,7 +347,7 @@ fun HomeDashboardScreen(
                   overflow = TextOverflow.Ellipsis,
                 )
               }
-              Spacer(modifier = Modifier.height(6.dp))
+              Spacer(modifier = Modifier.height(4.dp))
               Text(
                 text =
                   "${state.preferences.language.displayLabel} • ${(state.preferences.fontScaleMultiplier * 100).toInt()}%",
@@ -341,14 +359,14 @@ fun HomeDashboardScreen(
         }
       }
 
-      // Favorites Quick Launch Strip
+      // Favorites Quick Launch Strip (tapping portrait/card opens Champion Profile)
       item {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
           Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
           ) {
-            Icon(Icons.Default.Star, contentDescription = null, tint = HextechGold)
+            Icon(Icons.Default.Star, contentDescription = null, tint = HextechGold, modifier = Modifier.size(18.dp))
             Text(text = strings.favoritesTitle, style = MaterialTheme.typography.titleMedium)
           }
 
@@ -361,17 +379,19 @@ fun HomeDashboardScreen(
               )
             }
           } else {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
               items(state.favoriteChampions, key = { it.id }) { fav ->
                 HextechCard(
-                  modifier = Modifier.width(160.dp).testTag("home_fav_${fav.id}"),
+                  modifier = Modifier.width(172.dp).testTag("home_fav_${fav.id}"),
                   accentColor = HextechGold,
-                  onClick = { onOpenAnalyzer(fav.id) },
+                  onClick = { onOpenChampionDetail(fav.id) },
                 ) {
-                  Row(verticalAlignment = Alignment.CenterVertically) {
-                    ChampionCrestAvatar(champion = fav, size = 38.dp)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
+                  Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                  ) {
+                    ChampionCrestAvatar(champion = fav, size = 36.dp)
+                    Column(modifier = Modifier.weight(1f)) {
                       Text(
                         text = fav.displayName(lang),
                         style = MaterialTheme.typography.titleSmall,
@@ -379,6 +399,24 @@ fun HomeDashboardScreen(
                         overflow = TextOverflow.Ellipsis,
                       )
                       TierBadge(fav.tierRank)
+                    }
+                    Surface(
+                      shape = RoundedCornerShape(8.dp),
+                      color = HextechGold.copy(alpha = 0.14f),
+                      border = BorderStroke(0.75.dp, HextechGold.copy(alpha = 0.45f)),
+                      modifier =
+                        Modifier.minimumInteractiveComponentSize()
+                          .clip(RoundedCornerShape(8.dp))
+                          .clickable { onOpenAnalyzer(fav.id) }
+                          .testTag("home_fav_analyze_${fav.id}"),
+                    ) {
+                      Text(
+                        text = "1v5",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = HextechGoldBright,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
+                      )
                     }
                   }
                 }
@@ -388,10 +426,14 @@ fun HomeDashboardScreen(
         }
       }
 
-      // Active Patch Highlights
+      // Active Patch Highlights (collapsible for compact breathing room)
       state.activePatch?.let { patch ->
         item {
-          HextechCard(accentColor = ArcaneCyan) {
+          HextechCard(
+            accentColor = ArcaneCyan,
+            onClick = { patchExpanded = !patchExpanded },
+            modifier = Modifier.testTag("home_patch_highlights_card"),
+          ) {
             Row(
               modifier = Modifier.fillMaxWidth(),
               horizontalArrangement = Arrangement.SpaceBetween,
@@ -399,75 +441,69 @@ fun HomeDashboardScreen(
             ) {
               Text(
                 text = if (lang == AppLanguage.TH) patch.headlineTh else patch.headlineEn,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
               )
-              Text(
-                text = patch.version,
-                style = MaterialTheme.typography.labelLarge,
-                color = ArcaneCyan,
-              )
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+              ) {
+                Text(
+                  text = patch.version,
+                  style = MaterialTheme.typography.labelMedium,
+                  color = ArcaneCyan,
+                  fontWeight = FontWeight.Bold,
+                )
+                Icon(
+                  imageVector = if (patchExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                  contentDescription = if (patchExpanded) "Collapse patch" else "Expand patch",
+                  tint = ArcaneCyan,
+                  modifier = Modifier.size(18.dp),
+                )
+              }
             }
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
               text = if (lang == AppLanguage.TH) patch.summaryTh else patch.summaryEn,
               style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
+              maxLines = if (patchExpanded) 4 else 2,
+              overflow = TextOverflow.Ellipsis,
             )
-            Spacer(modifier = Modifier.height(10.dp))
-            patch.changes.take(4).forEach { change ->
-              val badgeColor =
-                when (change.changeType) {
-                  PatchChangeType.NEW -> HextechGold
-                  PatchChangeType.BUFF -> AdvantageEmerald
-                  PatchChangeType.NERF -> ThreatCrimson
-                  PatchChangeType.ADJUST -> WarningAmber
+            Spacer(modifier = Modifier.height(6.dp))
+            patch.changes.take(2).forEach { change ->
+              PatchChangeMiniRow(targetName = change.targetName, change = change, lang = lang)
+            }
+            AnimatedVisibility(visible = patchExpanded && patch.changes.size > 2) {
+              Column {
+                patch.changes.drop(2).take(4).forEach { change ->
+                  PatchChangeMiniRow(targetName = change.targetName, change = change, lang = lang)
                 }
-              Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
-                verticalAlignment = Alignment.Top,
-              ) {
-                Surface(
-                  color = badgeColor.copy(alpha = 0.2f),
-                  shape = MaterialTheme.shapes.small,
-                ) {
-                  Text(
-                    text = if (lang == AppLanguage.TH) change.changeType.labelTh else change.changeType.labelEn,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = badgeColor,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                  )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                  text =
-                    "${change.targetName}: ${if (lang == AppLanguage.TH) change.detailTh else change.detailEn}",
-                  style = MaterialTheme.typography.bodySmall,
-                  modifier = Modifier.weight(1f),
-                )
               }
             }
           }
         }
       }
 
-      // Meta Tier Snapshot by Lane
+      // Meta Tier Snapshot by Lane (clean single-line horizontal chip rail)
       item {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
           Text(
             text = strings.metaHighlightsTitle,
             style = MaterialTheme.typography.titleMedium,
           )
-          FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-          ) {
-            FilterChip(
-              selected = state.selectedTierLane == null,
-              onClick = { onSelectTierLane(null) },
-              label = { Text(if (lang == AppLanguage.TH) "ทุกเลน" else "All") },
-            )
-            Lane.entries.forEach { lane ->
+          LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+              FilterChip(
+                selected = state.selectedTierLane == null,
+                onClick = { onSelectTierLane(null) },
+                label = { Text(if (lang == AppLanguage.TH) "ทุกเลน" else "All") },
+              )
+            }
+            items(Lane.entries, key = { it.name }) { lane ->
               FilterChip(
                 selected = state.selectedTierLane == lane,
                 onClick = {
@@ -489,6 +525,45 @@ fun HomeDashboardScreen(
         )
       }
     }
+  }
+}
+
+@Composable
+private fun PatchChangeMiniRow(
+  targetName: String,
+  change: com.example.data.model.PatchChangeEntry,
+  lang: AppLanguage,
+) {
+  val badgeColor =
+    when (change.changeType) {
+      PatchChangeType.NEW -> HextechGold
+      PatchChangeType.BUFF -> AdvantageEmerald
+      PatchChangeType.NERF -> ThreatCrimson
+      PatchChangeType.ADJUST -> WarningAmber
+    }
+  Row(
+    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+    verticalAlignment = Alignment.Top,
+  ) {
+    Surface(
+      color = badgeColor.copy(alpha = 0.16f),
+      shape = MaterialTheme.shapes.small,
+    ) {
+      Text(
+        text = if (lang == AppLanguage.TH) change.changeType.labelTh else change.changeType.labelEn,
+        style = MaterialTheme.typography.labelSmall,
+        color = badgeColor,
+        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+      )
+    }
+    Spacer(modifier = Modifier.width(8.dp))
+    Text(
+      text = "$targetName: ${if (lang == AppLanguage.TH) change.detailTh else change.detailEn}",
+      style = MaterialTheme.typography.bodySmall,
+      maxLines = 2,
+      overflow = TextOverflow.Ellipsis,
+      modifier = Modifier.weight(1f),
+    )
   }
 }
 
@@ -517,10 +592,12 @@ private fun MetaChampionRowCard(
           Text(
             text = champion.displayName(language),
             style = MaterialTheme.typography.titleMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
           )
           TierBadge(champion.tierRank)
         }
-        Spacer(modifier = Modifier.height(3.dp))
+        Spacer(modifier = Modifier.height(2.dp))
         Row(
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -546,8 +623,9 @@ private fun MetaChampionRowCard(
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
       ) {
         Text(
-          text = if (language == AppLanguage.TH) "วิเคราะห์" else "1v5",
+          text = if (language == AppLanguage.TH) "1v5" else "1v5",
           style = MaterialTheme.typography.labelMedium,
+          fontWeight = FontWeight.Bold,
         )
       }
     }

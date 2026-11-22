@@ -79,6 +79,7 @@ fun CustomBuildsTab(
   onInspectItem: (ItemData) -> Unit,
   onInspectRune: (RuneData) -> Unit,
   onInspectSpell: (SpellData) -> Unit,
+  onOpenChampionDetail: (String) -> Unit = {},
 ) {
   val isMiniMode = LocalInGameMiniMode.current
   var query by remember { mutableStateOf("") }
@@ -193,6 +194,7 @@ fun CustomBuildsTab(
           onInspectItem = onInspectItem,
           onInspectRune = onInspectRune,
           onInspectSpell = onInspectSpell,
+          onOpenChampionDetail = onOpenChampionDetail,
         )
       }
     }
@@ -214,6 +216,7 @@ fun CustomBuildCard(
   onInspectItem: (ItemData) -> Unit,
   onInspectRune: (RuneData) -> Unit,
   onInspectSpell: (SpellData) -> Unit,
+  onOpenChampionDetail: (String) -> Unit = {},
 ) {
   val starter = itemsById[build.starterItemId]
   val cores = build.coreItemIds.mapNotNull { itemsById[it] }
@@ -238,7 +241,11 @@ fun CustomBuildCard(
       verticalAlignment = Alignment.CenterVertically,
     ) {
       if (champion != null) {
-        ChampionCrestAvatar(champion = champion, size = 40.dp)
+        ChampionCrestAvatar(
+          champion = champion,
+          size = 40.dp,
+          onClick = { onOpenChampionDetail(champion.id) },
+        )
         Spacer(modifier = Modifier.width(10.dp))
       }
       Column(modifier = Modifier.weight(1f)) {

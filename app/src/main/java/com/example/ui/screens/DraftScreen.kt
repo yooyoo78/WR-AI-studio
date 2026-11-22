@@ -1,12 +1,11 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,7 +17,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -62,7 +63,6 @@ import com.example.ui.theme.ThreatCrimson
 import com.example.ui.theme.WarningAmber
 import com.example.ui.viewmodel.DraftUiState
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DraftScreen(
   state: DraftUiState,
@@ -71,6 +71,7 @@ fun DraftScreen(
   onSelectLane: (Lane) -> Unit,
   onSelectRole: (ChampionRole?) -> Unit,
   onClearDraft: () -> Unit,
+  onOpenChampionDetail: (String) -> Unit = {},
 ) {
   val strings = LocalUiStrings.current
   val isMiniMode = LocalInGameMiniMode.current
@@ -94,55 +95,76 @@ fun DraftScreen(
             verticalAlignment = Alignment.CenterVertically,
           ) {
             Text(text = strings.draftAlliesTitle, style = MaterialTheme.typography.titleMedium, color = ArcaneCyan)
-            if (state.allies.isNotEmpty() || state.enemies.isNotEmpty()) {
-              TextButton(onClick = onClearDraft, modifier = Modifier.testTag("draft_clear_button")) {
-                Text(strings.clearAll, color = ThreatCrimson)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              TextButton(
+                onClick = { pickingAllies = true },
+                modifier = Modifier.testTag("draft_pick_allies_button"),
+              ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp), tint = ArcaneCyan)
+                Spacer(modifier = Modifier.width(2.dp))
+                Text(if (lang == AppLanguage.TH) "เลือก" else "Pick", color = ArcaneCyan)
+              }
+              if (state.allies.isNotEmpty() || state.enemies.isNotEmpty()) {
+                TextButton(onClick = onClearDraft, modifier = Modifier.testTag("draft_clear_button")) {
+                  Text(strings.clearAll, color = ThreatCrimson)
+                }
               }
             }
           }
-          Spacer(modifier = Modifier.height(6.dp))
+          Spacer(modifier = Modifier.height(4.dp))
           DraftFiveSlotRow(
             champions = state.allies,
             accent = ArcaneCyan,
             tagPrefix = "draft_ally",
-            onSlotClick = { champ ->
-              if (champ != null) onToggleAlly(champ.id) else pickingAllies = true
-            },
+            onOpenPicker = { pickingAllies = true },
+            onOpenProfile = onOpenChampionDetail,
+            onRemove = onToggleAlly,
           )
 
-          Spacer(modifier = Modifier.height(14.dp))
-          Text(
-            text = strings.draftEnemiesTitle,
-            style = MaterialTheme.typography.titleMedium,
-            color = ThreatCrimson,
-          )
-          Spacer(modifier = Modifier.height(6.dp))
+          Spacer(modifier = Modifier.height(10.dp))
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            Text(
+              text = strings.draftEnemiesTitle,
+              style = MaterialTheme.typography.titleMedium,
+              color = ThreatCrimson,
+            )
+            TextButton(
+              onClick = { pickingEnemies = true },
+              modifier = Modifier.testTag("draft_pick_enemies_button"),
+            ) {
+              Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp), tint = ThreatCrimson)
+              Spacer(modifier = Modifier.width(2.dp))
+              Text(if (lang == AppLanguage.TH) "เลือก" else "Pick", color = ThreatCrimson)
+            }
+          }
+          Spacer(modifier = Modifier.height(4.dp))
           DraftFiveSlotRow(
             champions = state.enemies,
             accent = ThreatCrimson,
             tagPrefix = "draft_enemy",
-            onSlotClick = { champ ->
-              if (champ != null) onToggleEnemy(champ.id) else pickingEnemies = true
-            },
+            onOpenPicker = { pickingEnemies = true },
+            onOpenProfile = onOpenChampionDetail,
+            onRemove = onToggleEnemy,
           )
         }
       }
 
-      // Intended Lane & Role Filter for Recommendations
+      // Intended Lane & Role Filter (clean single-line horizontal rails)
       item {
         HextechCard {
           Text(
             text =
-              if (lang == AppLanguage.TH) "ตำแหน่งที่คุณกำลังจะเลือกเล่น (แนะนำตัวแก้ทางและเข้ากับทีม)"
-              else "Your Intended Lane & Role for Pick Suggestions",
+              if (lang == AppLanguage.TH) "ตำแหน่งและบทบาทที่ต้องการเลือก"
+              else "Intended Lane & Role",
             style = MaterialTheme.typography.titleSmall,
           )
           Spacer(modifier = Modifier.height(6.dp))
-          FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-          ) {
-            Lane.entries.forEach { lane ->
+          LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(Lane.entries, key = { it.name }) { lane ->
               FilterChip(
                 selected = state.intendedLane == lane,
                 onClick = { onSelectLane(lane) },
@@ -151,16 +173,15 @@ fun DraftScreen(
             }
           }
           Spacer(modifier = Modifier.height(4.dp))
-          FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-          ) {
-            FilterChip(
-              selected = state.preferredRole == null,
-              onClick = { onSelectRole(null) },
-              label = { Text(if (lang == AppLanguage.TH) "ทุกบทบาท" else "Any Role") },
-            )
-            ChampionRole.entries.forEach { role ->
+          LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+              FilterChip(
+                selected = state.preferredRole == null,
+                onClick = { onSelectRole(null) },
+                label = { Text(if (lang == AppLanguage.TH) "ทุกบทบาท" else "Any Role") },
+              )
+            }
+            items(ChampionRole.entries, key = { it.name }) { role ->
               FilterChip(
                 selected = state.preferredRole == role,
                 onClick = {
@@ -179,10 +200,10 @@ fun DraftScreen(
           item {
             HextechCard(accentColor = WarningAmber) {
               Text(text = strings.draftWarningsTitle, style = MaterialTheme.typography.titleMedium, color = WarningAmber)
-              Spacer(modifier = Modifier.height(8.dp))
+              Spacer(modifier = Modifier.height(6.dp))
               report.warnings.forEach { w ->
                 Row(
-                  modifier = Modifier.padding(vertical = 4.dp),
+                  modifier = Modifier.padding(vertical = 3.dp),
                   verticalAlignment = Alignment.Top,
                 ) {
                   Icon(
@@ -209,45 +230,57 @@ fun DraftScreen(
         item {
           HextechCard(accentColor = HextechGold) {
             Text(text = strings.draftBalanceTitle, style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
               text =
                 "AD ${report.physicalSharePct}%  •  AP ${report.magicSharePct}%  •  Hybrid/True ${report.trueHybridSharePct}%",
               style = MaterialTheme.typography.labelLarge,
               color = HextechGold,
             )
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-              TacticalMeterBar(
-                label = if (lang == AppLanguage.TH) "แนวหน้ารับดาเมจ (Frontline)" else "Frontline",
-                valuePercent = report.frontlineScore,
-                barColor = HextechGold,
-              )
-              TacticalMeterBar(
-                label = if (lang == AppLanguage.TH) "สกิลหยุดศัตรู (Crowd Control)" else "Crowd Control",
-                valuePercent = report.ccScore,
-                barColor = SkillViolet,
-              )
-              TacticalMeterBar(
-                label = if (lang == AppLanguage.TH) "พลังเปิดไฟต์ (Engage)" else "Engage Potential",
-                valuePercent = report.engageScore,
-                barColor = ThreatCrimson,
-              )
-              TacticalMeterBar(
-                label = if (lang == AppLanguage.TH) "พลังกันตัวล้วง (Disengage)" else "Disengage / Peel",
-                valuePercent = report.disengageScore,
-                barColor = ArcaneCyan,
-              )
-              TacticalMeterBar(
-                label = if (lang == AppLanguage.TH) "ศักยภาพทีมไฟต์ 5v5" else "Teamfight Capability",
-                valuePercent = report.teamfightScore,
-                barColor = AdvantageEmerald,
-              )
-              TacticalMeterBar(
-                label = if (lang == AppLanguage.TH) "พลังดันแยกเลนข้าง (Split-Push)" else "Split-Push",
-                valuePercent = report.splitPushScore,
-                barColor = WarningAmber,
-              )
+              Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                TacticalMeterBar(
+                  label = if (lang == AppLanguage.TH) "แนวหน้า (Frontline)" else "Frontline",
+                  valuePercent = report.frontlineScore,
+                  barColor = HextechGold,
+                  modifier = Modifier.weight(1f),
+                )
+                TacticalMeterBar(
+                  label = if (lang == AppLanguage.TH) "หยุดศัตรู (CC)" else "Crowd Control",
+                  valuePercent = report.ccScore,
+                  barColor = SkillViolet,
+                  modifier = Modifier.weight(1f),
+                )
+              }
+              Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                TacticalMeterBar(
+                  label = if (lang == AppLanguage.TH) "เปิดไฟต์ (Engage)" else "Engage",
+                  valuePercent = report.engageScore,
+                  barColor = ThreatCrimson,
+                  modifier = Modifier.weight(1f),
+                )
+                TacticalMeterBar(
+                  label = if (lang == AppLanguage.TH) "กันล้วง (Peel)" else "Disengage",
+                  valuePercent = report.disengageScore,
+                  barColor = ArcaneCyan,
+                  modifier = Modifier.weight(1f),
+                )
+              }
+              Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                TacticalMeterBar(
+                  label = if (lang == AppLanguage.TH) "ทีมไฟต์ 5v5" else "Teamfight",
+                  valuePercent = report.teamfightScore,
+                  barColor = AdvantageEmerald,
+                  modifier = Modifier.weight(1f),
+                )
+                TacticalMeterBar(
+                  label = if (lang == AppLanguage.TH) "ดันแยก (Split)" else "Split-Push",
+                  valuePercent = report.splitPushScore,
+                  barColor = WarningAmber,
+                  modifier = Modifier.weight(1f),
+                )
+              }
             }
           }
         }
@@ -263,7 +296,11 @@ fun DraftScreen(
             onClick = { onToggleAlly(suggestion.champion.id) },
           ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-              ChampionCrestAvatar(champion = suggestion.champion, size = 44.dp)
+              ChampionCrestAvatar(
+                champion = suggestion.champion,
+                size = 42.dp,
+                onClick = { onOpenChampionDetail(suggestion.champion.id) },
+              )
               Spacer(modifier = Modifier.width(10.dp))
               Column(modifier = Modifier.weight(1f)) {
                 Row(
@@ -325,7 +362,9 @@ private fun DraftFiveSlotRow(
   champions: List<ChampionData>,
   accent: Color,
   tagPrefix: String,
-  onSlotClick: (ChampionData?) -> Unit,
+  onOpenPicker: () -> Unit,
+  onOpenProfile: (String) -> Unit,
+  onRemove: (String) -> Unit,
 ) {
   val isMiniMode = LocalInGameMiniMode.current
   Row(
@@ -339,22 +378,31 @@ private fun DraftFiveSlotRow(
           Modifier.weight(1f)
             .height(if (isMiniMode) 58.dp else 68.dp)
             .clip(MaterialTheme.shapes.small)
-            .clickable { onSlotClick(champ) }
+            .then(if (champ == null) Modifier.clickable(onClick = onOpenPicker) else Modifier)
             .testTag("${tagPrefix}_slot_$i"),
         color =
-          if (champ != null) accent.copy(alpha = 0.14f)
+          if (champ != null) accent.copy(alpha = 0.12f)
           else MaterialTheme.colorScheme.surfaceContainerHigh,
         border =
           BorderStroke(
-            1.dp,
-            if (champ != null) accent.copy(alpha = 0.65f) else MaterialTheme.colorScheme.outline,
+            0.75.dp,
+            if (champ != null) accent.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline,
           ),
       ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(4.dp)) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize().padding(3.dp)) {
           if (champ != null) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+              horizontalAlignment = Alignment.CenterHorizontally,
+              verticalArrangement = Arrangement.Center,
+              modifier =
+                Modifier.fillMaxSize()
+                  .clip(MaterialTheme.shapes.small)
+                  .clickable { onOpenProfile(champ.id) }
+                  .padding(top = 4.dp)
+                  .testTag("${tagPrefix}_profile_$i"),
+            ) {
               ChampionCrestAvatar(champion = champ, size = 32.dp)
-              Spacer(modifier = Modifier.height(4.dp))
+              Spacer(modifier = Modifier.height(3.dp))
               Text(
                 text = champ.nameEn,
                 style = MaterialTheme.typography.labelSmall,
@@ -362,12 +410,23 @@ private fun DraftFiveSlotRow(
                 overflow = TextOverflow.Ellipsis,
               )
             }
-            Icon(
-              Icons.Default.Close,
-              contentDescription = "Remove",
-              tint = accent,
-              modifier = Modifier.align(Alignment.TopEnd).size(13.dp),
-            )
+            Box(
+              modifier =
+                Modifier.align(Alignment.TopEnd)
+                  .size(20.dp)
+                  .clip(CircleShape)
+                  .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.78f))
+                  .clickable { onRemove(champ.id) }
+                  .testTag("${tagPrefix}_remove_$i"),
+              contentAlignment = Alignment.Center,
+            ) {
+              Icon(
+                Icons.Default.Close,
+                contentDescription = "Remove",
+                tint = accent,
+                modifier = Modifier.size(12.dp),
+              )
+            }
           } else {
             Icon(
               Icons.Default.Add,

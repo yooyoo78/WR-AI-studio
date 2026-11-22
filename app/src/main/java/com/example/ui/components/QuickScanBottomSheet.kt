@@ -361,9 +361,9 @@ fun QuickScanBottomSheet(
       Text(
         text =
           if (language == AppLanguage.TH) {
-            "เคล็ดลับ: กดแคปหน้าจอมือถือตามปกติแล้วกด 'แชร์ -> Rift Companion' ระบบจะสแกนเข้า 1v5, Draft และ AI Coach ให้อัตโนมัติทันที"
+            "เคล็ดลับ: กดแคปหน้าจอมือถือตามปกติแล้วกด 'แชร์ -> WR-AI' ระบบจะสแกนเข้า 1v5, Draft และ AI Coach ให้อัตโนมัติทันที"
           } else {
-            "Tip: Take a system screenshot and tap Share -> Rift Companion to auto-scan directly into 1v5, Draft, and AI Coach."
+            "Tip: Take a system screenshot and tap Share -> WR-AI to auto-scan directly into 1v5, Draft, and AI Coach."
           },
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,

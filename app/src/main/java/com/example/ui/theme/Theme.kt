@@ -39,8 +39,8 @@ private fun buildHextechColorScheme(highContrast: Boolean) =
     surfaceContainer = HextechSurface,
     surfaceContainerHigh = HextechSurfaceHigh,
     surfaceContainerHighest = HextechSurfaceHighest,
-    outline = if (highContrast) HextechOutlineHighContrast else HextechOutline,
-    outlineVariant = if (highContrast) HextechGoldMuted else Color(0xFF1F2D4A),
+    outline = if (highContrast) HextechOutlineHighContrast else Color(0xFF23324F),
+    outlineVariant = if (highContrast) HextechGoldMuted else Color(0xFF18243B),
     error = ThreatCrimson,
     onError = Color.White,
   )

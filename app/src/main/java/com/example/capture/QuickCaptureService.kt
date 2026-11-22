@@ -78,8 +78,8 @@ class QuickCaptureService : Service() {
           return START_NOT_STICKY
         }
         promoteToForeground(
-          title = "Rift Quick Capture พร้อมใช้งาน",
-          body = "เปิดเกม Wild Rift แล้วกด 'แคป & สแกน' เพื่อส่งเข้า 1v5, Draft และ AI Coach อัตโนมัติ",
+          title = "WR-AI Quick Capture พร้อมใช้งาน",
+          body = "เปิดเกม Wild Rift แล้วกด 'แคป & สแกน' เพื่อส่งเข้า 1v5, Draft, Live Coach อัตโนมัติ",
         )
         startMediaProjection(resultCode, resultData)
       }
@@ -234,11 +234,20 @@ class QuickCaptureService : Service() {
 
   private fun dispatchCapturedBitmap(bitmap: Bitmap) {
     serviceScope.launch {
+      val container = AppContainer.getInstance(applicationContext)
+      if (container.quickScanCoordinator.captureTarget.value == CaptureTarget.LIVE_COACH) {
+        container.quickScanCoordinator.dispatchLiveCoachFrame(bitmap)
+        updateNotification(
+          title = "Live Coach กำลังวิเคราะห์หน้าจอสด...",
+          body = "ส่งภาพหน้าจอเข้า Live Coach แล้ว แตะเพื่อกลับไปดูคำแนะนำสด",
+        )
+        return@launch
+      }
+
       updateNotification(
         title = "กำลังสแกนแชมเปี้ยนจากหน้าจอ...",
         body = "กำลังวิเคราะห์ฝั่งเราและฝั่งตรงข้ามส่งเข้า 1v5, Draft, AI Coach",
       )
-      val container = AppContainer.getInstance(applicationContext)
       val outcome = container.quickScanCoordinator.scanCapturedBitmap(bitmap, openSheet = true)
       when (outcome) {
         is ScreenScanOutcome.Success -> {
@@ -354,10 +363,17 @@ class QuickCaptureService : Service() {
   }
 
   private fun buildNotification(title: String, body: String): Notification {
+    val isLiveTarget =
+      AppContainer.getInstance(applicationContext).quickScanCoordinator.captureTarget.value ==
+        CaptureTarget.LIVE_COACH
     val openAppIntent =
       Intent(this, MainActivity::class.java).apply {
         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        putExtra(MainActivity.EXTRA_OPEN_QUICK_SCAN, true)
+        if (isLiveTarget) {
+          putExtra(MainActivity.EXTRA_OPEN_LIVE_COACH, true)
+        } else {
+          putExtra(MainActivity.EXTRA_OPEN_QUICK_SCAN, true)
+        }
       }
     val openAppPi =
       PendingIntent.getActivity(

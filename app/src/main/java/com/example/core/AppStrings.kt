@@ -69,7 +69,7 @@ object AppStrings {
 
   private val thaiStrings =
     UiStrings(
-      appTitle = "Rift Companion",
+      appTitle = "WR-AI",
       navHome = "หน้าหลัก",
       navAnalyzer = "วิเคราะห์ 1v5",
       navChampions = "แชมเปี้ยน",
@@ -131,7 +131,7 @@ object AppStrings {
 
   private val englishStrings =
     UiStrings(
-      appTitle = "Rift Companion",
+      appTitle = "WR-AI",
       navHome = "Home",
       navAnalyzer = "1v5 Analyzer",
       navChampions = "Champions",

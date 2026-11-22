@@ -1,11 +1,21 @@
 package com.example.ui.viewmodel
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.capture.CaptureTarget
 import com.example.core.AppContainer
+import com.example.data.ai.CoachSpeechController
+import com.example.data.ai.CoachSpeechState
 import com.example.data.ai.CoachStreamEvent
 import com.example.data.ai.GeminiCoachService
+import com.example.data.ai.LiveCoachAnalysisResult
+import com.example.data.ai.LiveCoachOutcome
+import com.example.data.ai.LiveCoachVisionService
 import com.example.data.local.PreferencesRepository
 import com.example.data.model.AppLanguage
 import com.example.data.model.ChampionData
@@ -13,14 +23,21 @@ import com.example.data.model.Lane
 import com.example.data.repository.GameDataRepository
 import com.example.domain.engine.CoachPlaybookSection
 import com.example.domain.engine.OfflineCoachEngine
+import kotlin.math.max
+import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed interface GeminiUiState {
   data object Idle : GeminiUiState
@@ -34,7 +51,26 @@ sealed interface GeminiUiState {
   data class Error(val message: String) : GeminiUiState
 }
 
-data class CoachChatMessage(val isUser: Boolean, val text: String)
+data class CoachChatMessage(
+  val id: String,
+  val isUser: Boolean,
+  val text: String,
+)
+
+data class CoachQuickPrompt(
+  val id: String,
+  val shortLabel: String,
+  val fullQuestion: String,
+)
+
+data class LiveCoachUiState(
+  val isAnalyzing: Boolean = false,
+  val countdownSeconds: Int? = null,
+  val previewBitmap: Bitmap? = null,
+  val analysis: LiveCoachAnalysisResult? = null,
+  val autoSpeakLive: Boolean = false,
+  val errorMessage: String? = null,
+)
 
 data class CoachUiState(
   val allChampions: List<ChampionData> = emptyList(),
@@ -42,17 +78,23 @@ data class CoachUiState(
   val selectedLane: Lane = Lane.MID,
   val enemyContext: List<ChampionData> = emptyList(),
   val offlinePlaybook: List<CoachPlaybookSection> = emptyList(),
+  val quickPrompts: List<CoachQuickPrompt> = emptyList(),
   val activePatchVersion: String = "7.3f",
   val language: AppLanguage = AppLanguage.TH,
 )
 
 class CoachViewModel(
+  private val appContext: Context,
   private val repository: GameDataRepository,
   private val preferencesRepository: PreferencesRepository,
   private val offlineCoachEngine: OfflineCoachEngine,
   private val geminiCoachService: GeminiCoachService,
+  private val liveCoachVisionService: LiveCoachVisionService,
   private val appContainer: AppContainer,
 ) : ViewModel() {
+
+  private val speechController = CoachSpeechController(appContext)
+  val speechState: StateFlow<CoachSpeechState> = speechController.state
 
   private val _selectedChampId = MutableStateFlow<String?>(null)
   private val _selectedLane = MutableStateFlow(Lane.MID)
@@ -64,8 +106,15 @@ class CoachViewModel(
   private val _messages = MutableStateFlow<List<CoachChatMessage>>(emptyList())
   val messages: StateFlow<List<CoachChatMessage>> = _messages.asStateFlow()
 
+  private val _liveState = MutableStateFlow(LiveCoachUiState())
+  val liveState: StateFlow<LiveCoachUiState> = _liveState.asStateFlow()
+
   private var streamJob: Job? = null
+  private var liveJob: Job? = null
+  private var liveCountdownJob: Job? = null
   private var lastQuestion: String? = null
+  private var messageSeq = 0L
+  private var lastAppliedExternalSeq = 0L
 
   val uiState: StateFlow<CoachUiState> =
     combine(
@@ -82,6 +131,7 @@ class CoachViewModel(
           if (selected != null) {
             offlineCoachEngine.buildPlaybook(selected, lane, enemies)
           } else emptyList()
+        val prompts = buildQuickPrompts(selected, lane, enemies, prefs.language)
 
         CoachUiState(
           allChampions = champions,
@@ -89,6 +139,7 @@ class CoachViewModel(
           selectedLane = lane,
           enemyContext = enemies,
           offlinePlaybook = playbook,
+          quickPrompts = prompts,
           activePatchVersion = prefs.activePatchLabel,
           language = prefs.language,
         )
@@ -98,8 +149,6 @@ class CoachViewModel(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = CoachUiState(),
       )
-
-  private var lastAppliedExternalSeq = 0L
 
   init {
     viewModelScope.launch {
@@ -116,6 +165,12 @@ class CoachViewModel(
         }
       }
     }
+
+    viewModelScope.launch {
+      appContainer.quickScanCoordinator.liveCoachFrames.collect { bitmap ->
+        analyzeLiveBitmap(bitmap)
+      }
+    }
   }
 
   fun selectChampion(champ: ChampionData) {
@@ -127,11 +182,178 @@ class CoachViewModel(
     _selectedLane.value = lane
   }
 
+  fun toggleSpeak(messageId: String, text: String) {
+    speechController.toggleSpeak(messageId, text, uiState.value.language)
+  }
+
+  fun stopSpeaking() {
+    speechController.stop()
+  }
+
+  fun clearSpeechError() {
+    speechController.clearError()
+  }
+
+  fun setLiveModeActive(active: Boolean) {
+    appContainer.quickScanCoordinator.setCaptureTarget(
+      if (active) CaptureTarget.LIVE_COACH else CaptureTarget.QUICK_SCAN_SHEET
+    )
+  }
+
+  fun reportLiveError(message: String) {
+    _liveState.update { it.copy(isAnalyzing = false, countdownSeconds = null, errorMessage = message) }
+  }
+
+  fun clearLiveError() {
+    _liveState.update { it.copy(errorMessage = null) }
+  }
+
+  fun toggleAutoSpeakLive() {
+    _liveState.update { it.copy(autoSpeakLive = !it.autoSpeakLive) }
+  }
+
+  fun startLiveCaptureCountdown(seconds: Int = 3, onFireCapture: () -> Unit) {
+    liveCountdownJob?.cancel()
+    liveCountdownJob =
+      viewModelScope.launch {
+        for (sec in seconds downTo 1) {
+          _liveState.update { it.copy(countdownSeconds = sec, errorMessage = null) }
+          delay(1000L)
+        }
+        _liveState.update { it.copy(countdownSeconds = null) }
+        onFireCapture()
+      }
+  }
+
+  fun cancelLiveCountdown() {
+    liveCountdownJob?.cancel()
+    _liveState.update { it.copy(countdownSeconds = null) }
+  }
+
+  fun analyzeLiveUri(uri: Uri) {
+    liveJob?.cancel()
+    liveJob =
+      viewModelScope.launch {
+        val thumb = withContext(Dispatchers.IO) { decodePreviewThumbnail(uri) }
+        _liveState.update {
+          it.copy(
+            isAnalyzing = true,
+            countdownSeconds = null,
+            previewBitmap = thumb ?: it.previewBitmap,
+            errorMessage = null,
+          )
+        }
+        repository.ensureSeeded()
+        val current = uiState.value
+        val catalog = current.allChampions.ifEmpty { repository.champions.first() }
+        val outcome =
+          liveCoachVisionService.analyzeUri(
+            uri = uri,
+            catalog = catalog,
+            fallbackChampion = current.selectedChampion,
+            fallbackLane = current.selectedLane,
+            patchVersion = current.activePatchVersion,
+            language = current.language,
+          )
+        handleLiveOutcome(outcome, current.language)
+      }
+  }
+
+  fun analyzeLiveBitmap(bitmap: Bitmap) {
+    liveJob?.cancel()
+    liveJob =
+      viewModelScope.launch {
+        val thumb = withContext(Dispatchers.Default) { createThumbnail(bitmap) }
+        _liveState.update {
+          it.copy(
+            isAnalyzing = true,
+            countdownSeconds = null,
+            previewBitmap = thumb,
+            errorMessage = null,
+          )
+        }
+        repository.ensureSeeded()
+        val current = uiState.value
+        val catalog = current.allChampions.ifEmpty { repository.champions.first() }
+        val outcome =
+          liveCoachVisionService.analyzeBitmap(
+            sourceBitmap = bitmap,
+            catalog = catalog,
+            fallbackChampion = current.selectedChampion,
+            fallbackLane = current.selectedLane,
+            patchVersion = current.activePatchVersion,
+            language = current.language,
+          )
+        handleLiveOutcome(outcome, current.language)
+      }
+  }
+
+  fun speakLiveBriefing() {
+    val analysis = _liveState.value.analysis ?: return
+    val text = buildLiveSpeechText(analysis)
+    if (text.isNotBlank()) {
+      speechController.toggleSpeak("live_briefing", text, uiState.value.language)
+    }
+  }
+
+  private fun handleLiveOutcome(outcome: LiveCoachOutcome, language: AppLanguage) {
+    when (outcome) {
+      is LiveCoachOutcome.Success -> {
+        val res = outcome.result
+        if (res.allies.isNotEmpty() || res.enemies.isNotEmpty()) {
+          appContainer.applyDetectedRoster(
+            myChampionId = res.myChampion?.id,
+            lane = res.detectedLane,
+            allyIds = res.allies.map { it.id },
+            enemyIds = res.enemies.map { it.id },
+          )
+        }
+        _liveState.update {
+          it.copy(
+            isAnalyzing = false,
+            analysis = res,
+            errorMessage = null,
+          )
+        }
+        if (_liveState.value.autoSpeakLive) {
+          val text = buildLiveSpeechText(res)
+          if (text.isNotBlank()) {
+            speechController.speak("live_briefing", text, language)
+          }
+        }
+      }
+      is LiveCoachOutcome.Failure -> {
+        _liveState.update {
+          it.copy(
+            isAnalyzing = false,
+            errorMessage = outcome.message,
+          )
+        }
+      }
+    }
+  }
+
+  private fun buildLiveSpeechText(analysis: LiveCoachAnalysisResult): String {
+    if (analysis.spokenBriefing.isNotBlank()) return analysis.spokenBriefing
+    return buildString {
+      if (analysis.headline.isNotBlank()) append(analysis.headline).append(". ")
+      if (analysis.recommendedPicks.isNotEmpty()) {
+        append(analysis.recommendedPicks.joinToString(", ") { "${it.championName}: ${it.reason}" })
+          .append(". ")
+      }
+      if (analysis.recommendedItems.isNotEmpty()) {
+        append(analysis.recommendedItems.joinToString(", ")).append(". ")
+      }
+      if (analysis.earlyLanePlan.isNotBlank()) append(analysis.earlyLanePlan)
+    }.trim()
+  }
+
   fun askGeminiCoach(question: String) {
     val trimmed = question.trim()
     if (trimmed.isBlank()) return
     lastQuestion = trimmed
-    _messages.value = _messages.value + CoachChatMessage(isUser = true, text = trimmed)
+    val userMsgId = "msg_${++messageSeq}"
+    _messages.value = _messages.value + CoachChatMessage(id = userMsgId, isUser = true, text = trimmed)
     launchCoachRequest(trimmed)
   }
 
@@ -163,8 +385,10 @@ class CoachViewModel(
               }
               is CoachStreamEvent.Completed -> {
                 _geminiState.value = GeminiUiState.Success(event.finalText)
+                val botMsgId = "msg_${++messageSeq}"
                 _messages.value =
-                  _messages.value + CoachChatMessage(isUser = false, text = event.finalText)
+                  _messages.value +
+                    CoachChatMessage(id = botMsgId, isUser = false, text = event.finalText)
               }
               is CoachStreamEvent.Error -> {
                 _geminiState.value = GeminiUiState.Error(event.message)
@@ -176,25 +400,147 @@ class CoachViewModel(
 
   fun clearChat() {
     streamJob?.cancel()
+    speechController.stop()
     lastQuestion = null
     _messages.value = emptyList()
     _geminiState.value = GeminiUiState.Idle
   }
 
+  override fun onCleared() {
+    speechController.shutdown()
+    super.onCleared()
+  }
+
+  private fun decodePreviewThumbnail(uri: Uri): Bitmap? {
+    return try {
+      val opts = BitmapFactory.Options().apply { inSampleSize = 2 }
+      appContext.contentResolver.openInputStream(uri)?.use { stream ->
+        BitmapFactory.decodeStream(stream, null, opts)
+      }?.let { createThumbnail(it) }
+    } catch (_: Exception) {
+      null
+    }
+  }
+
+  private fun createThumbnail(source: Bitmap): Bitmap {
+    val maxSide = max(source.width, source.height)
+    if (maxSide <= 640 || maxSide <= 0) return source
+    val ratio = 640f / maxSide.toFloat()
+    val w = (source.width * ratio).roundToInt().coerceAtLeast(1)
+    val h = (source.height * ratio).roundToInt().coerceAtLeast(1)
+    return Bitmap.createScaledBitmap(source, w, h, true)
+  }
+
+  companion object {
+    internal fun buildQuickPrompts(
+      champion: ChampionData?,
+      lane: Lane,
+      enemies: List<ChampionData>,
+      language: AppLanguage,
+    ): List<CoachQuickPrompt> {
+      val champName = champion?.displayName(language)
+      val topEnemy = enemies.firstOrNull()?.displayName(language)
+
+      return if (language == AppLanguage.TH) {
+        val champTag = champName ?: "ตัวเรา"
+        val laneTag = lane.labelTh
+        listOf(
+          CoachQuickPrompt(
+            id = "trade_lv1_3",
+            shortLabel = "เทรด Lv 1–3 & คุมเวฟ",
+            fullQuestion =
+              "เล่น $champTag เลน$laneTag ช่วง Lv 1–3 ควรอัพสกิล คุมเวฟ และหาจังหวะเทรดยังไงให้ได้เปรียบ?",
+          ),
+          CoachQuickPrompt(
+            id = "rush_item_enchant",
+            shortLabel = "ไอเทมแรก & Enchant",
+            fullQuestion =
+              "เกมนี้ $champTag ควรออกชิ้นแรก รองเท้า และ Boot Enchant (เช่น Stasis/QSS) ชิ้นไหนก่อนเพราะอะไร?",
+          ),
+          CoachQuickPrompt(
+            id = "counter_threat",
+            shortLabel = if (topEnemy != null) "แก้ทาง $topEnemy" else "แก้ทางศัตรูตัวหลัก",
+            fullQuestion =
+              if (topEnemy != null) {
+                "วิธีรับมือ $topEnemy และทีมศัตรูเมื่อเล่น $champTag ต้องระวังสกิลไหนและออกไอเทมแก้ทางอะไร?"
+              } else {
+                "เวลาเจอตัวเบิร์สหรือฮีลแรงในเลน$laneTag $champTag ควรปรับบิลด์และจังหวะเข้าไฟต์ยังไง?"
+              },
+          ),
+          CoachQuickPrompt(
+            id = "objective_setup",
+            shortLabel = "ไฟต์มังกร / บารอน",
+            fullQuestion =
+              "จังหวะชิงมังกร/Herald นาที 5:00 และบารอน $champTag ควรยืนตำแหน่งตรงไหนและเปิดไฟต์เมื่อไหร่?",
+          ),
+          CoachQuickPrompt(
+            id = "play_behind",
+            shortLabel = "คัมแบ็กตอนเสียเปรียบ",
+            fullQuestion =
+              "ถ้าช่วงต้นเกม $champTag เสียเปรียบหรือโดนกดเลน ต้องปรับวิธีฟาร์ม ออกของ และเดินเกมยังไงให้กลับมาชนะไฟต์ได้?",
+          ),
+        )
+      } else {
+        val champTag = champName ?: "my champion"
+        val laneTag = lane.labelEn
+        listOf(
+          CoachQuickPrompt(
+            id = "trade_lv1_3",
+            shortLabel = "Lv 1–3 Trade & Wave",
+            fullQuestion =
+              "Playing $champTag in $laneTag, how should I manage the wave and trade levels 1–3?",
+          ),
+          CoachQuickPrompt(
+            id = "rush_item_enchant",
+            shortLabel = "First Item & Enchant",
+            fullQuestion =
+              "For $champTag in this match, what first core item, boots, and boot enchant (Stasis/QSS/etc.) should I rush?",
+          ),
+          CoachQuickPrompt(
+            id = "counter_threat",
+            shortLabel = if (topEnemy != null) "Counter $topEnemy" else "Counter Top Threat",
+            fullQuestion =
+              if (topEnemy != null) {
+                "How do I counter $topEnemy and the enemy comp with $champTag, including key cooldowns and counter items?"
+              } else {
+                "Against heavy burst or healing in $laneTag, how should $champTag adapt items and positioning?"
+              },
+          ),
+          CoachQuickPrompt(
+            id = "objective_setup",
+            shortLabel = "Dragon / Baron Setup",
+            fullQuestion =
+              "How should $champTag position and play around 5:00 Dragon/Herald and late Baron fights?",
+          ),
+          CoachQuickPrompt(
+            id = "play_behind",
+            shortLabel = "Play From Behind",
+            fullQuestion =
+              "If $champTag falls behind early, how do I farm safely, build budget defense, and look for comeback picks?",
+          ),
+        )
+      }
+    }
+  }
+
   class Factory(
+    private val appContext: Context,
     private val repository: GameDataRepository,
     private val preferencesRepository: PreferencesRepository,
     private val offlineCoachEngine: OfflineCoachEngine,
     private val geminiCoachService: GeminiCoachService,
+    private val liveCoachVisionService: LiveCoachVisionService,
     private val appContainer: AppContainer,
   ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T =
       CoachViewModel(
+        appContext,
         repository,
         preferencesRepository,
         offlineCoachEngine,
         geminiCoachService,
+        liveCoachVisionService,
         appContainer,
       ) as T
   }

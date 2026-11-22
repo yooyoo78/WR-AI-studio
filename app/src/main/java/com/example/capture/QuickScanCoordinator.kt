@@ -19,13 +19,21 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+enum class CaptureTarget {
+  QUICK_SCAN_SHEET,
+  LIVE_COACH,
+}
 
 data class QuickScanUiState(
   val isSheetOpen: Boolean = false,
@@ -54,7 +62,34 @@ class QuickScanCoordinator(
   private val _uiState = MutableStateFlow(QuickScanUiState())
   val uiState: StateFlow<QuickScanUiState> = _uiState.asStateFlow()
 
+  private val _captureTarget = MutableStateFlow(CaptureTarget.QUICK_SCAN_SHEET)
+  val captureTarget: StateFlow<CaptureTarget> = _captureTarget.asStateFlow()
+
+  private val _liveCoachFrames = MutableSharedFlow<Bitmap>(extraBufferCapacity = 2)
+  val liveCoachFrames: SharedFlow<Bitmap> = _liveCoachFrames.asSharedFlow()
+
+  private val _openLiveCoachRequested = MutableStateFlow(false)
+  val openLiveCoachRequested: StateFlow<Boolean> = _openLiveCoachRequested.asStateFlow()
+
+  fun setCaptureTarget(target: CaptureTarget) {
+    _captureTarget.value = target
+  }
+
+  fun dispatchLiveCoachFrame(bitmap: Bitmap) {
+    _liveCoachFrames.tryEmit(bitmap)
+  }
+
+  fun requestOpenLiveCoach() {
+    _captureTarget.value = CaptureTarget.LIVE_COACH
+    _openLiveCoachRequested.value = true
+  }
+
+  fun consumeOpenLiveCoachRequest() {
+    _openLiveCoachRequested.value = false
+  }
+
   fun openSheet() {
+    _captureTarget.value = CaptureTarget.QUICK_SCAN_SHEET
     _uiState.update { it.copy(isSheetOpen = true) }
   }
 

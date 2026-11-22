@@ -1,5 +1,5 @@
 {
-  "name": "Rift Companion",
+  "name": "WR-AI",
   "description": "Wild Rift tactical companion with 1v5 matchup counter analysis, smart item builder, draft assistant, and hybrid AI coach.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

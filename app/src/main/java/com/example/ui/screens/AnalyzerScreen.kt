@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -76,11 +78,10 @@ import com.example.ui.components.ChampionCrestAvatar
 import com.example.ui.components.ChampionPickerBottomSheet
 import com.example.ui.components.DamageTypeBadge
 import com.example.ui.components.HextechCard
-import com.example.ui.components.ItemDetailBottomSheet
 import com.example.ui.components.ItemIconSlot
-import com.example.ui.components.RuneDetailBottomSheet
+import com.example.ui.components.MiniInspectHost
+import com.example.ui.components.MiniInspectTarget
 import com.example.ui.components.RuneIconSlot
-import com.example.ui.components.SpellDetailBottomSheet
 import com.example.ui.components.SpellIconSlot
 import com.example.ui.components.TacticalMeterBar
 import com.example.ui.components.TierBadge
@@ -96,7 +97,7 @@ import com.example.ui.theme.ThreatCrimson
 import com.example.ui.theme.WarningAmber
 import com.example.ui.viewmodel.AnalyzerUiState
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnalyzerScreen(
   state: AnalyzerUiState,
@@ -110,6 +111,7 @@ fun AnalyzerScreen(
   onDeleteSavedMatchup: (Long) -> Unit,
   onSaveSmartBuildAsCustom: () -> Unit,
   onAskCoachForMatchup: () -> Unit,
+  onOpenChampionDetail: (String) -> Unit = {},
 ) {
   val strings = LocalUiStrings.current
   val isMiniMode = LocalInGameMiniMode.current
@@ -118,9 +120,7 @@ fun AnalyzerScreen(
   var showMyChampPicker by remember { mutableStateOf(false) }
   var showEnemyPicker by remember { mutableStateOf(false) }
   var selectedReportTab by remember { mutableIntStateOf(0) }
-  var inspectedItem by remember { mutableStateOf<ItemData?>(null) }
-  var inspectedRune by remember { mutableStateOf<RuneData?>(null) }
-  var inspectedSpell by remember { mutableStateOf<SpellData?>(null) }
+  var miniInspectTarget by remember { mutableStateOf<MiniInspectTarget?>(null) }
 
   val myChamp = state.selectedChampion
 
@@ -150,56 +150,78 @@ fun AnalyzerScreen(
               }
             }
           }
-          Spacer(modifier = Modifier.height(8.dp))
+          Spacer(modifier = Modifier.height(6.dp))
 
           if (myChamp != null) {
             Surface(
-              modifier =
-                Modifier.fillMaxWidth()
-                  .clip(MaterialTheme.shapes.small)
-                  .clickable { showMyChampPicker = true }
-                  .testTag("select_my_champion_card"),
               color = MaterialTheme.colorScheme.surfaceContainerHigh,
-              border = BorderStroke(1.dp, HextechGold.copy(alpha = 0.6f)),
+              shape = MaterialTheme.shapes.small,
+              border = BorderStroke(0.75.dp, HextechGold.copy(alpha = 0.4f)),
+              modifier = Modifier.fillMaxWidth(),
             ) {
               Row(
-                modifier = Modifier.padding(if (isMiniMode) 8.dp else 10.dp),
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
               ) {
-                ChampionCrestAvatar(champion = myChamp, size = 44.dp)
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                  Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                  ) {
-                    Text(
-                      text = myChamp.displayName(lang),
-                      style = MaterialTheme.typography.titleMedium,
-                      color = HextechGoldBright,
-                    )
-                    TierBadge(myChamp.tierRank)
+                // Tapping portrait/info opens Champion Profile
+                Row(
+                  modifier =
+                    Modifier.weight(1f)
+                      .clip(RoundedCornerShape(8.dp))
+                      .clickable { onOpenChampionDetail(myChamp.id) }
+                      .padding(2.dp)
+                      .testTag("my_champion_profile_button"),
+                  verticalAlignment = Alignment.CenterVertically,
+                ) {
+                  ChampionCrestAvatar(champion = myChamp, size = 42.dp)
+                  Spacer(modifier = Modifier.width(10.dp))
+                  Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                      verticalAlignment = Alignment.CenterVertically,
+                      horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                      Text(
+                        text = myChamp.displayName(lang),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = HextechGoldBright,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                      )
+                      TierBadge(myChamp.tierRank)
+                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    DamageTypeBadge(myChamp.damageType, lang)
                   }
-                  Spacer(modifier = Modifier.height(2.dp))
-                  DamageTypeBadge(myChamp.damageType, lang)
                 }
-                Icon(Icons.Default.SwapHoriz, contentDescription = "Change Champion", tint = HextechGold)
+
+                // Dedicated Swap button opens picker
+                OutlinedButton(
+                  onClick = { showMyChampPicker = true },
+                  contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                  modifier =
+                    Modifier.minimumInteractiveComponentSize().testTag("select_my_champion_card"),
+                ) {
+                  Icon(
+                    Icons.Default.SwapHoriz,
+                    contentDescription = "Change Champion",
+                    tint = HextechGold,
+                    modifier = Modifier.size(16.dp),
+                  )
+                  Spacer(modifier = Modifier.width(4.dp))
+                  Text(
+                    text = if (lang == AppLanguage.TH) "สลับตัว" else "Swap",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = HextechGoldBright,
+                  )
+                }
               }
             }
           }
 
-          Spacer(modifier = Modifier.height(10.dp))
-          Text(
-            text = strings.selectLane,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-          Spacer(modifier = Modifier.height(4.dp))
-          FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-          ) {
-            Lane.entries.forEach { lane ->
+          Spacer(modifier = Modifier.height(8.dp))
+          LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(Lane.entries, key = { it.name }) { lane ->
               FilterChip(
                 selected = state.selectedLane == lane,
                 onClick = { onSelectLane(lane) },
@@ -234,9 +256,9 @@ fun AnalyzerScreen(
             }
           }
 
-          Spacer(modifier = Modifier.height(8.dp))
+          Spacer(modifier = Modifier.height(6.dp))
 
-          // 5 Enemy Slots Row
+          // 5 Enemy Slots Row (Tap filled portrait -> Profile, Tap × -> Remove, Tap empty -> Picker)
           Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(if (isMiniMode) 4.dp else 8.dp),
@@ -248,25 +270,34 @@ fun AnalyzerScreen(
                   Modifier.weight(1f)
                     .height(if (isMiniMode) 60.dp else 72.dp)
                     .clip(MaterialTheme.shapes.small)
-                    .clickable {
-                      if (enemy != null) onToggleEnemy(enemy.id) else showEnemyPicker = true
-                    }
+                    .then(
+                      if (enemy == null) Modifier.clickable { showEnemyPicker = true } else Modifier
+                    )
                     .testTag("enemy_slot_$index"),
                 color =
-                  if (enemy != null) ThreatCrimson.copy(alpha = 0.14f)
+                  if (enemy != null) ThreatCrimson.copy(alpha = 0.12f)
                   else MaterialTheme.colorScheme.surfaceContainerHigh,
                 border =
                   BorderStroke(
-                    1.dp,
-                    if (enemy != null) ThreatCrimson.copy(alpha = 0.65f)
+                    0.75.dp,
+                    if (enemy != null) ThreatCrimson.copy(alpha = 0.5f)
                     else MaterialTheme.colorScheme.outline,
                   ),
               ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(4.dp)) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize().padding(3.dp)) {
                   if (enemy != null) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                      horizontalAlignment = Alignment.CenterHorizontally,
+                      verticalArrangement = Arrangement.Center,
+                      modifier =
+                        Modifier.fillMaxSize()
+                          .clip(MaterialTheme.shapes.small)
+                          .clickable { onOpenChampionDetail(enemy.id) }
+                          .padding(top = 4.dp)
+                          .testTag("enemy_slot_profile_$index"),
+                    ) {
                       ChampionCrestAvatar(champion = enemy, size = 34.dp)
-                      Spacer(modifier = Modifier.height(4.dp))
+                      Spacer(modifier = Modifier.height(3.dp))
                       Text(
                         text = enemy.nameEn,
                         style = MaterialTheme.typography.labelSmall,
@@ -274,12 +305,23 @@ fun AnalyzerScreen(
                         overflow = TextOverflow.Ellipsis,
                       )
                     }
-                    Icon(
-                      Icons.Default.Close,
-                      contentDescription = "Remove ${enemy.nameEn}",
-                      modifier = Modifier.align(Alignment.TopEnd).size(14.dp),
-                      tint = ThreatCrimson,
-                    )
+                    Box(
+                      modifier =
+                        Modifier.align(Alignment.TopEnd)
+                          .size(22.dp)
+                          .clip(CircleShape)
+                          .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.78f))
+                          .clickable { onToggleEnemy(enemy.id) }
+                          .testTag("enemy_slot_remove_$index"),
+                      contentAlignment = Alignment.Center,
+                    ) {
+                      Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Remove ${enemy.nameEn}",
+                        modifier = Modifier.size(13.dp),
+                        tint = ThreatCrimson,
+                      )
+                    }
                   } else {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                       Icon(
@@ -299,7 +341,7 @@ fun AnalyzerScreen(
             }
           }
 
-          Spacer(modifier = Modifier.height(10.dp))
+          Spacer(modifier = Modifier.height(8.dp))
 
           Button(
             onClick = { showEnemyPicker = true },
@@ -319,19 +361,13 @@ fun AnalyzerScreen(
               text =
                 if (lang == AppLanguage.TH) "เลือก / แก้ไข 5 แชมเปี้ยนฝั่งตรงข้าม"
                 else "Pick / Edit 5 Enemy Champions",
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
             )
           }
 
           // Quick Enemy Comp Test Presets
-          Spacer(modifier = Modifier.height(8.dp))
-          Text(
-            text =
-              if (lang == AppLanguage.TH) "ตัวอย่างทีมศัตรูยอดนิยม (กดทดสอบได้ทันที):"
-              else "Quick Enemy Comp Scenarios:",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-          Spacer(modifier = Modifier.height(4.dp))
+          Spacer(modifier = Modifier.height(6.dp))
           LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             item {
               FilterChip(
@@ -343,7 +379,7 @@ fun AnalyzerScreen(
                 },
                 modifier = Modifier.testTag("preset_heal_burst"),
                 label = {
-                  Text(if (lang == AppLanguage.TH) "ฮีลหนัก + แอสซาซินเบิร์ส" else "Heal + Dive Burst")
+                  Text(if (lang == AppLanguage.TH) "ฮีลหนัก + เบิร์ส" else "Heal + Burst")
                 },
               )
             }
@@ -357,7 +393,7 @@ fun AnalyzerScreen(
                 },
                 modifier = Modifier.testTag("preset_tank_cc"),
                 label = {
-                  Text(if (lang == AppLanguage.TH) "แทงค์ถึก + CC + ตีไว" else "Tank + Heavy CC + AS")
+                  Text(if (lang == AppLanguage.TH) "แทงค์ + CC + ตีไว" else "Tank + CC + AS")
                 },
               )
             }
@@ -371,7 +407,7 @@ fun AnalyzerScreen(
                 },
                 modifier = Modifier.testTag("preset_ap_burst"),
                 label = {
-                  Text(if (lang == AppLanguage.TH) "เบิร์สเวทหนัก 4 ตัว" else "Heavy AP Burst")
+                  Text(if (lang == AppLanguage.TH) "เบิร์สเวทหนัก" else "Heavy AP")
                 },
               )
             }
@@ -464,13 +500,16 @@ fun AnalyzerScreen(
 
         when (selectedReportTab) {
           0 -> {
-            // Highest Threat Callout
             state.highestThreat?.let { top ->
-              item { TopThreatSpotlightCard(top = top, lang = lang) }
+              item {
+                TopThreatSpotlightCard(
+                  top = top,
+                  lang = lang,
+                  onOpenChampionProfile = onOpenChampionDetail,
+                )
+              }
             }
-            // Team Threat Profile Meters
             item { ThreatProfileCard(profile = state.threatProfile, lang = lang) }
-            // Individual Matchup Cards
             item {
               Text(
                 text = strings.matchupVerdictTitle,
@@ -478,7 +517,11 @@ fun AnalyzerScreen(
               )
             }
             items(state.enemyMatchups, key = { it.enemy.id }) { analysis ->
-              EnemyMatchupCard(analysis = analysis, lang = lang)
+              EnemyMatchupCard(
+                analysis = analysis,
+                lang = lang,
+                onOpenChampionProfile = onOpenChampionDetail,
+              )
             }
           }
 
@@ -488,14 +531,14 @@ fun AnalyzerScreen(
               FirstRushItemCard(
                 entry = build.firstRushRecommendation,
                 lang = lang,
-                onInspectItem = { inspectedItem = it },
+                onInspectItem = { miniInspectTarget = MiniInspectTarget.Item(it) },
               )
             }
             item {
               BuildDiffCard(
                 build = build,
                 lang = lang,
-                onInspectItem = { inspectedItem = it },
+                onInspectItem = { miniInspectTarget = MiniInspectTarget.Item(it) },
               )
             }
             item {
@@ -532,7 +575,7 @@ fun AnalyzerScreen(
               SmartItemDetailCard(
                 entry = entry,
                 lang = lang,
-                onInspectItem = { inspectedItem = it },
+                onInspectItem = { miniInspectTarget = MiniInspectTarget.Item(it) },
               )
             }
           }
@@ -543,7 +586,7 @@ fun AnalyzerScreen(
               RunesRecommendationCard(
                 build = build,
                 lang = lang,
-                onInspectRune = { inspectedRune = it },
+                onInspectRune = { miniInspectTarget = MiniInspectTarget.Rune(it) },
               )
             }
             item {
@@ -551,7 +594,7 @@ fun AnalyzerScreen(
                 build = build,
                 skillOrder = myChamp?.skillOrder.orEmpty(),
                 lang = lang,
-                onInspectSpell = { inspectedSpell = it },
+                onInspectSpell = { miniInspectTarget = MiniInspectTarget.Spell(it) },
               )
             }
             item {
@@ -593,52 +636,44 @@ fun AnalyzerScreen(
     )
   }
 
-  inspectedItem?.let { item ->
-    ItemDetailBottomSheet(
-      item = item,
-      language = lang,
-      onDismiss = { inspectedItem = null },
-    )
-  }
-
-  inspectedSpell?.let { spell ->
-    SpellDetailBottomSheet(
-      spell = spell,
-      language = lang,
-      onDismiss = { inspectedSpell = null },
-    )
-  }
-
-  inspectedRune?.let { rune ->
-    RuneDetailBottomSheet(
-      rune = rune,
-      language = lang,
-      onDismiss = { inspectedRune = null },
-    )
-  }
+  MiniInspectHost(
+    target = miniInspectTarget,
+    language = lang,
+    onDismiss = { miniInspectTarget = null },
+  )
 }
 
 @Composable
-private fun TopThreatSpotlightCard(top: EnemyMatchupAnalysis, lang: AppLanguage) {
+private fun TopThreatSpotlightCard(
+  top: EnemyMatchupAnalysis,
+  lang: AppLanguage,
+  onOpenChampionProfile: (String) -> Unit,
+) {
   val strings = LocalUiStrings.current
   HextechCard(accentColor = ThreatCrimson, modifier = Modifier.testTag("top_threat_card")) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-      Icon(Icons.Default.Warning, contentDescription = null, tint = ThreatCrimson)
-      Spacer(modifier = Modifier.width(8.dp))
+      Icon(Icons.Default.Warning, contentDescription = null, tint = ThreatCrimson, modifier = Modifier.size(18.dp))
+      Spacer(modifier = Modifier.width(6.dp))
       Text(
         text = strings.topThreatLabel,
         style = MaterialTheme.typography.labelLarge,
         color = ThreatCrimson,
       )
     }
-    Spacer(modifier = Modifier.height(10.dp))
+    Spacer(modifier = Modifier.height(8.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
-      ChampionCrestAvatar(champion = top.enemy, size = 50.dp)
+      ChampionCrestAvatar(
+        champion = top.enemy,
+        size = 48.dp,
+        onClick = { onOpenChampionProfile(top.enemy.id) },
+        modifier = Modifier.testTag("top_threat_avatar"),
+      )
       Spacer(modifier = Modifier.width(12.dp))
       Column(modifier = Modifier.weight(1f)) {
         Text(
           text = top.enemy.displayName(lang),
-          style = MaterialTheme.typography.titleLarge,
+          style = MaterialTheme.typography.titleMedium,
+          fontWeight = FontWeight.Bold,
         )
         Text(
           text = top.dangerAbilities(lang),
@@ -647,7 +682,7 @@ private fun TopThreatSpotlightCard(top: EnemyMatchupAnalysis, lang: AppLanguage)
         )
       }
       Surface(
-        color = ThreatCrimson.copy(alpha = 0.2f),
+        color = ThreatCrimson.copy(alpha = 0.16f),
         shape = RoundedCornerShape(8.dp),
       ) {
         Text(
@@ -659,7 +694,7 @@ private fun TopThreatSpotlightCard(top: EnemyMatchupAnalysis, lang: AppLanguage)
         )
       }
     }
-    Spacer(modifier = Modifier.height(8.dp))
+    Spacer(modifier = Modifier.height(6.dp))
     Text(text = top.tacticalTip(lang), style = MaterialTheme.typography.bodyMedium)
   }
 }
@@ -669,44 +704,60 @@ private fun ThreatProfileCard(profile: EnemyTeamThreatProfile, lang: AppLanguage
   val strings = LocalUiStrings.current
   HextechCard(accentColor = ArcaneCyan) {
     Text(text = strings.teamThreatProfileTitle, style = MaterialTheme.typography.titleMedium)
-    Spacer(modifier = Modifier.height(10.dp))
+    Spacer(modifier = Modifier.height(8.dp))
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-      TacticalMeterBar(
-        label = if (lang == AppLanguage.TH) "เบิร์สเวท (AP Burst)" else "AP Burst",
-        valuePercent = profile.apBurstScore,
-        barColor = ArcaneCyan,
-      )
-      TacticalMeterBar(
-        label = if (lang == AppLanguage.TH) "ดาเมจกายภาพ (AD DPS)" else "Physical AD DPS",
-        valuePercent = profile.adDpsScore,
-        barColor = WarningAmber,
-      )
-      TacticalMeterBar(
-        label = if (lang == AppLanguage.TH) "ฮีล / ดูดเลือด (Healing)" else "Healing / Sustain",
-        valuePercent = profile.healingScore,
-        barColor = AdvantageEmerald,
-      )
-      TacticalMeterBar(
-        label = if (lang == AppLanguage.TH) "ความถึกแทงค์ (Tankiness)" else "Frontline Tanks",
-        valuePercent = profile.tankinessScore,
-        barColor = HextechGold,
-      )
-      TacticalMeterBar(
-        label = if (lang == AppLanguage.TH) "CC ล็อก (Crowd Control)" else "Hard CC",
-        valuePercent = profile.ccScore,
-        barColor = SkillViolet,
-      )
-      TacticalMeterBar(
-        label = if (lang == AppLanguage.TH) "ความเร็วโจมตี (Attack Speed)" else "Attack Speed",
-        valuePercent = profile.attackSpeedScore,
-        barColor = ThreatCrimson,
-      )
+      Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        TacticalMeterBar(
+          label = if (lang == AppLanguage.TH) "เบิร์สเวท (AP)" else "AP Burst",
+          valuePercent = profile.apBurstScore,
+          barColor = ArcaneCyan,
+          modifier = Modifier.weight(1f),
+        )
+        TacticalMeterBar(
+          label = if (lang == AppLanguage.TH) "กายภาพ (AD)" else "Physical AD",
+          valuePercent = profile.adDpsScore,
+          barColor = WarningAmber,
+          modifier = Modifier.weight(1f),
+        )
+      }
+      Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        TacticalMeterBar(
+          label = if (lang == AppLanguage.TH) "ฮีล / ดูดเลือด" else "Healing",
+          valuePercent = profile.healingScore,
+          barColor = AdvantageEmerald,
+          modifier = Modifier.weight(1f),
+        )
+        TacticalMeterBar(
+          label = if (lang == AppLanguage.TH) "แทงค์ถึก" else "Frontline",
+          valuePercent = profile.tankinessScore,
+          barColor = HextechGold,
+          modifier = Modifier.weight(1f),
+        )
+      }
+      Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        TacticalMeterBar(
+          label = if (lang == AppLanguage.TH) "CC ล็อก" else "Hard CC",
+          valuePercent = profile.ccScore,
+          barColor = SkillViolet,
+          modifier = Modifier.weight(1f),
+        )
+        TacticalMeterBar(
+          label = if (lang == AppLanguage.TH) "ตีไว (AS)" else "Attack Speed",
+          valuePercent = profile.attackSpeedScore,
+          barColor = ThreatCrimson,
+          modifier = Modifier.weight(1f),
+        )
+      }
     }
   }
 }
 
 @Composable
-private fun EnemyMatchupCard(analysis: EnemyMatchupAnalysis, lang: AppLanguage) {
+private fun EnemyMatchupCard(
+  analysis: EnemyMatchupAnalysis,
+  lang: AppLanguage,
+  onOpenChampionProfile: (String) -> Unit,
+) {
   val (verdictColor, verdictLabel) =
     when (analysis.verdict) {
       LaneDifficulty.EASY ->
@@ -721,7 +772,12 @@ private fun EnemyMatchupCard(analysis: EnemyMatchupAnalysis, lang: AppLanguage) 
 
   HextechCard(accentColor = verdictColor) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-      ChampionCrestAvatar(champion = analysis.enemy, size = 42.dp)
+      ChampionCrestAvatar(
+        champion = analysis.enemy,
+        size = 40.dp,
+        onClick = { onOpenChampionProfile(analysis.enemy.id) },
+        modifier = Modifier.testTag("matchup_enemy_avatar_${analysis.enemy.id}"),
+      )
       Spacer(modifier = Modifier.width(10.dp))
       Column(modifier = Modifier.weight(1f)) {
         Row(
@@ -754,9 +810,9 @@ private fun EnemyMatchupCard(analysis: EnemyMatchupAnalysis, lang: AppLanguage) 
         )
       }
       Surface(
-        color = verdictColor.copy(alpha = 0.18f),
+        color = verdictColor.copy(alpha = 0.16f),
         shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(1.dp, verdictColor.copy(alpha = 0.5f)),
+        border = BorderStroke(0.75.dp, verdictColor.copy(alpha = 0.45f)),
       ) {
         Text(
           text = verdictLabel,
@@ -767,13 +823,13 @@ private fun EnemyMatchupCard(analysis: EnemyMatchupAnalysis, lang: AppLanguage) 
         )
       }
     }
-    Spacer(modifier = Modifier.height(8.dp))
+    Spacer(modifier = Modifier.height(6.dp))
     Text(
       text = analysis.dangerAbilities(lang),
       style = MaterialTheme.typography.bodySmall,
       color = WarningAmber,
     )
-    Spacer(modifier = Modifier.height(4.dp))
+    Spacer(modifier = Modifier.height(3.dp))
     Text(text = analysis.tacticalTip(lang), style = MaterialTheme.typography.bodyMedium)
   }
 }
@@ -800,7 +856,7 @@ private fun FirstRushItemCard(
         item = entry.item,
         language = lang,
         onClick = { onInspectItem(entry.item) },
-        size = 56.dp,
+        size = 54.dp,
         accentColor = HextechGold,
         badgeText = "#1",
         badgeColor = HextechGold,
@@ -835,7 +891,7 @@ private fun FirstRushItemCard(
         )
       }
     }
-    Spacer(modifier = Modifier.height(8.dp))
+    Spacer(modifier = Modifier.height(6.dp))
     Text(text = entry.reason(lang), style = MaterialTheme.typography.bodyMedium)
   }
 }
@@ -861,12 +917,12 @@ private fun BuildDiffCard(
     Spacer(modifier = Modifier.height(2.dp))
     Text(
       text =
-        if (lang == AppLanguage.TH) "กดที่รูปไอเทมเพื่อดูค่าพลัง ราคา และสกิลติดตัว"
-        else "Tap any item icon to inspect stats, cost & passives",
+        if (lang == AppLanguage.TH) "แตะที่รูปไอเทมเพื่อดูกล่องข้อมูลย่อและค่าพลัง"
+        else "Tap any item icon for quick stats box",
       style = MaterialTheme.typography.labelSmall,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-    Spacer(modifier = Modifier.height(10.dp))
+    Spacer(modifier = Modifier.height(8.dp))
 
     Text(
       text = if (lang == AppLanguage.TH) "บิลด์มาตรฐาน:" else "Standard Core:",
@@ -881,7 +937,7 @@ private fun BuildDiffCard(
           item = item,
           language = lang,
           onClick = { onInspectItem(item) },
-          size = 48.dp,
+          size = 46.dp,
           accentColor = if (isSwappedOut) ThreatCrimson else MaterialTheme.colorScheme.outline,
           badgeText = if (isSwappedOut) "−" else null,
           badgeColor = ThreatCrimson,
@@ -892,7 +948,7 @@ private fun BuildDiffCard(
       }
     }
 
-    Spacer(modifier = Modifier.height(12.dp))
+    Spacer(modifier = Modifier.height(10.dp))
     Text(
       text = if (lang == AppLanguage.TH) "บิลด์ที่ปรับสำหรับไฟต์นี้:" else "Adapted Core:",
       style = MaterialTheme.typography.labelMedium,
@@ -906,7 +962,7 @@ private fun BuildDiffCard(
           item = item,
           language = lang,
           onClick = { onInspectItem(item) },
-          size = 48.dp,
+          size = 46.dp,
           accentColor = if (isSwappedIn) AdvantageEmerald else HextechGold,
           badgeText = if (isSwappedIn) "+" else null,
           badgeColor = AdvantageEmerald,
@@ -940,7 +996,7 @@ private fun SmartItemDetailCard(
         item = entry.item,
         language = lang,
         onClick = { onInspectItem(entry.item) },
-        size = 48.dp,
+        size = 46.dp,
         accentColor = if (entry.isAdapted) HextechGold else ArcaneCyan,
         showCost = false,
         showName = false,
@@ -972,7 +1028,7 @@ private fun SmartItemDetailCard(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
         }
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(3.dp))
         Text(
           text = entry.item.displayName(lang),
           style = MaterialTheme.typography.titleMedium,
@@ -1034,12 +1090,12 @@ private fun RunesRecommendationCard(
       style = MaterialTheme.typography.bodySmall,
       color = ArcaneCyan,
     )
-    Spacer(modifier = Modifier.height(8.dp))
+    Spacer(modifier = Modifier.height(6.dp))
 
     Text(
       text =
-        if (lang == AppLanguage.TH) "กดที่รูปรูนเพื่อดูเอฟเฟกต์และรายละเอียด"
-        else "Tap any rune icon to view effects & tree",
+        if (lang == AppLanguage.TH) "แตะที่รูปรูนเพื่อดูกล่องข้อมูลย่อ"
+        else "Tap any rune icon for quick info",
       style = MaterialTheme.typography.labelSmall,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -1054,7 +1110,7 @@ private fun RunesRecommendationCard(
           rune = ks,
           language = lang,
           onClick = { onInspectRune(ks) },
-          size = 46.dp,
+          size = 44.dp,
           modifier = Modifier.testTag("analyzer_rune_${ks.id}"),
         )
       }
@@ -1063,14 +1119,14 @@ private fun RunesRecommendationCard(
           rune = rune,
           language = lang,
           onClick = { onInspectRune(rune) },
-          size = 40.dp,
+          size = 38.dp,
           modifier = Modifier.testTag("analyzer_rune_${rune.id}"),
         )
       }
     }
 
     build.keystone?.let { ks ->
-      Spacer(modifier = Modifier.height(8.dp))
+      Spacer(modifier = Modifier.height(6.dp))
       Text(
         text = "${ks.displayName(lang)}: ${ks.desc(lang)}",
         style = MaterialTheme.typography.bodySmall,
@@ -1095,8 +1151,8 @@ private fun SpellsAndSkillOrderCard(
     Spacer(modifier = Modifier.height(2.dp))
     Text(
       text =
-        if (lang == AppLanguage.TH) "กดที่รูป Spell เพื่อดูคูลดาวน์และรายละเอียด"
-        else "Tap a spell icon to view cooldown & usage",
+        if (lang == AppLanguage.TH) "แตะที่รูป Spell เพื่อดูกล่องข้อมูลย่อ"
+        else "Tap a spell icon for quick info",
       style = MaterialTheme.typography.labelSmall,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -1123,27 +1179,27 @@ private fun GamePlanPhaseCard(
   val strings = LocalUiStrings.current
   HextechCard(accentColor = AdvantageEmerald) {
     Text(text = strings.gamePlanTitle, style = MaterialTheme.typography.titleMedium)
-    Spacer(modifier = Modifier.height(10.dp))
+    Spacer(modifier = Modifier.height(8.dp))
 
     PhaseBlock(
       label = strings.earlyPhase,
       color = ArcaneCyan,
       body = if (lang == AppLanguage.TH) build.earlyGamePlanTh else build.earlyGamePlanEn,
     )
-    Spacer(modifier = Modifier.height(10.dp))
+    Spacer(modifier = Modifier.height(8.dp))
     PhaseBlock(
       label = strings.midPhase,
       color = HextechGold,
       body = if (lang == AppLanguage.TH) build.midGamePlanTh else build.midGamePlanEn,
     )
-    Spacer(modifier = Modifier.height(10.dp))
+    Spacer(modifier = Modifier.height(8.dp))
     PhaseBlock(
       label = strings.latePhase,
       color = AdvantageEmerald,
       body = if (lang == AppLanguage.TH) build.lateGamePlanTh else build.lateGamePlanEn,
     )
 
-    Spacer(modifier = Modifier.height(14.dp))
+    Spacer(modifier = Modifier.height(12.dp))
     OutlinedButton(
       onClick = onAskCoach,
       modifier =
@@ -1163,9 +1219,9 @@ private fun PhaseBlock(label: String, color: Color, body: String) {
   Surface(
     color = color.copy(alpha = 0.08f),
     shape = MaterialTheme.shapes.small,
-    border = BorderStroke(1.dp, color.copy(alpha = 0.35f)),
+    border = BorderStroke(0.75.dp, color.copy(alpha = 0.3f)),
   ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(11.dp)) {
       Text(text = label, style = MaterialTheme.typography.titleSmall, color = color)
       Spacer(modifier = Modifier.height(4.dp))
       Text(text = body, style = MaterialTheme.typography.bodyMedium)
