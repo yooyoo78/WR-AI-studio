@@ -416,6 +416,21 @@ fun CoachLivePanel(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
               ) {
+                if (analysis.usedModelLabel.isNotBlank()) {
+                  Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = ArcaneCyan.copy(alpha = 0.14f),
+                    border = BorderStroke(1.dp, ArcaneCyan.copy(alpha = 0.45f)),
+                  ) {
+                    Text(
+                      text = analysis.usedModelLabel,
+                      style = MaterialTheme.typography.labelSmall,
+                      color = ArcaneCyan,
+                      maxLines = 1,
+                      modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                    )
+                  }
+                }
                 if (analysis.skippedUnpickedCount > 0) {
                   Surface(
                     shape = RoundedCornerShape(999.dp),

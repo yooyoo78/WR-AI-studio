@@ -47,6 +47,10 @@ import com.example.data.model.AppLanguage
 import com.example.data.model.ItemData
 import com.example.data.model.RuneData
 import com.example.data.model.SpellData
+import com.example.data.model.isTier3Boot
+import com.example.data.model.tier2BootBaseId
+import com.example.data.model.tier3BootUpgradeId
+import com.example.ui.theme.AdvantageEmerald
 import com.example.ui.theme.ArcaneCyan
 import com.example.ui.theme.HextechGold
 import com.example.ui.theme.HextechGoldBright
@@ -74,10 +78,13 @@ fun MiniInspectHost(
   target: MiniInspectTarget?,
   language: AppLanguage,
   onDismiss: () -> Unit,
+  itemsById: Map<String, ItemData> = emptyMap(),
 ) {
+  var currentTarget by remember(target) { mutableStateOf(target) }
   var expandedTarget by remember { mutableStateOf<MiniInspectTarget?>(null) }
 
   LaunchedEffect(target) {
+    currentTarget = target
     if (target == null) {
       expandedTarget = null
     } else if (expandedTarget != null && expandedTarget != target) {
@@ -85,15 +92,32 @@ fun MiniInspectHost(
     }
   }
 
+  val activeTarget = currentTarget
+  val resolveRelatedBoot: (ItemData) -> ItemData? = { item ->
+    val relatedId = tier3BootUpgradeId(item.id) ?: tier2BootBaseId(item.id)
+    relatedId?.let { itemsById[it] }
+  }
+
   val activeExpanded = expandedTarget
   if (activeExpanded != null) {
     val closeAll = {
       expandedTarget = null
+      currentTarget = null
       onDismiss()
     }
     when (activeExpanded) {
       is MiniInspectTarget.Item ->
-        ItemDetailBottomSheet(item = activeExpanded.item, language = language, onDismiss = closeAll)
+        ItemDetailBottomSheet(
+          item = activeExpanded.item,
+          language = language,
+          onDismiss = closeAll,
+          relatedBootItem = resolveRelatedBoot(activeExpanded.item),
+          onInspectRelatedItem = { related ->
+            val next = MiniInspectTarget.Item(related)
+            currentTarget = next
+            expandedTarget = next
+          },
+        )
       is MiniInspectTarget.Rune ->
         RuneDetailBottomSheet(rune = activeExpanded.rune, language = language, onDismiss = closeAll)
       is MiniInspectTarget.Spell ->
@@ -106,11 +130,14 @@ fun MiniInspectHost(
           onDismiss = closeAll,
         )
     }
-  } else if (target != null) {
+  } else if (activeTarget != null) {
+    val relatedBoot =
+      (activeTarget as? MiniInspectTarget.Item)?.let { resolveRelatedBoot(it.item) }
     MiniInfoBoxDialog(
-      target = target,
+      target = activeTarget,
       language = language,
-      onExpand = { expandedTarget = target },
+      relatedBootItem = relatedBoot,
+      onExpand = { expandedTarget = activeTarget },
       onDismiss = onDismiss,
     )
   }
@@ -121,6 +148,7 @@ fun MiniInspectHost(
 private fun MiniInfoBoxDialog(
   target: MiniInspectTarget,
   language: AppLanguage,
+  relatedBootItem: ItemData? = null,
   onExpand: () -> Unit,
   onDismiss: () -> Unit,
 ) {
@@ -221,11 +249,10 @@ private fun MiniInfoBoxDialog(
                   MiniPill(target.item.category.name, ArcaneCyan)
                 }
                 is MiniInspectTarget.Rune -> {
-                  val isKs = target.rune.slotType.equals("KEYSTONE", ignoreCase = true)
-                  MiniPill(
-                    if (isKs) "Keystone" else (target.rune.tree.ifBlank { "Rune" }),
-                    SkillViolet,
-                  )
+                  MiniPill(runeSlotLabel(target.rune.slotType, language), SkillViolet)
+                  if (target.rune.tree.isNotBlank()) {
+                    MiniPill(target.rune.tree, ArcaneCyan)
+                  }
                 }
                 is MiniInspectTarget.Spell -> {
                   if (target.spell.cooldownNote.isNotBlank()) {
@@ -234,8 +261,8 @@ private fun MiniInfoBoxDialog(
                 }
                 is MiniInspectTarget.Skill -> {
                   val slotLabel =
-                    if (target.ability.slot.equals("P", true)) "Passive"
-                    else "Skill ${target.ability.slot}"
+                    if (target.ability.slot.equals("P", true)) "Passive (P)"
+                    else "Skill ${target.ability.slot.uppercase()}"
                   MiniPill(slotLabel, accentColor)
                   if (target.ability.cooldownNote.isNotBlank()) {
                     MiniPill("CD ${target.ability.cooldownNote}", ArcaneCyan)
@@ -278,6 +305,24 @@ private fun MiniInfoBoxDialog(
               maxLines = 3,
               overflow = TextOverflow.Ellipsis,
             )
+            if (relatedBootItem != null) {
+              val isT3 = isTier3Boot(target.item.id)
+              Text(
+                text =
+                  if (isT3) {
+                    if (language == AppLanguage.TH) "ปลดล็อก 10:00+ • อัปจาก ${relatedBootItem.displayName(language)} (+1000g)"
+                    else "Unlocks 10:00+ • From ${relatedBootItem.displayName(language)} (+1000g)"
+                  } else {
+                    if (language == AppLanguage.TH) "อัปเกรด 10:00+ → ${relatedBootItem.displayName(language)} (${relatedBootItem.cost}g)"
+                    else "10:00+ Upgrade → ${relatedBootItem.displayName(language)} (${relatedBootItem.cost}g)"
+                  },
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = AdvantageEmerald,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+              )
+            }
           }
           is MiniInspectTarget.Rune -> {
             Text(
@@ -407,7 +452,7 @@ fun SkillDetailBottomSheet(
             verticalArrangement = Arrangement.spacedBy(4.dp),
           ) {
             MiniPill(
-              if (ability.slot.equals("P", true)) "Passive" else "Skill ${ability.slot}",
+              if (ability.slot.equals("P", true)) "Passive (P)" else "Skill ${ability.slot.uppercase()}",
               slotColor,
             )
             if (ability.cooldownNote.isNotBlank()) {

@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -32,13 +34,16 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -49,6 +54,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -72,16 +78,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.ai.AiModelCatalog
+import com.example.data.ai.AiProviderId
+import com.example.data.ai.CoachErrorKind
 import com.example.data.ai.CoachSpeechState
 import com.example.data.model.AppLanguage
 import com.example.data.model.ChampionData
 import com.example.data.model.Lane
+import com.example.ui.components.AiEngineControlStrip
 import com.example.ui.components.ChampionCrestAvatar
 import com.example.ui.components.ChampionPickerBottomSheet
+import com.example.ui.components.FreeApiKeysBottomSheet
+import com.example.ui.components.ModelPickerBottomSheet
 import com.example.ui.theme.AdvantageEmerald
 import com.example.ui.theme.ArcaneCyan
 import com.example.ui.theme.HextechGold
 import com.example.ui.theme.HextechGoldBright
+import com.example.ui.theme.HextechNavy
 import com.example.ui.theme.HextechObsidian
 import com.example.ui.theme.HextechSurface
 import com.example.ui.theme.HextechSurfaceHigh
@@ -94,8 +107,10 @@ import com.example.ui.viewmodel.CoachChatMessage
 import com.example.ui.viewmodel.CoachUiState
 import com.example.ui.viewmodel.GeminiUiState
 import com.example.ui.viewmodel.LiveCoachUiState
+import com.example.ui.viewmodel.ProviderKeyTestState
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CoachScreen(
   state: CoachUiState,
@@ -104,11 +119,19 @@ fun CoachScreen(
   speechState: CoachSpeechState,
   liveState: LiveCoachUiState,
   isQuickCaptureActive: Boolean,
+  keyTestStates: Map<AiProviderId, ProviderKeyTestState> = emptyMap(),
   openLiveTabRequest: Boolean = false,
   onConsumeOpenLiveTabRequest: () -> Unit = {},
   onSelectChampion: (ChampionData) -> Unit,
   onSelectLane: (Lane) -> Unit,
+  onSelectCoachModel: (String) -> Unit = {},
+  onSelectLiveModel: (String) -> Unit = {},
+  onSaveAndTestApiKey: (AiProviderId, String) -> Unit = { _, _ -> },
+  onClearApiKey: (AiProviderId) -> Unit = {},
+  onClearAiCache: () -> Unit = {},
   onAskGemini: (String) -> Unit,
+  onRegenerateQuestion: (String) -> Unit = {},
+  onSwitchModelAndRetry: (String) -> Unit = {},
   onRetryGemini: () -> Unit,
   onClearChat: () -> Unit,
   onToggleSpeak: (id: String, text: String) -> Unit,
@@ -129,6 +152,9 @@ fun CoachScreen(
   val lang = state.language
   var selectedTab by remember { mutableIntStateOf(0) }
   var showChampPicker by remember { mutableStateOf(false) }
+  var showModelPicker by remember { mutableStateOf(false) }
+  var showFreeKeysSheet by remember { mutableStateOf(false) }
+  var showCacheInfoDialog by remember { mutableStateOf(false) }
   var laneMenuExpanded by remember { mutableStateOf(false) }
   var questionInput by remember { mutableStateOf("") }
   val clipboardManager = LocalClipboardManager.current
@@ -317,6 +343,22 @@ fun CoachScreen(
             }
           }
         }
+      }
+
+      // AI Model Switcher, Cache Counter & Free API Keys Bar (visible on AI & Live tabs)
+      if (selectedTab == 1 || selectedTab == 2) {
+        AiEngineControlStrip(
+          selectedModelId =
+            if (selectedTab == 2) state.selectedLiveModelId else state.selectedCoachModelId,
+          keyStatus = state.keyStatus,
+          cacheStats = state.cacheStats,
+          cooldownModelIds = state.cooldownModelIds,
+          forVision = selectedTab == 2,
+          language = lang,
+          onOpenModelPicker = { showModelPicker = true },
+          onOpenApiKeys = { showFreeKeysSheet = true },
+          onOpenCacheInfo = { showCacheInfoDialog = true },
+        )
       }
 
       // Optional TTS error banner (only shown if device TTS fails)
@@ -594,10 +636,17 @@ fun CoachScreen(
                       }
                     }
                   } else {
+                    val activeModelBadge =
+                      msg.modelLabel.ifBlank { "WR-AI COACH" } +
+                        if (msg.isFallbackUsed) " (Fallback)" else ""
                     AdviceSpotlightCard(
                       cardId = msg.id,
                       accentColor = ArcaneCyan,
-                      badgeText = "WR-AI COACH",
+                      badgeText = activeModelBadge,
+                      cachedBadgeText =
+                        if (msg.fromCache) {
+                          if (lang == AppLanguage.TH) "แคช • 0 โทเคน" else "Cached • 0 Tokens"
+                        } else null,
                       title = null,
                       body = msg.text,
                       compact = isCompactHeight,
@@ -605,12 +654,16 @@ fun CoachScreen(
                       isSpeaking = speechState.isSpeaking && speechState.activeMessageId == msg.id,
                       onToggleSpeak = { onToggleSpeak(msg.id, msg.text) },
                       onCopy = { clipboardManager.setText(AnnotatedString(msg.text)) },
+                      onRefresh =
+                        if (!isBusy && msg.questionText.isNotBlank()) {
+                          { onRegenerateQuestion(msg.questionText) }
+                        } else null,
                     )
                   }
                 }
 
                 when (geminiState) {
-                  GeminiUiState.Loading -> {
+                  is GeminiUiState.Loading -> {
                     item(key = "gemini_loading") {
                       Surface(
                         shape = MaterialTheme.shapes.medium,
@@ -628,10 +681,11 @@ fun CoachScreen(
                             modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp,
                           )
+                          val modelHint = geminiState.modelLabel.takeIf { it.isNotBlank() } ?: "WR-AI Coach"
                           Text(
                             text =
-                              if (lang == AppLanguage.TH) "กำลังวิเคราะห์คำแนะนำกับ WR-AI Coach..."
-                              else "Analyzing matchup with WR-AI Coach...",
+                              if (lang == AppLanguage.TH) "กำลังวิเคราะห์คำแนะนำ ($modelHint)..."
+                              else "Analyzing matchup with $modelHint...",
                             style = MaterialTheme.typography.bodyMedium,
                             color = ArcaneCyan,
                           )
@@ -641,10 +695,13 @@ fun CoachScreen(
                   }
                   is GeminiUiState.Streaming -> {
                     item(key = "gemini_streaming") {
+                      val modelHint = geminiState.modelLabel.takeIf { it.isNotBlank() } ?: "AI"
                       AdviceSpotlightCard(
                         cardId = "gemini_streaming",
                         accentColor = ArcaneCyan,
-                        badgeText = if (lang == AppLanguage.TH) "กำลังพิมพ์คำแนะนำ..." else "STREAMING ADVICE...",
+                        badgeText =
+                          if (lang == AppLanguage.TH) "กำลังตอบ ($modelHint)..."
+                          else "STREAMING ($modelHint)...",
                         title = null,
                         body = geminiState.text,
                         compact = isCompactHeight,
@@ -659,7 +716,7 @@ fun CoachScreen(
                         shape = MaterialTheme.shapes.medium,
                         color = ThreatCrimson.copy(alpha = 0.12f),
                         border = BorderStroke(1.dp, ThreatCrimson.copy(alpha = 0.65f)),
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().testTag("coach_error_card"),
                       ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                           Text(
@@ -668,7 +725,61 @@ fun CoachScreen(
                             color = ThreatCrimson,
                           )
                           Spacer(modifier = Modifier.height(8.dp))
-                          Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                          FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                          ) {
+                            geminiState.suggestedFallbackModelId?.let { fallbackId ->
+                              val fallbackSpec = AiModelCatalog.findById(fallbackId)
+                              Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = ArcaneCyan.copy(alpha = 0.18f),
+                                border = BorderStroke(1.dp, ArcaneCyan),
+                                modifier =
+                                  Modifier.minimumInteractiveComponentSize()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { onSwitchModelAndRetry(fallbackId) }
+                                    .testTag("coach_switch_fallback_button"),
+                              ) {
+                                Text(
+                                  text =
+                                    if (lang == AppLanguage.TH) "สลับไป ${fallbackSpec.shortBadge}"
+                                    else "Switch to ${fallbackSpec.shortBadge}",
+                                  style = MaterialTheme.typography.labelLarge,
+                                  fontWeight = FontWeight.Bold,
+                                  color = ArcaneCyan,
+                                  modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                )
+                              }
+                            }
+                            Surface(
+                              shape = RoundedCornerShape(8.dp),
+                              color = HextechGold.copy(alpha = 0.16f),
+                              border = BorderStroke(1.dp, HextechGold.copy(alpha = 0.8f)),
+                              modifier =
+                                Modifier.minimumInteractiveComponentSize()
+                                  .clip(RoundedCornerShape(8.dp))
+                                  .clickable {
+                                    if (geminiState.errorKind == CoachErrorKind.INVALID_KEY) {
+                                      showFreeKeysSheet = true
+                                    } else {
+                                      showModelPicker = true
+                                    }
+                                  }
+                                  .testTag("coach_error_open_keys_button"),
+                            ) {
+                              Text(
+                                text =
+                                  if (geminiState.errorKind == CoachErrorKind.INVALID_KEY) {
+                                    if (lang == AppLanguage.TH) "แก้ Key ฟรี" else "Edit Key"
+                                  } else {
+                                    if (lang == AppLanguage.TH) "เปลี่ยนโมเดล / ใส่ Key" else "Models / Keys"
+                                  },
+                                style = MaterialTheme.typography.labelLarge,
+                                color = HextechGoldBright,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                              )
+                            }
                             Surface(
                               shape = RoundedCornerShape(8.dp),
                               color = ThreatCrimson.copy(alpha = 0.2f),
@@ -823,6 +934,86 @@ fun CoachScreen(
       onDismiss = { showChampPicker = false },
     )
   }
+
+  if (showModelPicker) {
+    val forVision = selectedTab == 2
+    ModelPickerBottomSheet(
+      selectedModelId =
+        if (forVision) state.selectedLiveModelId else state.selectedCoachModelId,
+      keyStatus = state.keyStatus,
+      cooldownModelIds = state.cooldownModelIds,
+      forVision = forVision,
+      language = lang,
+      onSelectModel = { modelId ->
+        if (forVision) onSelectLiveModel(modelId) else onSelectCoachModel(modelId)
+      },
+      onOpenApiKeys = { showFreeKeysSheet = true },
+      onDismiss = { showModelPicker = false },
+    )
+  }
+
+  if (showFreeKeysSheet) {
+    FreeApiKeysBottomSheet(
+      keyStatus = state.keyStatus,
+      keyTestStates = keyTestStates,
+      language = lang,
+      onSaveAndTestKey = onSaveAndTestApiKey,
+      onClearKey = onClearApiKey,
+      onDismiss = { showFreeKeysSheet = false },
+    )
+  }
+
+  if (showCacheInfoDialog) {
+    AlertDialog(
+      onDismissRequest = { showCacheInfoDialog = false },
+      containerColor = HextechNavy,
+      titleContentColor = HextechGoldBright,
+      textContentColor = TextPrimaryLight,
+      title = {
+        Text(
+          text =
+            if (lang == AppLanguage.TH) "แคชคำตอบประหยัดโทเคน"
+            else "Token-Saving Response Cache",
+          style = MaterialTheme.typography.titleMedium,
+          fontWeight = FontWeight.Bold,
+        )
+      },
+      text = {
+        Text(
+          text =
+            if (lang == AppLanguage.TH) {
+              "คำตอบที่บันทึกในเครื่อง: ${state.cacheStats.entryCount} รายการ\n" +
+                "ช่วยประหยัดการเรียก AI ซ้ำ: ${state.cacheStats.totalHitsSaved} ครั้ง (0 โทเคน)\n\n" +
+                "เมื่อถามคำถามเดิมในแชมเปี้ยน/เลน/ศัตรู/แพตช์เดิมซ้ำ ระบบจะตอบทันทีโดยไม่เปลืองโควตา"
+            } else {
+              "Cached answers on device: ${state.cacheStats.entryCount} entries\n" +
+                "Repeated hits served free: ${state.cacheStats.totalHitsSaved}x (0 tokens)\n\n" +
+                "Repeated questions for the same champion, lane, enemies, and patch load instantly without spending quota."
+            },
+          style = MaterialTheme.typography.bodyMedium,
+        )
+      },
+      confirmButton = {
+        TextButton(onClick = { showCacheInfoDialog = false }) {
+          Text(if (lang == AppLanguage.TH) "ปิด" else "Close", color = ArcaneCyan)
+        }
+      },
+      dismissButton =
+        if (state.cacheStats.entryCount > 0) {
+          {
+            TextButton(
+              onClick = {
+                onClearAiCache()
+                showCacheInfoDialog = false
+              },
+              modifier = Modifier.testTag("coach_clear_cache_confirm_button"),
+            ) {
+              Text(if (lang == AppLanguage.TH) "ล้างแคชทั้งหมด" else "Clear Cache", color = ThreatCrimson)
+            }
+          }
+        } else null,
+    )
+  }
 }
 
 @Composable
@@ -875,6 +1066,7 @@ private fun AdviceSpotlightCard(
   cardId: String,
   accentColor: Color,
   badgeText: String,
+  cachedBadgeText: String? = null,
   title: String?,
   body: String,
   compact: Boolean,
@@ -882,6 +1074,7 @@ private fun AdviceSpotlightCard(
   isSpeaking: Boolean,
   onToggleSpeak: (() -> Unit)? = null,
   onCopy: (() -> Unit)? = null,
+  onRefresh: (() -> Unit)? = null,
 ) {
   val effectiveBorder =
     if (isSpeaking) HextechGoldBright.copy(alpha = 0.9f) else accentColor.copy(alpha = 0.65f)
@@ -908,26 +1101,78 @@ private fun AdviceSpotlightCard(
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-          Surface(
-            shape = RoundedCornerShape(6.dp),
-            color = accentColor.copy(alpha = 0.16f),
-            border = BorderStroke(1.dp, accentColor.copy(alpha = 0.45f)),
+          Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
           ) {
-            Row(
-              modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(5.dp),
+            Surface(
+              shape = RoundedCornerShape(6.dp),
+              color = accentColor.copy(alpha = 0.16f),
+              border = BorderStroke(1.dp, accentColor.copy(alpha = 0.45f)),
             ) {
-              Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(accentColor))
-              Text(
-                text = badgeText,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = accentColor,
-              )
+              Row(
+                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+              ) {
+                Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(accentColor))
+                Text(
+                  text = badgeText,
+                  style = MaterialTheme.typography.labelSmall,
+                  fontWeight = FontWeight.Bold,
+                  color = accentColor,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                )
+              }
+            }
+            if (!cachedBadgeText.isNullOrBlank()) {
+              Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = AdvantageEmerald.copy(alpha = 0.16f),
+                border = BorderStroke(1.dp, AdvantageEmerald.copy(alpha = 0.5f)),
+                modifier = Modifier.testTag("coach_cached_badge_$cardId"),
+              ) {
+                Row(
+                  modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(3.dp),
+                ) {
+                  Icon(
+                    imageVector = Icons.Default.Bolt,
+                    contentDescription = null,
+                    tint = AdvantageEmerald,
+                    modifier = Modifier.size(11.dp),
+                  )
+                  Text(
+                    text = cachedBadgeText,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = AdvantageEmerald,
+                    maxLines = 1,
+                  )
+                }
+              }
             }
           }
           Row(verticalAlignment = Alignment.CenterVertically) {
+            if (onRefresh != null) {
+              IconButton(
+                onClick = onRefresh,
+                modifier =
+                  Modifier.minimumInteractiveComponentSize().testTag("coach_refresh_button_$cardId"),
+              ) {
+                Icon(
+                  imageVector = Icons.Default.Refresh,
+                  contentDescription =
+                    if (language == AppLanguage.TH) "ถาม AI สดใหม่ (ข้ามแคช)"
+                    else "Ask fresh (bypass cache)",
+                  tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                  modifier = Modifier.size(16.dp),
+                )
+              }
+            }
             if (onToggleSpeak != null) {
               IconButton(
                 onClick = onToggleSpeak,

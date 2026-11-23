@@ -51,11 +51,14 @@ import com.example.data.model.CustomBuildData
 import com.example.data.model.ItemData
 import com.example.data.model.RuneData
 import com.example.data.model.SpellData
+import com.example.data.model.resolveLegacyItemId
+import com.example.data.model.resolveLegacyRuneId
+import com.example.data.model.tier3BootUpgradeId
 import com.example.ui.components.ChampionCrestAvatar
 import com.example.ui.components.HextechCard
 import com.example.ui.components.ItemIconSlot
-import com.example.ui.components.RuneIconSlot
 import com.example.ui.components.SpellIconSlot
+import com.example.ui.components.WildRiftRuneLoadoutStrip
 import com.example.ui.theme.AdvantageEmerald
 import com.example.ui.theme.ArcaneCyan
 import com.example.ui.theme.HextechGold
@@ -218,12 +221,13 @@ fun CustomBuildCard(
   onInspectSpell: (SpellData) -> Unit,
   onOpenChampionDetail: (String) -> Unit = {},
 ) {
-  val starter = itemsById[build.starterItemId]
-  val cores = build.coreItemIds.mapNotNull { itemsById[it] }
-  val boots = itemsById[build.bootsId]
-  val active = itemsById[build.enchantId]
-  val keystone = runesById[build.keystoneId]
-  val minors = build.minorRuneIds.mapNotNull { runesById[it] }
+  val starter = itemsById[resolveLegacyItemId(build.starterItemId)]
+  val cores = build.coreItemIds.mapNotNull { itemsById[resolveLegacyItemId(it)] }.distinctBy { it.id }
+  val boots = itemsById[resolveLegacyItemId(build.bootsId)]
+  val tier3Boots = boots?.let { tier3BootUpgradeId(it.id) }?.let { itemsById[it] }
+  val active = itemsById[resolveLegacyItemId(build.enchantId)]
+  val keystone = runesById[resolveLegacyRuneId(build.keystoneId)]
+  val minors = build.minorRuneIds.mapNotNull { runesById[resolveLegacyRuneId(it)] }
   val spells = build.spellIds.mapNotNull { spellsById[it] }
 
   val totalGold =
@@ -375,40 +379,45 @@ fun CustomBuildCard(
           )
         }
       }
+      tier3Boots?.let { t3Item ->
+        item(key = "cb_t3_${t3Item.id}") {
+          ItemIconSlot(
+            item = t3Item,
+            language = language,
+            onClick = { onInspectItem(t3Item) },
+            size = 42.dp,
+            accentColor = HextechGoldBright,
+            badgeText = if (language == AppLanguage.TH) "10น.+ T3" else "10m+ T3",
+            badgeColor = HextechGold,
+            showCost = true,
+            showName = true,
+          )
+        }
+      }
     }
 
     if (keystone != null || minors.isNotEmpty() || spells.isNotEmpty()) {
       Spacer(modifier = Modifier.height(8.dp))
-      FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-      ) {
-        keystone?.let { ks ->
-          RuneIconSlot(
-            rune = ks,
-            language = language,
-            onClick = { onInspectRune(ks) },
-            size = 34.dp,
-            showLabel = false,
-          )
-        }
-        minors.forEach { mr ->
-          RuneIconSlot(
-            rune = mr,
-            language = language,
-            onClick = { onInspectRune(mr) },
-            size = 30.dp,
-            showLabel = false,
-          )
-        }
-        spells.forEach { sp ->
-          SpellIconSlot(
-            spell = sp,
-            language = language,
-            onClick = { onInspectSpell(sp) },
-            size = 30.dp,
-            showLabel = false,
-          )
+      WildRiftRuneLoadoutStrip(
+        keystone = keystone,
+        minorRunes = minors,
+        language = language,
+        onInspectRune = onInspectRune,
+        tagPrefix = "cb_rune_${build.id}_",
+        compact = true,
+      )
+      if (spells.isNotEmpty()) {
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          spells.forEach { sp ->
+            SpellIconSlot(
+              spell = sp,
+              language = language,
+              onClick = { onInspectSpell(sp) },
+              size = 30.dp,
+              showLabel = false,
+            )
+          }
         }
       }
     }

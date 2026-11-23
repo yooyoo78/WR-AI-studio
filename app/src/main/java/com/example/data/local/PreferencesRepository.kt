@@ -24,6 +24,8 @@ data class UserPreferences(
   val lastImportedPackInfo: String = "",
   val seedRevision: Int = 0,
   val inGameMiniMode: Boolean = false,
+  val selectedCoachModelId: String = "auto",
+  val selectedLiveModelId: String = "auto",
 )
 
 class PreferencesRepository(private val context: Context) {
@@ -35,6 +37,8 @@ class PreferencesRepository(private val context: Context) {
     val LAST_IMPORT = stringPreferencesKey("last_imported_pack_info")
     val SEED_REVISION = intPreferencesKey("seed_revision")
     val IN_GAME_MINI_MODE = booleanPreferencesKey("in_game_mini_mode")
+    val SELECTED_COACH_MODEL_ID = stringPreferencesKey("selected_coach_model_id")
+    val SELECTED_LIVE_MODEL_ID = stringPreferencesKey("selected_live_model_id")
   }
 
   val preferencesFlow: Flow<UserPreferences> =
@@ -49,6 +53,8 @@ class PreferencesRepository(private val context: Context) {
         lastImportedPackInfo = prefs[Keys.LAST_IMPORT] ?: "",
         seedRevision = prefs[Keys.SEED_REVISION] ?: 0,
         inGameMiniMode = prefs[Keys.IN_GAME_MINI_MODE] ?: false,
+        selectedCoachModelId = prefs[Keys.SELECTED_COACH_MODEL_ID] ?: "auto",
+        selectedLiveModelId = prefs[Keys.SELECTED_LIVE_MODEL_ID] ?: "auto",
       )
     }
 
@@ -77,5 +83,13 @@ class PreferencesRepository(private val context: Context) {
 
   suspend fun setInGameMiniMode(enabled: Boolean) {
     context.dataStore.edit { it[Keys.IN_GAME_MINI_MODE] = enabled }
+  }
+
+  suspend fun setSelectedCoachModelId(modelId: String) {
+    context.dataStore.edit { it[Keys.SELECTED_COACH_MODEL_ID] = modelId }
+  }
+
+  suspend fun setSelectedLiveModelId(modelId: String) {
+    context.dataStore.edit { it[Keys.SELECTED_LIVE_MODEL_ID] = modelId }
   }
 }

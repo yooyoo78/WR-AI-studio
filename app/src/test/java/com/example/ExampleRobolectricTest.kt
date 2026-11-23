@@ -14,13 +14,22 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.room.Room
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.db.SupportSQLiteOpenHelper
+import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
 import com.example.core.AppContainer
+import com.example.data.ai.AiModelCatalog
+import com.example.data.ai.AiProviderId
 import com.example.data.ai.CoachSpeechController
+import com.example.data.ai.CoachStreamEvent
+import com.example.data.ai.GeminiCoachService
 import com.example.data.ai.LiveCoachVisionService
 import com.example.data.ai.LiveScreenPhase
+import com.example.data.local.AiCoachCacheEntity
 import com.example.data.local.AppDatabase
 import com.example.data.local.PreferencesRepository
+import com.example.data.local.SecureApiKeyStore
 import com.example.data.model.AppLanguage
 import com.example.data.model.CustomBuildData
 import com.example.data.model.Lane
@@ -177,7 +186,10 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("settings_title_text").assertIsDisplayed()
 
     // Toggle In-Game Mini-Window Mode in Settings
-    composeTestRule.onNodeWithTag("settings_mini_mode_switch").performScrollTo().assertIsDisplayed().performClick()
+    composeTestRule
+      .onNodeWithTag("settings_lazy_column")
+      .performScrollToNode(hasTestTag("settings_mini_mode_switch"))
+    composeTestRule.onNodeWithTag("settings_mini_mode_switch").assertIsDisplayed().performClick()
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("settings_back_button").performClick()
     composeTestRule.waitForIdle()
@@ -275,7 +287,7 @@ class ExampleRobolectricTest {
       .performScrollToNode(hasText("Super Scorcher Breath", substring = true))
     composeTestRule.onNode(hasText("Super Scorcher Breath", substring = true)).assertIsDisplayed()
 
-    composeTestRule.onNodeWithTag("detail_skill_1").performClick()
+    composeTestRule.onNodeWithTag("detail_skill_Q").performClick()
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("mini_info_box").assertIsDisplayed()
     composeTestRule.onNodeWithTag("mini_box_expand_button").performClick()
@@ -354,7 +366,7 @@ class ExampleRobolectricTest {
             bootsId = "berserkers_greaves",
             enchantId = "quicksilver_enchant",
             keystoneId = "lethal_tempo",
-            minorRuneIds = listOf("brutal", "giant_slayer", "bloodline"),
+            minorRuneIds = listOf("brutal", "cut_down", "legend_bloodline", "bone_plating"),
             spellIds = listOf("flash", "barrier"),
             notes = "Anti-tank hypercarry build",
           )
@@ -413,17 +425,52 @@ class ExampleRobolectricTest {
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("coach_advice_spotlight").assertIsDisplayed()
 
-    // Switch to Gemini AI Coach tab and verify curated quick prompts
+    // Switch to Gemini AI Coach tab and verify curated quick prompts + in-screen Model Switcher bar
     composeTestRule.onNodeWithTag("coach_gemini_tab").performClick()
     composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("coach_model_bar").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("coach_model_selector_button").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("coach_api_keys_button").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("coach_cache_stats_badge").assertIsDisplayed()
     composeTestRule.onNodeWithTag("coach_chat_list").assertIsDisplayed()
     composeTestRule.onNodeWithTag("coach_quick_prompt_0").assertIsDisplayed()
     composeTestRule.onNodeWithTag("coach_question_input").assertIsDisplayed()
     composeTestRule.onNodeWithTag("coach_send_button").assertIsDisplayed()
 
+    // Open in-screen Model Picker sheet & close
+    composeTestRule.onNodeWithTag("coach_model_selector_button").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("model_picker_sheet").assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("model_picker_lazy_column")
+      .performScrollToNode(hasTestTag("model_option_firebase:gemini-3.5-flash-lite"))
+    composeTestRule.onNodeWithTag("model_option_firebase:gemini-3.5-flash-lite").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("close_model_picker_button").performClick()
+    composeTestRule.waitForIdle()
+
+    // Open Free API Keys sheet from AI Coach & verify Groq / OpenRouter / AI Studio inputs
+    composeTestRule.onNodeWithTag("coach_api_keys_button").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("free_api_keys_sheet").assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("free_keys_lazy_column")
+      .performScrollToNode(hasTestTag("api_key_input_GROQ"))
+    composeTestRule.onNodeWithTag("api_key_input_GROQ").assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("free_keys_lazy_column")
+      .performScrollToNode(hasTestTag("api_key_input_OPENROUTER"))
+    composeTestRule.onNodeWithTag("api_key_input_OPENROUTER").assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("free_keys_lazy_column")
+      .performScrollToNode(hasTestTag("api_key_input_GOOGLE_AI_STUDIO"))
+    composeTestRule.onNodeWithTag("api_key_input_GOOGLE_AI_STUDIO").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("close_free_keys_button").performClick()
+    composeTestRule.waitForIdle()
+
     // Switch to Live Coach tab and verify on-demand manual capture controls & voice toggle
     composeTestRule.onNodeWithTag("coach_live_tab").performClick()
     composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("coach_model_bar").assertIsDisplayed()
     composeTestRule.onNodeWithTag("coach_live_list").assertIsDisplayed()
     composeTestRule.onNodeWithTag("coach_live_capture_button").assertIsDisplayed()
     composeTestRule.onNodeWithTag("coach_live_pick_button").assertIsDisplayed()
@@ -614,4 +661,397 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("detail_back_button").performClick()
     composeTestRule.waitForIdle()
   }
+
+  @Test
+  fun `cuj search chogath verify pqwer skills and switch jungle vs mid lane builds`() {
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("nav_champions").performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("champions_search_input").performTextInput("Cho")
+    composeTestRule.waitForIdle()
+
+    composeTestRule
+      .onNodeWithTag("champions_lazy_column")
+      .performScrollToNode(hasTestTag("champ_card_chogath"))
+    composeTestRule.onNodeWithTag("champ_card_chogath").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+
+    // Verify P/Q/W/E/R Skill Strip
+    composeTestRule
+      .onNodeWithTag("champion_detail_lazy_column")
+      .performScrollToNode(hasTestTag("detail_skill_title"))
+    composeTestRule.onNodeWithTag("detail_skill_P").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("detail_skill_Q").assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("detail_skill_row")
+      .performScrollToNode(hasTestTag("detail_skill_R"))
+    composeTestRule.onNodeWithTag("detail_skill_R").assertIsDisplayed()
+
+    // Switch lane to JUNGLE and verify Jungle Smite + condition callout appear
+    composeTestRule
+      .onNodeWithTag("champion_detail_lazy_column")
+      .performScrollToNode(hasTestTag("detail_lane_JUNGLE"))
+    composeTestRule.onNodeWithTag("detail_lane_JUNGLE").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("detail_lane_condition").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("detail_spell_smite").performScrollTo().assertIsDisplayed()
+
+    // Switch lane to MID and verify AP Rod of Ages core appears
+    composeTestRule.onNodeWithTag("detail_lane_row").performScrollTo()
+    composeTestRule
+      .onNodeWithTag("detail_lane_row")
+      .performScrollToNode(hasTestTag("detail_lane_MID"))
+    composeTestRule.onNodeWithTag("detail_lane_MID").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("detail_lane_condition").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("detail_build_items_row").performScrollTo()
+    composeTestRule
+      .onNodeWithTag("detail_build_items_row")
+      .performScrollToNode(hasTestTag("detail_item_rod_of_ages"))
+    composeTestRule.onNodeWithTag("detail_item_rod_of_ages").assertIsDisplayed()
+  }
+
+  @Test
+  fun `migration 4 to 5 and seed refresh preserve user custom builds favorites and saved matchups`() = runBlocking {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val dbName = "migration_4_5_preservation_test.db"
+    context.deleteDatabase(dbName)
+
+    val v4OpenHelper =
+      FrameworkSQLiteOpenHelperFactory().create(
+        SupportSQLiteOpenHelper.Configuration.builder(context)
+          .name(dbName)
+          .callback(
+            object : SupportSQLiteOpenHelper.Callback(4) {
+              override fun onCreate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                  """
+                  CREATE TABLE IF NOT EXISTS champions (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    nameEn TEXT NOT NULL,
+                    nameTh TEXT NOT NULL,
+                    titleEn TEXT NOT NULL,
+                    titleTh TEXT NOT NULL,
+                    roles TEXT NOT NULL,
+                    lanes TEXT NOT NULL,
+                    damageType TEXT NOT NULL,
+                    difficulty INTEGER NOT NULL,
+                    tierRank TEXT NOT NULL,
+                    winRatePct REAL NOT NULL,
+                    pickRatePct REAL NOT NULL,
+                    banRatePct REAL NOT NULL,
+                    portraitUrl TEXT NOT NULL,
+                    earlyPower INTEGER NOT NULL,
+                    midPower INTEGER NOT NULL,
+                    latePower INTEGER NOT NULL,
+                    burstRating INTEGER NOT NULL,
+                    dpsRating INTEGER NOT NULL,
+                    tankinessRating INTEGER NOT NULL,
+                    ccRating INTEGER NOT NULL,
+                    mobilityRating INTEGER NOT NULL,
+                    sustainRating INTEGER NOT NULL,
+                    abilities TEXT NOT NULL,
+                    strengthsEn TEXT NOT NULL,
+                    strengthsTh TEXT NOT NULL,
+                    weaknessesEn TEXT NOT NULL,
+                    weaknessesTh TEXT NOT NULL,
+                    threatTags TEXT NOT NULL,
+                    starterItemId TEXT NOT NULL,
+                    coreItemIds TEXT NOT NULL,
+                    defaultBootsId TEXT NOT NULL,
+                    defaultEnchantId TEXT NOT NULL,
+                    defaultKeystoneId TEXT NOT NULL,
+                    defaultMinorRuneIds TEXT NOT NULL,
+                    defaultSpellIds TEXT NOT NULL,
+                    skillOrder TEXT NOT NULL,
+                    counterChampionIds TEXT NOT NULL,
+                    favorableAgainstIds TEXT NOT NULL,
+                    earlyPlanEn TEXT NOT NULL,
+                    earlyPlanTh TEXT NOT NULL,
+                    midPlanEn TEXT NOT NULL,
+                    midPlanTh TEXT NOT NULL,
+                    latePlanEn TEXT NOT NULL,
+                    latePlanTh TEXT NOT NULL,
+                    patchVersion TEXT NOT NULL,
+                    lastUpdated TEXT NOT NULL,
+                    sourceType TEXT NOT NULL
+                  )
+                  """.trimIndent()
+                )
+                db.execSQL(
+                  """
+                  CREATE TABLE IF NOT EXISTS items (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    nameEn TEXT NOT NULL,
+                    nameTh TEXT NOT NULL,
+                    category TEXT NOT NULL,
+                    cost INTEGER NOT NULL,
+                    statsSummaryEn TEXT NOT NULL,
+                    statsSummaryTh TEXT NOT NULL,
+                    passiveNameEn TEXT NOT NULL,
+                    passiveNameTh TEXT NOT NULL,
+                    passiveDescEn TEXT NOT NULL,
+                    passiveDescTh TEXT NOT NULL,
+                    counterTags TEXT NOT NULL,
+                    damageAffinity TEXT NOT NULL,
+                    patchVersion TEXT NOT NULL,
+                    sourceType TEXT NOT NULL,
+                    iconUrl TEXT NOT NULL
+                  )
+                  """.trimIndent()
+                )
+                db.execSQL(
+                  """
+                  CREATE TABLE IF NOT EXISTS runes (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    nameEn TEXT NOT NULL,
+                    nameTh TEXT NOT NULL,
+                    slotType TEXT NOT NULL,
+                    descEn TEXT NOT NULL,
+                    descTh TEXT NOT NULL,
+                    patchVersion TEXT NOT NULL,
+                    sourceType TEXT NOT NULL,
+                    iconUrl TEXT NOT NULL,
+                    tree TEXT NOT NULL
+                  )
+                  """.trimIndent()
+                )
+                db.execSQL(
+                  """
+                  CREATE TABLE IF NOT EXISTS spells (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    nameEn TEXT NOT NULL,
+                    nameTh TEXT NOT NULL,
+                    descEn TEXT NOT NULL,
+                    descTh TEXT NOT NULL,
+                    patchVersion TEXT NOT NULL,
+                    sourceType TEXT NOT NULL,
+                    iconUrl TEXT NOT NULL,
+                    cooldownNote TEXT NOT NULL
+                  )
+                  """.trimIndent()
+                )
+                db.execSQL(
+                  """
+                  CREATE TABLE IF NOT EXISTS matchup_rules (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    champAId TEXT NOT NULL,
+                    champBId TEXT NOT NULL,
+                    advantageScore INTEGER NOT NULL,
+                    laneDifficulty TEXT NOT NULL,
+                    dangerAbilitiesEn TEXT NOT NULL,
+                    dangerAbilitiesTh TEXT NOT NULL,
+                    tipEn TEXT NOT NULL,
+                    tipTh TEXT NOT NULL,
+                    keySpikeEn TEXT NOT NULL,
+                    keySpikeTh TEXT NOT NULL,
+                    patchVersion TEXT NOT NULL,
+                    sourceType TEXT NOT NULL
+                  )
+                  """.trimIndent()
+                )
+                db.execSQL(
+                  """
+                  CREATE TABLE IF NOT EXISTS patch_notes (
+                    version TEXT NOT NULL PRIMARY KEY,
+                    releaseDate TEXT NOT NULL,
+                    headlineEn TEXT NOT NULL,
+                    headlineTh TEXT NOT NULL,
+                    summaryEn TEXT NOT NULL,
+                    summaryTh TEXT NOT NULL,
+                    sourceLabel TEXT NOT NULL,
+                    isActive INTEGER NOT NULL,
+                    changes TEXT NOT NULL
+                  )
+                  """.trimIndent()
+                )
+                db.execSQL(
+                  """
+                  CREATE TABLE IF NOT EXISTS favorite_champions (
+                    championId TEXT NOT NULL PRIMARY KEY,
+                    addedAt INTEGER NOT NULL
+                  )
+                  """.trimIndent()
+                )
+                db.execSQL(
+                  """
+                  CREATE TABLE IF NOT EXISTS saved_matchups (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    myChampionId TEXT NOT NULL,
+                    lane TEXT NOT NULL,
+                    enemyIds TEXT NOT NULL,
+                    label TEXT NOT NULL,
+                    savedAt INTEGER NOT NULL
+                  )
+                  """.trimIndent()
+                )
+                db.execSQL(
+                  """
+                  CREATE TABLE IF NOT EXISTS custom_builds (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    name TEXT NOT NULL,
+                    championId TEXT NOT NULL,
+                    lane TEXT NOT NULL,
+                    starterItemId TEXT NOT NULL,
+                    coreItemIds TEXT NOT NULL,
+                    bootsId TEXT NOT NULL,
+                    enchantId TEXT NOT NULL,
+                    keystoneId TEXT NOT NULL,
+                    minorRuneIds TEXT NOT NULL,
+                    spellIds TEXT NOT NULL,
+                    notes TEXT NOT NULL,
+                    updatedAt INTEGER NOT NULL
+                  )
+                  """.trimIndent()
+                )
+              }
+
+              override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+            }
+          )
+          .build()
+      )
+
+    v4OpenHelper.writableDatabase.use { rawDb ->
+      rawDb.execSQL("INSERT INTO favorite_champions (championId, addedAt) VALUES ('sylas', 1700000000000)")
+      rawDb.execSQL(
+        "INSERT INTO saved_matchups (myChampionId, lane, enemyIds, label, savedAt) VALUES ('darius', 'BARON', '[\"malphite\"]', 'Top vs Malphite', 1700000000000)"
+      )
+      rawDb.execSQL(
+        """
+        INSERT INTO custom_builds (name, championId, lane, starterItemId, coreItemIds, bootsId, enchantId, keystoneId, minorRuneIds, spellIds, notes, updatedAt)
+        VALUES ('My Saved Akshan Set', 'akshan', 'MID', 'long_sword', '["botrk","collector","infinity_edge","mortal_reminder"]', 'berserkers_greaves', 'stasis_enchant', 'press_the_attack', '["brutal","coup_de_grace","alacrity"]', '["flash","ignite"]', 'Keep user notes', 1700000000000)
+        """.trimIndent()
+      )
+    }
+    v4OpenHelper.close()
+
+    val migratedDb =
+      Room.databaseBuilder(context, AppDatabase::class.java, dbName)
+        .addMigrations(AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6)
+        .allowMainThreadQueries()
+        .build()
+
+    try {
+      val prefs = PreferencesRepository(context)
+      val repo = GameDataRepository(context, migratedDb.gameDao(), prefs)
+      repo.ensureSeeded()
+
+      val champs = repo.champions.first()
+      assertTrue("Expected 144 champions after v4->v6 seed refresh, got ${champs.size}", champs.size >= 144)
+      assertTrue(champs.any { it.id == "chogath" })
+      assertTrue(champs.any { it.id == "norra" })
+
+      val savedBuilds = repo.customBuilds.first()
+      assertEquals(1, savedBuilds.size)
+      assertEquals("My Saved Akshan Set", savedBuilds.first().name)
+      assertEquals("Keep user notes", savedBuilds.first().notes)
+
+      val favs = repo.favoriteChampionIds.first()
+      assertTrue("sylas" in favs)
+
+      val matchups = repo.savedMatchups.first()
+      assertEquals(1, matchups.size)
+      assertEquals("Top vs Malphite", matchups.first().label)
+    } finally {
+      migratedDb.close()
+      context.deleteDatabase(dbName)
+    }
+  }
+
+  @Test
+  fun `secure api key store saves masks and clears external provider keys`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val store = SecureApiKeyStore(context)
+    AiProviderId.entries.filter { it.requiresApiKey }.forEach { store.clearKey(it) }
+
+    store.saveKey(AiProviderId.GROQ, "gsk_test_1234567890abcd")
+    store.saveKey(AiProviderId.OPENROUTER, "sk-or-v1-abcdef123456")
+
+    assertEquals("gsk_test_1234567890abcd", store.getKey(AiProviderId.GROQ))
+    assertEquals("sk-or-v1-abcdef123456", store.getKey(AiProviderId.OPENROUTER))
+    assertTrue(store.keyStatusFlow.value.hasGroqKey)
+    assertTrue(store.keyStatusFlow.value.hasOpenRouterKey)
+    assertTrue(!store.keyStatusFlow.value.hasAiStudioKey)
+    assertEquals(2, store.keyStatusFlow.value.configuredExternalCount)
+    assertTrue(store.keyStatusFlow.value.groqPreview.contains("abcd"))
+
+    store.clearKey(AiProviderId.GROQ)
+    assertEquals(null, store.getKey(AiProviderId.GROQ))
+    assertEquals(1, store.keyStatusFlow.value.configuredExternalCount)
+    store.clearKey(AiProviderId.OPENROUTER)
+  }
+
+  @Test
+  fun `persistent room ai coach cache serves repeated questions at 0 tokens across service instances`() =
+    runBlocking {
+      val context = ApplicationProvider.getApplicationContext<Context>()
+      val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
+      try {
+        val prefs = PreferencesRepository(context)
+        val repo = GameDataRepository(context, db.gameDao(), prefs)
+        repo.ensureSeeded()
+        val ahri = repo.champions.first().first { it.id == "ahri" }
+        val zed = repo.champions.first().first { it.id == "zed" }
+        val question = "ช่วง Lv 1-3 ควรเทรด Zed ยังไง?"
+        val cacheKey =
+          GeminiCoachService.buildCacheKey(
+            question = question,
+            champion = ahri,
+            lane = Lane.MID,
+            enemies = listOf(zed),
+            patchVersion = "7.3f",
+            language = AppLanguage.TH,
+          )
+
+        val now = System.currentTimeMillis()
+        db.gameDao()
+          .upsertCoachCacheEntry(
+            AiCoachCacheEntity(
+              cacheKey = cacheKey,
+              normalizedQuestion = GeminiCoachService.normalizeQuestion(question),
+              championId = ahri.id,
+              lane = Lane.MID.name,
+              patchVersion = "7.3f",
+              languageCode = AppLanguage.TH.code,
+              responseText = "• เก็บ Charm ไว้สวนตอน Zed พุ่ง R\n• ออก Stasis Enchant ชิ้นแรก",
+              modelId = AiModelCatalog.GROQ_LLAMA_70B.id,
+              modelLabel = AiModelCatalog.GROQ_LLAMA_70B.displayName,
+              createdAt = now,
+              lastAccessedAt = now,
+              hitCount = 0,
+            )
+          )
+
+        // Fresh GeminiCoachService instance (simulating cold app restart with empty memory cache)
+        val freshService = GeminiCoachService(context = null, gameDao = db.gameDao())
+        val events = mutableListOf<CoachStreamEvent>()
+        freshService
+          .streamCoachingAdvice(
+            question = "  ช่วง   Lv 1-3 ควรเทรด Zed ยังไง? ",
+            champion = ahri,
+            lane = Lane.MID,
+            enemies = listOf(zed),
+            patchVersion = "7.3f",
+            language = AppLanguage.TH,
+          )
+          .collect { events += it }
+
+        assertEquals(1, events.size)
+        val completed = events.single() as CoachStreamEvent.Completed
+        assertTrue(completed.fromCache)
+        assertTrue(completed.finalText.contains("Stasis Enchant"))
+        assertEquals(AiModelCatalog.GROQ_LLAMA_70B.displayName, completed.modelLabel)
+
+        val stats = db.gameDao().observeCoachCacheStats().first()
+        assertEquals(1, stats.entryCount)
+        assertEquals(1, stats.totalHitsSaved)
+
+        freshService.clearPersistentCache()
+        assertEquals(0, db.gameDao().observeCoachCacheStats().first().entryCount)
+      } finally {
+        db.close()
+      }
+    }
 }

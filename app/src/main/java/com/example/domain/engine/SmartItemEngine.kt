@@ -55,6 +55,7 @@ data class SmartBuildRecommendation(
   val firstRushRecommendation: ItemRecommendationEntry,
   val prioritizedItems: List<ItemRecommendationEntry>,
   val recommendedBoots: ItemRecommendationEntry,
+  val recommendedTier3Boots: ItemRecommendationEntry? = null,
   val recommendedEnchant: ItemRecommendationEntry,
   val buildDiff: BuildDiffSummary,
   val keystone: RuneData?,
@@ -68,6 +69,9 @@ data class SmartBuildRecommendation(
   val midGamePlanTh: String,
   val lateGamePlanEn: String,
   val lateGamePlanTh: String,
+  val skillOrder: String = "",
+  val laneConditionNoteEn: String = "",
+  val laneConditionNoteTh: String = "",
 )
 
 class SmartItemEngine {
@@ -85,8 +89,9 @@ class SmartItemEngine {
     val runeMap = allRunes.associateBy { it.id }
     val spellMap = allSpells.associateBy { it.id }
 
-    val starterItem = itemMap[myChampion.starterItemId]
-    val standardCore = myChampion.coreItemIds.mapNotNull { itemMap[it] }
+    val laneLoadout = myChampion.resolveForLane(myLane)
+    val starterItem = itemMap[laneLoadout.starterItemId] ?: itemMap[myChampion.starterItemId]
+    val standardCore = laneLoadout.coreItemIds.mapNotNull { itemMap[it] }
     val isTankOrFrontline =
       ChampionRole.TANK in myChampion.roles && myChampion.damageType != DamageType.AD
     val isApChampion = myChampion.damageType == DamageType.AP && !isTankOrFrontline
@@ -94,13 +99,35 @@ class SmartItemEngine {
     val isSupportEnchanter =
       myLane == Lane.SUPPORT && ChampionRole.TANK !in myChampion.roles
 
-    // 1. Evaluate Boots adaptation
+    // 1. Evaluate Boots adaptation (Tier 2 + 10:00+ Tier 3 Upgrade)
     val recommendedBoots =
-      selectAdaptiveBoots(myChampion, profile, itemMap)
+      selectAdaptiveBoots(myChampion, laneLoadout.bootsId, profile, itemMap)
+    val recommendedTier3Boots =
+      com.example.data.model.tier3BootUpgradeId(recommendedBoots.item.id)?.let { t3Id ->
+        itemMap[t3Id]?.let { t3Item ->
+          ItemRecommendationEntry(
+            item = t3Item,
+            priorityLabelEn = "10:00+ Tier 3 Boot",
+            priorityLabelTh = "อัปเกรดรองเท้า 10:00+",
+            isAdapted = recommendedBoots.isAdapted,
+            replacedStandardItemName = null,
+            reasonEn =
+              "Unlocks at 10:00+ (+1000g from ${recommendedBoots.item.nameEn}). Upgrades stats and adds ${t3Item.passiveNameEn}.",
+            reasonTh =
+              "ปลดล็อกนาทีที่ 10:00+ (อัปจาก ${recommendedBoots.item.nameTh} +1000g) เพิ่มค่าพลังและได้ความสามารถ ${t3Item.passiveNameTh}",
+            targetThreatEn = recommendedBoots.targetThreatEn,
+            targetThreatTh = recommendedBoots.targetThreatTh,
+            buyTimingEn = "After 10:00 in-game (+1000g, typically after 2–3 Core items)",
+            buyTimingTh = "หลังนาทีที่ 10:00+ ในเกม (+1000g มักอัปหลังครบ 2–3 ชิ้นหลัก)",
+            tacticalBenefitEn = t3Item.passiveDescEn,
+            tacticalBenefitTh = t3Item.passiveDescTh,
+          )
+        }
+      }
 
     // 2. Evaluate Enchantment adaptation
     val recommendedEnchant =
-      selectAdaptiveEnchant(myChampion, enemies, profile, itemMap)
+      selectAdaptiveEnchant(myChampion, laneLoadout.enchantId, myLane, enemies, profile, itemMap)
 
     // 3. Evaluate Situational Counter Injections (multi-threat aware!)
     val counterInjections = mutableListOf<ItemRecommendationEntry>()
@@ -157,7 +184,7 @@ class SmartItemEngine {
             item = antiTankItem,
             priorityLabelEn = "Anti-Tank Core",
             priorityLabelTh = "เจาะเกราะ/ละลายแทงค์",
-            isAdapted = antiTankItem.id !in myChampion.coreItemIds,
+            isAdapted = antiTankItem.id !in laneLoadout.coreItemIds,
             replacedStandardItemName = null,
             reasonEn = "Enemy frontline ($names) stacks high HP and resistances. Percentage-HP or penetration prevents your damage from stalling.",
             reasonTh = "แนวหน้าศัตรู ($names) เลือดและเกราะหนา ต้องใช้ดาเมจ % เลือดหรือเจาะเกราะเพื่อไม่ให้ดาเมจตันกลางเกม",
@@ -183,7 +210,7 @@ class SmartItemEngine {
             } else {
               itemMap["force_of_nature"] ?: itemMap["kaenic_rookern"] ?: itemMap["abyssal_mask"]
             }
-          isApChampion || isSupportEnchanter -> itemMap["crown_shattered_queen"] ?: itemMap["banshees_veil"]
+          isApChampion || isSupportEnchanter -> itemMap["banshees_veil"]
           isMarksman -> itemMap["wits_end"] ?: itemMap["maw_of_malmortius"]
           else -> itemMap["maw_of_malmortius"]
         }
@@ -193,7 +220,7 @@ class SmartItemEngine {
             item = antiApItem,
             priorityLabelEn = "Anti-AP Defense",
             priorityLabelTh = "กันเบิร์สเวท",
-            isAdapted = antiApItem.id !in myChampion.coreItemIds,
+            isAdapted = antiApItem.id !in laneLoadout.coreItemIds,
             replacedStandardItemName = null,
             reasonEn = "High enemy AP burst ($names) threatens one-shot combos without Magic Resist or spell-shield protection.",
             reasonTh = "ฝั่งศัตรูมีเบิร์สเวทแรง ($names) เสี่ยงโดนคอมโบชุดเดียวหายหากไม่มีต้านเวทหรือโล่กันสกิล",
@@ -222,7 +249,7 @@ class SmartItemEngine {
           isTankOrFrontline -> itemMap["thornmail"]
           isMarksman -> itemMap["guardian_angel"]
           !isApChampion -> itemMap["deaths_dance"]
-          else -> itemMap["stasis_enchant"] ?: itemMap["crown_shattered_queen"]
+          else -> itemMap["stasis_enchant"] ?: itemMap["banshees_veil"]
         }
       if (antiAdItem != null && alreadyChosenIds.add(antiAdItem.id)) {
         counterInjections.add(
@@ -230,7 +257,7 @@ class SmartItemEngine {
             item = antiAdItem,
             priorityLabelEn = "Anti-AD / AS",
             priorityLabelTh = "กัน AD / ตีไว / คริ",
-            isAdapted = antiAdItem.id !in myChampion.coreItemIds,
+            isAdapted = antiAdItem.id !in laneLoadout.coreItemIds,
             replacedStandardItemName = null,
             reasonEn = "Enemy physical DPS/Crit/AS ($names) will shred unarmored targets in sustained fights.",
             reasonTh = "ศัตรูมีดาเมจกายภาพ/ตีไว/คริสูง ($names) ต้องลดความเร็วโจมตีหรือหน่วงดาเมจกายภาพ",
@@ -371,6 +398,8 @@ class SmartItemEngine {
       }
     }
 
+    recommendedTier3Boots?.let { entries.add(it) }
+
     val swappedIn = adaptedCoreList.filter { item -> standardCore.none { it.id == item.id } }
     val swappedOut = standardCore.filter { item -> adaptedCoreList.none { it.id == item.id } }
 
@@ -389,7 +418,7 @@ class SmartItemEngine {
 
     // 4. Adaptive Runes & Summoner Spells
     val (keystone, minors, spells, runeReasonEn, runeReasonTh) =
-      selectAdaptiveRunesAndSpells(myChampion, myLane, profile, runeMap, spellMap)
+      selectAdaptiveRunesAndSpells(myChampion, myLane, laneLoadout, profile, runeMap, spellMap)
 
     // 5. Early / Mid / Late Game Plan tailored to enemies
     val topThreat = matchups.firstOrNull()?.enemy
@@ -429,6 +458,7 @@ class SmartItemEngine {
       firstRushRecommendation = rushEntry,
       prioritizedItems = entries,
       recommendedBoots = recommendedBoots,
+      recommendedTier3Boots = recommendedTier3Boots,
       recommendedEnchant = recommendedEnchant,
       buildDiff =
         BuildDiffSummary(
@@ -450,15 +480,19 @@ class SmartItemEngine {
       midGamePlanTh = myChampion.midPlanTh + midExtraTh,
       lateGamePlanEn = myChampion.latePlanEn + lateExtraEn,
       lateGamePlanTh = myChampion.latePlanTh + lateExtraTh,
+      skillOrder = laneLoadout.skillOrder,
+      laneConditionNoteEn = laneLoadout.conditionNoteEn,
+      laneConditionNoteTh = laneLoadout.conditionNoteTh,
     )
   }
 
   private fun selectAdaptiveBoots(
     myChamp: ChampionData,
+    laneBootsId: String,
     profile: EnemyTeamThreatProfile,
     itemMap: Map<String, ItemData>,
   ): ItemRecommendationEntry {
-    val defaultBoots = itemMap[myChamp.defaultBootsId] ?: itemMap["plated_steelcaps"]!!
+    val defaultBoots = itemMap[laneBootsId] ?: itemMap[myChamp.defaultBootsId] ?: itemMap["plated_steelcaps"]!!
     val isTankOrFighter =
       ChampionRole.TANK in myChamp.roles || ChampionRole.FIGHTER in myChamp.roles
 
@@ -471,15 +505,15 @@ class SmartItemEngine {
     when {
       profile.ccScore >= 60 || (profile.apBurstScore >= 65 && isTankOrFighter) -> {
         chosen = itemMap["mercurys_treads"] ?: defaultBoots
-        reasonEn = "Enemy team packs heavy Crowd Control and/or Magic Burst—Mercury's Treads reduces stun duration and magic damage."
-        reasonTh = "ฝั่งศัตรูมี CC ล็อกและดาเมจเวทสูง Mercury's Treads ช่วยลดเวลาติดสตั๊นและกันเวทได้คุ้มที่สุด"
+        reasonEn = "Enemy team packs heavy Crowd Control and/or Magic Burst—Mercury's Treads grants +150 HP, +25 MR, and +30% Tenacity."
+        reasonTh = "ฝั่งศัตรูมี CC ล็อกและดาเมจเวทสูง Mercury's Treads เพิ่ม +150 เลือด, +25 ต้านเวท และลดเวลาติด CC 30%"
         targetEn = (profile.ccThreats + profile.apThreats).distinctBy { it.id }.take(3).joinToString { it.nameEn }.ifBlank { "Heavy CC & AP" }
         targetTh = (profile.ccThreats + profile.apThreats).distinctBy { it.id }.take(3).joinToString { it.nameTh }.ifBlank { "CC และเวท" }
       }
       profile.adDpsScore >= 65 && (isTankOrFighter || profile.diveScore >= 35) -> {
         chosen = itemMap["plated_steelcaps"] ?: defaultBoots
-        reasonEn = "Strong physical damage & auto-attackers on enemy team—Plated Steelcaps cuts 10% physical damage."
-        reasonTh = "ศัตรูเน้นดาเมจกายภาพและการโจมตีปกติสูง Plated Steelcaps ช่วยลดดาเมจกายภาพลง 10%"
+        reasonEn = "Strong physical DPS & auto-attackers on enemy team—Plated Steelcaps grants +150 HP, +25 Armor, and cuts champion basic attacks by 10%."
+        reasonTh = "ศัตรูเน้นการโจมตีปกติและดาเมจกายภาพสูง Plated Steelcaps เพิ่ม +150 เลือด, +25 เกราะ และลดดาเมจตีปกติจากแชมเปี้ยน 10%"
         targetEn = profile.adThreats.take(3).joinToString { it.nameEn }.ifBlank { "Heavy AD" }
         targetTh = profile.adThreats.take(3).joinToString { it.nameTh }.ifBlank { "AD หนัก" }
       }
@@ -511,18 +545,20 @@ class SmartItemEngine {
 
   private fun selectAdaptiveEnchant(
     myChamp: ChampionData,
+    laneEnchantId: String,
+    myLane: Lane,
     enemies: List<ChampionData>,
     profile: EnemyTeamThreatProfile,
     itemMap: Map<String, ItemData>,
   ): ItemRecommendationEntry {
-    val defaultEnchant = itemMap[myChamp.defaultEnchantId] ?: itemMap["stasis_enchant"]!!
+    val defaultEnchant = itemMap[laneEnchantId] ?: itemMap[myChamp.defaultEnchantId] ?: itemMap["stasis_enchant"]!!
     val isSquishyCarry =
       ChampionRole.MARKSMAN in myChamp.roles ||
         ChampionRole.MAGE in myChamp.roles ||
         myChamp.tankinessRating <= 4
 
     val isEnchanterSupport =
-      ChampionRole.SUPPORT in myChamp.roles && ChampionRole.TANK !in myChamp.roles
+      myLane == Lane.SUPPORT && ChampionRole.TANK !in myChamp.roles
     val hasPointClickBurst = enemies.any { it.id in listOf("zed", "evelynn", "syndra", "vi", "camille") }
     val hasCriticalLockdown =
       enemies.any { it.id in listOf("rammus", "leona", "nautilus", "thresh", "lux", "ahri") }
@@ -536,7 +572,7 @@ class SmartItemEngine {
     when {
       isSquishyCarry && hasPointClickBurst -> {
         chosen = itemMap["stasis_enchant"] ?: defaultEnchant
-        reasonEn = "Zhonya's Stasis nullifies point-and-click assassin/burst ultimates (Zed (4), Syndra (4), Evelynn (4))."
+        reasonEn = "Zhonya's Stasis nullifies point-and-click assassin/burst ultimates (Zed (R), Syndra (R), Evelynn (R))."
         reasonTh = "Zhonya's (Stasis) กดเป็นอมตะ 2.5 วิ หลบอัลติล็อกเป้าสายเบิร์สอย่าง Zed, Syndra, Evelynn ได้ทันที"
         targetEn = enemies.filter { it.id in listOf("zed", "evelynn", "syndra", "vi", "camille") }.joinToString { it.nameEn }
         targetTh = enemies.filter { it.id in listOf("zed", "evelynn", "syndra", "vi", "camille") }.joinToString { it.nameTh }
@@ -599,19 +635,49 @@ class SmartItemEngine {
   private fun selectAdaptiveRunesAndSpells(
     myChamp: ChampionData,
     myLane: Lane,
+    laneLoadout: com.example.data.model.ResolvedLaneLoadout,
     profile: EnemyTeamThreatProfile,
     runeMap: Map<String, RuneData>,
     spellMap: Map<String, SpellData>,
   ): RuneSpellBundle {
-    var keystone = runeMap[myChamp.defaultKeystoneId]
-    val minors = myChamp.defaultMinorRuneIds.mapNotNull { runeMap[it] }.toMutableList()
-    val spells = myChamp.defaultSpellIds.mapNotNull { spellMap[it] }.toMutableList()
+    var keystone =
+      runeMap[com.example.data.model.resolveLegacyRuneId(laneLoadout.keystoneId)]
+        ?: runeMap[com.example.data.model.resolveLegacyRuneId(myChamp.defaultKeystoneId)]
+    val minors =
+      laneLoadout.minorRuneIds
+        .mapNotNull { runeMap[com.example.data.model.resolveLegacyRuneId(it)] }
+        .toMutableList()
+    val spells = laneLoadout.spellIds.mapNotNull { spellMap[it] }.toMutableList()
     val notesEn = mutableListOf<String>()
     val notesTh = mutableListOf<String>()
+    if (!laneLoadout.isPrimaryOrListedLane || laneLoadout.lane != myChamp.lanes.firstOrNull()) {
+      notesEn.add(laneLoadout.conditionNoteEn)
+      notesTh.add(laneLoadout.conditionNoteTh)
+    }
+
+    val primaryTree = minors.firstOrNull()?.tree?.uppercase().orEmpty()
+
+    fun applyAdaptiveMinor(rune: RuneData) {
+      if (minors.any { it.id == rune.id } || minors.isEmpty()) return
+      if (rune.tree.equals(primaryTree, ignoreCase = true) && minors.size >= 3) {
+        val targetIdx =
+          when (rune.slotType.uppercase()) {
+            "MINOR_1" -> 0
+            "MINOR_2" -> 1
+            "MINOR_3" -> 2
+            else -> 1
+          }
+        if (targetIdx < minors.size) minors[targetIdx] = rune
+      } else if (minors.size >= 4) {
+        minors[3] = rune
+      } else {
+        minors[minors.lastIndex] = rune
+      }
+    }
 
     // Adjust Keystone for tough poke lanes
     if (
-      myChamp.defaultKeystoneId == "conqueror" &&
+      laneLoadout.keystoneId == "conqueror" &&
         profile.apBurstScore >= 70 &&
         myChamp.mobilityRating <= 5
     ) {
@@ -622,11 +688,11 @@ class SmartItemEngine {
       }
     }
 
-    // Adjust Minor Runes: Bone Plating vs Dive/Burst, Perseverance vs Heavy CC, Giant Slayer vs 2+ Tanks
+    // Adjust Minor Runes: Bone Plating vs Dive/Burst, Perseverance vs Heavy CC, Cut Down vs Tanks
     if (profile.diveScore >= 35 || profile.apBurstScore >= 60) {
       runeMap["bone_plating"]?.let { bp ->
         if (minors.none { it.id == "bone_plating" } && minors.isNotEmpty()) {
-          minors[minors.lastIndex] = bp
+          applyAdaptiveMinor(bp)
           notesEn.add("Bone Plating reduces 3-hit assassin burst.")
           notesTh.add("ใส่ Bone Plating ลดเบิร์ส 3 ฮิตของตัวล้วง")
         }
@@ -634,19 +700,19 @@ class SmartItemEngine {
     }
     if (profile.ccScore >= 60) {
       runeMap["perseverance"]?.let { pers ->
-        if (minors.none { it.id == "perseverance" } && minors.size >= 2) {
-          minors[minors.size - 2] = pers
+        if (minors.none { it.id == "perseverance" } && minors.isNotEmpty()) {
+          applyAdaptiveMinor(pers)
           notesEn.add("Perseverance adds Tenacity vs heavy CC.")
           notesTh.add("เสริม Perseverance เพิ่ม Tenacity ลดเวลาติด CC")
         }
       }
     }
     if (profile.tankinessScore >= 50 && myChamp.damageType != DamageType.AP) {
-      runeMap["giant_slayer"]?.let { gs ->
-        if (minors.none { it.id == "giant_slayer" } && minors.isNotEmpty()) {
-          minors[0] = gs
-          notesEn.add("Giant Slayer adds up to 14% damage vs high-HP tanks.")
-          notesTh.add("เลือก Giant Slayer เพิ่มดาเมจสูงสุด 14% ใส่แทงค์เลือดเยอะ")
+      runeMap["cut_down"]?.let { cd ->
+        if (minors.none { it.id == "cut_down" } && minors.isNotEmpty()) {
+          applyAdaptiveMinor(cd)
+          notesEn.add("Cut Down deals bonus damage against high-HP tanks.")
+          notesTh.add("เลือก Cut Down เพิ่มดาเมจใส่แชมเปี้ยนเลือดเยอะและแทงค์")
         }
       }
     }

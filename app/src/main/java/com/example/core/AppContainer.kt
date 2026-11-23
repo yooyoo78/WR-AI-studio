@@ -2,11 +2,14 @@ package com.example.core
 
 import android.content.Context
 import com.example.capture.QuickScanCoordinator
+import com.example.data.ai.ExternalAiProvidersClient
 import com.example.data.ai.GeminiCoachService
 import com.example.data.ai.LiveCoachVisionService
 import com.example.data.ai.ScreenChampionScanner
 import com.example.data.local.AppDatabase
+import com.example.data.local.GameDao
 import com.example.data.local.PreferencesRepository
+import com.example.data.local.SecureApiKeyStore
 import com.example.data.model.ChampionRole
 import com.example.data.model.Lane
 import com.example.data.repository.GameDataRepository
@@ -37,13 +40,16 @@ data class ActiveDraftContext(
 class AppContainer(context: Context) {
   val appContext: Context = context.applicationContext
   private val database: AppDatabase by lazy { AppDatabase.getInstance(appContext) }
+  val gameDao: GameDao by lazy { database.gameDao() }
 
   val preferencesRepository: PreferencesRepository by lazy { PreferencesRepository(appContext) }
+  val secureApiKeyStore: SecureApiKeyStore by lazy { SecureApiKeyStore(appContext) }
+  val externalAiClient: ExternalAiProvidersClient by lazy { ExternalAiProvidersClient() }
 
   val gameDataRepository: GameDataRepository by lazy {
     GameDataRepository(
       context = appContext,
-      dao = database.gameDao(),
+      dao = gameDao,
       preferencesRepository = preferencesRepository,
     )
   }
@@ -52,13 +58,25 @@ class AppContainer(context: Context) {
   val smartItemEngine: SmartItemEngine by lazy { SmartItemEngine() }
   val draftAssistantEngine: DraftAssistantEngine by lazy { DraftAssistantEngine() }
   val offlineCoachEngine: OfflineCoachEngine by lazy { OfflineCoachEngine() }
-  val geminiCoachService: GeminiCoachService by lazy { GeminiCoachService(appContext) }
+  val geminiCoachService: GeminiCoachService by lazy {
+    GeminiCoachService(
+      context = appContext,
+      gameDao = gameDao,
+      secureKeyStore = secureApiKeyStore,
+      externalClient = externalAiClient,
+    )
+  }
   val championScanMatcher: ChampionScanMatcher by lazy { ChampionScanMatcher() }
   val screenChampionScanner: ScreenChampionScanner by lazy {
     ScreenChampionScanner(appContext, championScanMatcher)
   }
   val liveCoachVisionService: LiveCoachVisionService by lazy {
-    LiveCoachVisionService(appContext, championScanMatcher)
+    LiveCoachVisionService(
+      context = appContext,
+      matcher = championScanMatcher,
+      secureKeyStore = secureApiKeyStore,
+      externalClient = externalAiClient,
+    )
   }
   val quickScanCoordinator: QuickScanCoordinator by lazy {
     QuickScanCoordinator(

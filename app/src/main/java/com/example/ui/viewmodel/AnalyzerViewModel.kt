@@ -7,6 +7,7 @@ import com.example.core.AppContainer
 import com.example.data.local.SavedMatchupEntity
 import com.example.data.model.ChampionData
 import com.example.data.model.CustomBuildData
+import com.example.data.model.ItemData
 import com.example.data.model.Lane
 import com.example.data.repository.GameDataRepository
 import com.example.domain.engine.EnemyMatchupAnalysis
@@ -32,6 +33,7 @@ data class AnalyzerUiState(
   val smartBuild: SmartBuildRecommendation? = null,
   val savedMatchups: List<SavedMatchupEntity> = emptyList(),
   val customBuildsForChampion: List<CustomBuildData> = emptyList(),
+  val itemsById: Map<String, ItemData> = emptyMap(),
 )
 
 class AnalyzerViewModel(
@@ -131,6 +133,7 @@ class AnalyzerViewModel(
             smartBuild = smartBuild,
             savedMatchups = saved,
             customBuildsForChampion = allCustomBuilds.filter { it.championId == myChamp.id },
+            itemsById = items.associateBy { it.id },
           )
         }
       }
@@ -150,6 +153,14 @@ class AnalyzerViewModel(
   fun selectMyChampionById(championId: String) {
     val found = uiState.value.allChampions.firstOrNull { it.id == championId } ?: return
     selectMyChampion(found)
+  }
+
+  fun selectMyChampionWithLane(championId: String, lane: Lane) {
+    val found = uiState.value.allChampions.firstOrNull { it.id == championId } ?: return
+    _selectedChampId.value = found.id
+    _selectedLane.value = lane
+    _selectedEnemyIds.value = _selectedEnemyIds.value.filter { it != found.id }
+    syncSharedContext()
   }
 
   fun selectLane(lane: Lane) {

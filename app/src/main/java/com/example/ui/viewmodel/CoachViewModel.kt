@@ -9,13 +9,19 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.capture.CaptureTarget
 import com.example.core.AppContainer
+import com.example.data.ai.AiModelCatalog
+import com.example.data.ai.AiProviderId
+import com.example.data.ai.ApiKeyTestResult
+import com.example.data.ai.CoachErrorKind
 import com.example.data.ai.CoachSpeechController
 import com.example.data.ai.CoachSpeechState
 import com.example.data.ai.CoachStreamEvent
+import com.example.data.ai.ExternalApiKeyStatus
 import com.example.data.ai.GeminiCoachService
 import com.example.data.ai.LiveCoachAnalysisResult
 import com.example.data.ai.LiveCoachOutcome
 import com.example.data.ai.LiveCoachVisionService
+import com.example.data.local.CoachCacheStats
 import com.example.data.local.PreferencesRepository
 import com.example.data.model.AppLanguage
 import com.example.data.model.ChampionData
@@ -42,19 +48,34 @@ import kotlinx.coroutines.withContext
 sealed interface GeminiUiState {
   data object Idle : GeminiUiState
 
-  data object Loading : GeminiUiState
+  data class Loading(val modelLabel: String = "") : GeminiUiState
 
-  data class Streaming(val text: String) : GeminiUiState
+  data class Streaming(val text: String, val modelLabel: String = "") : GeminiUiState
 
   data class Success(val text: String) : GeminiUiState
 
-  data class Error(val message: String) : GeminiUiState
+  data class Error(
+    val message: String,
+    val errorKind: CoachErrorKind = CoachErrorKind.OTHER,
+    val failedModelId: String = "",
+    val suggestedFallbackModelId: String? = null,
+  ) : GeminiUiState
 }
+
+data class ProviderKeyTestState(
+  val isTesting: Boolean = false,
+  val lastResult: ApiKeyTestResult? = null,
+)
 
 data class CoachChatMessage(
   val id: String,
   val isUser: Boolean,
   val text: String,
+  val modelId: String = "",
+  val modelLabel: String = "",
+  val fromCache: Boolean = false,
+  val isFallbackUsed: Boolean = false,
+  val questionText: String = "",
 )
 
 data class CoachQuickPrompt(
@@ -81,6 +102,11 @@ data class CoachUiState(
   val quickPrompts: List<CoachQuickPrompt> = emptyList(),
   val activePatchVersion: String = "7.3f",
   val language: AppLanguage = AppLanguage.TH,
+  val selectedCoachModelId: String = AiModelCatalog.AUTO_MODEL_ID,
+  val selectedLiveModelId: String = AiModelCatalog.AUTO_MODEL_ID,
+  val keyStatus: ExternalApiKeyStatus = ExternalApiKeyStatus(),
+  val cacheStats: CoachCacheStats = CoachCacheStats(),
+  val cooldownModelIds: Set<String> = emptySet(),
 )
 
 class CoachViewModel(
@@ -109,6 +135,9 @@ class CoachViewModel(
   private val _liveState = MutableStateFlow(LiveCoachUiState())
   val liveState: StateFlow<LiveCoachUiState> = _liveState.asStateFlow()
 
+  private val _keyTestStates = MutableStateFlow<Map<AiProviderId, ProviderKeyTestState>>(emptyMap())
+  val keyTestStates: StateFlow<Map<AiProviderId, ProviderKeyTestState>> = _keyTestStates.asStateFlow()
+
   private var streamJob: Job? = null
   private var liveJob: Job? = null
   private var liveCountdownJob: Job? = null
@@ -123,7 +152,22 @@ class CoachViewModel(
         _selectedChampId,
         _selectedLane,
         _enemyIds,
-      ) { champions, prefs, champId, lane, enemyIds ->
+        appContainer.secureApiKeyStore.keyStatusFlow,
+        appContainer.gameDao.observeCoachCacheStats(),
+        geminiCoachService.cooldownModelIds,
+      ) { values ->
+        @Suppress("UNCHECKED_CAST")
+        val champions = values[0] as List<ChampionData>
+        val prefs = values[1] as com.example.data.local.UserPreferences
+        val champId = values[2] as String?
+        val lane = values[3] as Lane
+        @Suppress("UNCHECKED_CAST")
+        val enemyIds = values[4] as List<String>
+        val keyStatus = values[5] as ExternalApiKeyStatus
+        val cacheStats = values[6] as CoachCacheStats
+        @Suppress("UNCHECKED_CAST")
+        val cooldowns = values[7] as Set<String>
+
         val map = champions.associateBy { it.id }
         val selected = map[champId] ?: champions.firstOrNull()
         val enemies = enemyIds.mapNotNull { map[it] }
@@ -142,6 +186,11 @@ class CoachViewModel(
           quickPrompts = prompts,
           activePatchVersion = prefs.activePatchLabel,
           language = prefs.language,
+          selectedCoachModelId = prefs.selectedCoachModelId,
+          selectedLiveModelId = prefs.selectedLiveModelId,
+          keyStatus = keyStatus,
+          cacheStats = cacheStats,
+          cooldownModelIds = cooldowns,
         )
       }
       .stateIn(
@@ -180,6 +229,49 @@ class CoachViewModel(
 
   fun selectLane(lane: Lane) {
     _selectedLane.value = lane
+  }
+
+  fun selectCoachModel(modelId: String) {
+    viewModelScope.launch { preferencesRepository.setSelectedCoachModelId(modelId) }
+  }
+
+  fun selectLiveModel(modelId: String) {
+    viewModelScope.launch { preferencesRepository.setSelectedLiveModelId(modelId) }
+  }
+
+  fun saveAndTestApiKey(provider: AiProviderId, rawKey: String) {
+    val lang = uiState.value.language
+    viewModelScope.launch {
+      _keyTestStates.update { it + (provider to ProviderKeyTestState(isTesting = true)) }
+      val result = appContainer.externalAiClient.testProviderKey(provider, rawKey, lang)
+      if (result.isValid) {
+        appContainer.secureApiKeyStore.saveKey(provider, rawKey)
+      }
+      _keyTestStates.update {
+        it + (provider to ProviderKeyTestState(isTesting = false, lastResult = result))
+      }
+    }
+  }
+
+  fun clearApiKey(provider: AiProviderId) {
+    appContainer.secureApiKeyStore.clearKey(provider)
+    _keyTestStates.update { it - provider }
+    val currentTextSpec = AiModelCatalog.findById(uiState.value.selectedCoachModelId)
+    if (currentTextSpec.provider == provider) {
+      selectCoachModel(AiModelCatalog.AUTO_MODEL_ID)
+    }
+    val currentLiveSpec = AiModelCatalog.findById(uiState.value.selectedLiveModelId)
+    if (currentLiveSpec.provider == provider) {
+      selectLiveModel(AiModelCatalog.AUTO_MODEL_ID)
+    }
+  }
+
+  fun clearKeyTestStatus(provider: AiProviderId) {
+    _keyTestStates.update { it - provider }
+  }
+
+  fun clearAiCache() {
+    viewModelScope.launch { geminiCoachService.clearPersistentCache() }
   }
 
   fun toggleSpeak(messageId: String, text: String) {
@@ -254,6 +346,7 @@ class CoachViewModel(
             fallbackLane = current.selectedLane,
             patchVersion = current.activePatchVersion,
             language = current.language,
+            preferredModelId = current.selectedLiveModelId,
           )
         handleLiveOutcome(outcome, current.language)
       }
@@ -283,6 +376,7 @@ class CoachViewModel(
             fallbackLane = current.selectedLane,
             patchVersion = current.activePatchVersion,
             language = current.language,
+            preferredModelId = current.selectedLiveModelId,
           )
         handleLiveOutcome(outcome, current.language)
       }
@@ -348,24 +442,47 @@ class CoachViewModel(
     }.trim()
   }
 
-  fun askGeminiCoach(question: String) {
+  fun askGeminiCoach(question: String, bypassCache: Boolean = false) {
     val trimmed = question.trim()
     if (trimmed.isBlank()) return
     lastQuestion = trimmed
     val userMsgId = "msg_${++messageSeq}"
     _messages.value = _messages.value + CoachChatMessage(id = userMsgId, isUser = true, text = trimmed)
-    launchCoachRequest(trimmed)
+    launchCoachRequest(trimmed, bypassCache = bypassCache)
+  }
+
+  fun regenerateQuestion(question: String) {
+    val trimmed = question.trim()
+    if (trimmed.isBlank()) return
+    lastQuestion = trimmed
+    launchCoachRequest(trimmed, bypassCache = true)
   }
 
   fun retryLastQuestion() {
     val q = lastQuestion ?: _messages.value.lastOrNull { it.isUser }?.text ?: return
-    launchCoachRequest(q)
+    launchCoachRequest(q, bypassCache = false)
   }
 
-  private fun launchCoachRequest(question: String) {
+  fun switchModelAndRetry(modelId: String) {
+    viewModelScope.launch {
+      preferencesRepository.setSelectedCoachModelId(modelId)
+      val q = lastQuestion ?: _messages.value.lastOrNull { it.isUser }?.text
+      if (q != null) {
+        launchCoachRequest(q, bypassCache = false, overrideModelId = modelId)
+      }
+    }
+  }
+
+  private fun launchCoachRequest(
+    question: String,
+    bypassCache: Boolean,
+    overrideModelId: String? = null,
+  ) {
     val current = uiState.value
+    val targetModelId = overrideModelId ?: current.selectedCoachModelId
+    val loadingLabel = AiModelCatalog.findById(targetModelId).displayName
     streamJob?.cancel()
-    _geminiState.value = GeminiUiState.Loading
+    _geminiState.value = GeminiUiState.Loading(modelLabel = loadingLabel)
 
     streamJob =
       viewModelScope.launch {
@@ -377,21 +494,42 @@ class CoachViewModel(
             enemies = current.enemyContext,
             patchVersion = current.activePatchVersion,
             language = current.language,
+            preferredModelId = targetModelId,
+            bypassCache = bypassCache,
           )
           .collect { event ->
             when (event) {
               is CoachStreamEvent.Chunk -> {
-                _geminiState.value = GeminiUiState.Streaming(event.accumulatedText)
+                _geminiState.value =
+                  GeminiUiState.Streaming(
+                    text = event.accumulatedText,
+                    modelLabel = event.modelLabel,
+                  )
               }
               is CoachStreamEvent.Completed -> {
                 _geminiState.value = GeminiUiState.Success(event.finalText)
                 val botMsgId = "msg_${++messageSeq}"
                 _messages.value =
                   _messages.value +
-                    CoachChatMessage(id = botMsgId, isUser = false, text = event.finalText)
+                    CoachChatMessage(
+                      id = botMsgId,
+                      isUser = false,
+                      text = event.finalText,
+                      modelId = event.modelId,
+                      modelLabel = event.modelLabel,
+                      fromCache = event.fromCache,
+                      isFallbackUsed = event.isFallbackUsed,
+                      questionText = question,
+                    )
               }
               is CoachStreamEvent.Error -> {
-                _geminiState.value = GeminiUiState.Error(event.message)
+                _geminiState.value =
+                  GeminiUiState.Error(
+                    message = event.message,
+                    errorKind = event.kind,
+                    failedModelId = event.failedModelId,
+                    suggestedFallbackModelId = event.suggestedFallbackModelId,
+                  )
               }
             }
           }

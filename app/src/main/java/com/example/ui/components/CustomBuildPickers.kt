@@ -203,23 +203,42 @@ fun RunePickerBottomSheet(
   runes: List<RuneData>,
   keystonesOnly: Boolean,
   selectedIds: Set<String> = emptySet(),
+  requiredSlotType: String? = null,
+  initialTree: String? = null,
+  excludedTree: String? = null,
   language: AppLanguage,
   onSelectRune: (RuneData) -> Unit,
   onDismiss: () -> Unit,
 ) {
   BackHandler(onBack = onDismiss)
-  var selectedTree by remember { mutableStateOf<String?>(null) }
+  var selectedTree by remember(initialTree, excludedTree) {
+    mutableStateOf(
+      if (initialTree != null && !initialTree.equals(excludedTree, ignoreCase = true)) initialTree
+      else null
+    )
+  }
+
+  val availableTrees =
+    remember(excludedTree) {
+      listOf("PRECISION", "DOMINATION", "RESOLVE", "SORCERY")
+        .filter { excludedTree == null || !it.equals(excludedTree, ignoreCase = true) }
+    }
 
   val filtered =
-    remember(runes, keystonesOnly, selectedTree) {
+    remember(runes, keystonesOnly, selectedTree, requiredSlotType, excludedTree) {
       runes
         .filter { rune ->
           val isKs = rune.slotType.equals("KEYSTONE", ignoreCase = true)
-          val matchesType = if (keystonesOnly) isKs else !isKs
+          val matchesType =
+            if (keystonesOnly) isKs
+            else if (requiredSlotType != null) rune.slotType.equals(requiredSlotType, ignoreCase = true)
+            else !isKs
+          val notExcluded =
+            excludedTree == null || !rune.tree.equals(excludedTree, ignoreCase = true)
           val matchesTree = selectedTree == null || rune.tree.equals(selectedTree, ignoreCase = true)
-          matchesType && matchesTree
+          matchesType && notExcluded && matchesTree
         }
-        .sortedWith(compareBy<RuneData> { it.tree }.thenBy { it.nameEn })
+        .sortedWith(compareBy<RuneData> { it.tree }.thenBy { it.slotType }.thenBy { it.nameEn })
     }
 
   ModalBottomSheet(
@@ -251,7 +270,7 @@ fun RunePickerBottomSheet(
           onClick = { selectedTree = null },
           label = { Text(if (language == AppLanguage.TH) "ทุกสาย" else "All Trees") },
         )
-        listOf("PRECISION", "DOMINATION", "RESOLVE", "INSPIRATION").forEach { tree ->
+        availableTrees.forEach { tree ->
           FilterChip(
             selected = selectedTree == tree,
             onClick = { selectedTree = if (selectedTree == tree) null else tree },
@@ -295,7 +314,7 @@ fun RunePickerBottomSheet(
               Spacer(modifier = Modifier.width(10.dp))
               Column(modifier = Modifier.weight(1f)) {
                 Text(
-                  text = rune.displayName(language),
+                  text = "${rune.displayName(language)} • ${runeSlotLabel(rune.slotType, language)}",
                   style = MaterialTheme.typography.titleSmall,
                   color = HextechGoldBright,
                 )

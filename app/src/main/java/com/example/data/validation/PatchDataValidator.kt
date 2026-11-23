@@ -117,6 +117,43 @@ class PatchDataValidator {
           errors.add("Champion ${champ.id} references unknown spellId '$spellId'.")
         }
       }
+      champ.laneOverrides.forEach { override ->
+        override.starterItemId?.let { sId ->
+          if (sId !in allItemIds) {
+            errors.add("Champion ${champ.id} laneOverride(${override.lane}) unknown starterItemId '$sId'.")
+          }
+        }
+        override.coreItemIds.forEach { cId ->
+          if (cId !in allItemIds) {
+            errors.add("Champion ${champ.id} laneOverride(${override.lane}) unknown coreItemId '$cId'.")
+          }
+        }
+        override.bootsId?.let { bId ->
+          if (bId !in allItemIds) {
+            errors.add("Champion ${champ.id} laneOverride(${override.lane}) unknown bootsId '$bId'.")
+          }
+        }
+        override.enchantId?.let { eId ->
+          if (eId !in allItemIds) {
+            errors.add("Champion ${champ.id} laneOverride(${override.lane}) unknown enchantId '$eId'.")
+          }
+        }
+        override.keystoneId?.let { kId ->
+          if (kId !in allRuneIds) {
+            errors.add("Champion ${champ.id} laneOverride(${override.lane}) unknown keystoneId '$kId'.")
+          }
+        }
+        override.minorRuneIds.forEach { rId ->
+          if (rId !in allRuneIds) {
+            errors.add("Champion ${champ.id} laneOverride(${override.lane}) unknown minorRuneId '$rId'.")
+          }
+        }
+        override.spellIds.forEach { spId ->
+          if (spId !in allSpellIds) {
+            errors.add("Champion ${champ.id} laneOverride(${override.lane}) unknown spellId '$spId'.")
+          }
+        }
+      }
       champ.counterChampionIds.forEach { cId ->
         if (cId !in allChampIds) {
           warnings.add("Champion ${champ.id} counterChampionId '$cId' not yet in roster.")

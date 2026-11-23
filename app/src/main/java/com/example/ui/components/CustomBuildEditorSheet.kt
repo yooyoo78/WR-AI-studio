@@ -59,6 +59,8 @@ import com.example.data.model.ItemData
 import com.example.data.model.Lane
 import com.example.data.model.RuneData
 import com.example.data.model.SpellData
+import com.example.data.model.resolveLegacyItemId
+import com.example.data.model.resolveLegacyRuneId
 import com.example.ui.theme.AdvantageEmerald
 import com.example.ui.theme.ArcaneCyan
 import com.example.ui.theme.HextechGold
@@ -100,22 +102,28 @@ fun CustomBuildEditorSheet(
     mutableStateOf(initialBuild.lane)
   }
   var starterId by remember(initialBuild.id, initialBuild.starterItemId) {
-    mutableStateOf(initialBuild.starterItemId)
+    mutableStateOf(resolveLegacyItemId(initialBuild.starterItemId))
   }
   var coreIds by remember(initialBuild.id, initialBuild.coreItemIds) {
-    mutableStateOf(initialBuild.coreItemIds.take(5))
+    mutableStateOf(initialBuild.coreItemIds.map(::resolveLegacyItemId).distinct().take(5))
   }
   var bootsId by remember(initialBuild.id, initialBuild.bootsId) {
-    mutableStateOf(initialBuild.bootsId)
+    mutableStateOf(resolveLegacyItemId(initialBuild.bootsId))
   }
   var enchantId by remember(initialBuild.id, initialBuild.enchantId) {
-    mutableStateOf(initialBuild.enchantId)
+    mutableStateOf(resolveLegacyItemId(initialBuild.enchantId))
   }
   var keystoneId by remember(initialBuild.id, initialBuild.keystoneId) {
-    mutableStateOf(initialBuild.keystoneId)
+    mutableStateOf(resolveLegacyRuneId(initialBuild.keystoneId))
   }
   var minorRuneIds by remember(initialBuild.id, initialBuild.minorRuneIds) {
-    mutableStateOf(initialBuild.minorRuneIds.take(3))
+    val resolved = initialBuild.minorRuneIds.map(::resolveLegacyRuneId).take(4).toMutableList()
+    val fallbackDefaults = listOf("triumph", "coup_de_grace", "legend_alacrity", "bone_plating")
+    while (resolved.size < 4) {
+      val nextFallback = fallbackDefaults.firstOrNull { it !in resolved } ?: "bone_plating"
+      resolved.add(nextFallback)
+    }
+    mutableStateOf(resolved.toList())
   }
   var spellIds by remember(initialBuild.id, initialBuild.spellIds) {
     mutableStateOf(initialBuild.spellIds.take(2))
@@ -476,11 +484,11 @@ fun CustomBuildEditorSheet(
         }
       }
 
-      // Runes & Spells
+      // Runes (1 Keystone + 3 Primary Minor + 1 Secondary Minor) & Spells
       Text(
         text =
-          if (language == AppLanguage.TH) "รูน & Summoner Spells (แตะเพื่อเปลี่ยน)"
-          else "Runes & Summoner Spells (Tap to change)",
+          if (language == AppLanguage.TH) "รูน: หลัก (1) • รอง 1 (3 ช่อง) • รอง 2 (1 ช่อง) และ Spells"
+          else "Runes: Keystone (1) • Primary (3) • Secondary (1) & Spells",
         style = MaterialTheme.typography.labelMedium,
         color = SkillViolet,
       )
@@ -494,17 +502,31 @@ fun CustomBuildEditorSheet(
             language = language,
             onClick = { activeSlotTarget = EditorSlotTarget.Keystone },
             size = 44.dp,
+            badgeOverride = "★",
             modifier = Modifier.testTag("editor_slot_keystone"),
           )
         }
-        minorRuneIds.forEachIndexed { idx, rId ->
+        minorRuneIds.take(3).forEachIndexed { idx, rId ->
           runesById[rId]?.let { mr ->
             RuneIconSlot(
               rune = mr,
               language = language,
               onClick = { activeSlotTarget = EditorSlotTarget.MinorRune(idx) },
               size = 38.dp,
+              badgeOverride = "${idx + 1}",
               modifier = Modifier.testTag("editor_slot_minor_$idx"),
+            )
+          }
+        }
+        minorRuneIds.getOrNull(3)?.let { rId ->
+          runesById[rId]?.let { mr ->
+            RuneIconSlot(
+              rune = mr,
+              language = language,
+              onClick = { activeSlotTarget = EditorSlotTarget.MinorRune(3) },
+              size = 38.dp,
+              badgeOverride = if (language == AppLanguage.TH) "รอง2" else "2nd",
+              modifier = Modifier.testTag("editor_slot_minor_3"),
             )
           }
         }
@@ -680,16 +702,58 @@ fun CustomBuildEditorSheet(
     }
 
     is EditorSlotTarget.MinorRune -> {
+      val isSecondarySlot = target.index >= 3
+      val primaryTree =
+        minorRuneIds.take(3).firstNotNullOfOrNull { runesById[it]?.tree?.takeIf { t -> t.isNotBlank() } }
+      val requiredSlot =
+        if (!isSecondarySlot) "MINOR_${(target.index + 1).coerceIn(1, 3)}" else null
+      val pickerTitle =
+        if (isSecondarySlot) {
+          if (language == AppLanguage.TH) "เลือกรูนรอง 2 (1 ช่อง ต่างสาย)" else "Select Secondary Rune (1 Slot)"
+        } else {
+          if (language == AppLanguage.TH) "เลือกรูนรอง 1 ช่อง ${target.index + 1}" else "Select Primary Minor Slot ${target.index + 1}"
+        }
       RunePickerBottomSheet(
-        title = if (language == AppLanguage.TH) "เลือกรูนรอง" else "Select Minor Rune",
+        title = pickerTitle,
         runes = allRunesList,
         keystonesOnly = false,
-        selectedIds = minorRuneIds.toSet(),
+        selectedIds = setOfNotNull(minorRuneIds.getOrNull(target.index)),
+        requiredSlotType = requiredSlot,
+        initialTree = if (!isSecondarySlot) primaryTree else null,
+        excludedTree = if (isSecondarySlot) primaryTree else null,
         language = language,
         onSelectRune = { rune ->
           val mutable = minorRuneIds.toMutableList()
-          if (target.index < mutable.size) mutable[target.index] = rune.id else mutable.add(rune.id)
-          minorRuneIds = mutable.distinct().take(3)
+          while (mutable.size <= target.index) mutable.add(rune.id)
+          mutable[target.index] = rune.id
+          if (!isSecondarySlot) {
+            // Keep Primary Slots 1-3 coherent with the newly chosen rune's tree when switching trees
+            val chosenTree = rune.tree
+            if (chosenTree.isNotBlank()) {
+              for (slotIdx in 0..2) {
+                val cur = runesById[mutable[slotIdx]]
+                if (cur == null || !cur.tree.equals(chosenTree, ignoreCase = true)) {
+                  val slotName = "MINOR_${slotIdx + 1}"
+                  val replacement =
+                    allRunesList.firstOrNull {
+                      it.tree.equals(chosenTree, ignoreCase = true) &&
+                        it.slotType.equals(slotName, ignoreCase = true)
+                    }
+                  if (replacement != null) mutable[slotIdx] = replacement.id
+                }
+              }
+              val secRune = runesById[mutable.getOrNull(3)]
+              if (secRune != null && secRune.tree.equals(chosenTree, ignoreCase = true)) {
+                val altSec =
+                  allRunesList.firstOrNull {
+                    !it.slotType.equals("KEYSTONE", ignoreCase = true) &&
+                      !it.tree.equals(chosenTree, ignoreCase = true)
+                  }
+                if (altSec != null && mutable.size > 3) mutable[3] = altSec.id
+              }
+            }
+          }
+          minorRuneIds = mutable.take(4)
           activeSlotTarget = null
         },
         onDismiss = { activeSlotTarget = null },
@@ -716,18 +780,22 @@ fun CustomBuildEditorSheet(
   }
 }
 
-fun buildDefaultCustomDraft(champion: ChampionData): CustomBuildData =
-  CustomBuildData(
+fun buildDefaultCustomDraft(champion: ChampionData, lane: Lane? = null): CustomBuildData {
+  val targetLane = lane ?: champion.lanes.firstOrNull() ?: Lane.MID
+  val loadout = champion.resolveForLane(targetLane)
+  val suffix = if (targetLane != champion.lanes.firstOrNull()) " ${targetLane.labelEn}" else " Custom"
+  return CustomBuildData(
     id = 0L,
-    name = "${champion.nameEn} Custom",
+    name = "${champion.nameEn}$suffix",
     championId = champion.id,
-    lane = champion.lanes.firstOrNull() ?: Lane.MID,
-    starterItemId = champion.starterItemId,
-    coreItemIds = champion.coreItemIds,
-    bootsId = champion.defaultBootsId,
-    enchantId = champion.defaultEnchantId,
-    keystoneId = champion.defaultKeystoneId,
-    minorRuneIds = champion.defaultMinorRuneIds,
-    spellIds = champion.defaultSpellIds,
-    notes = "",
+    lane = targetLane,
+    starterItemId = loadout.starterItemId,
+    coreItemIds = loadout.coreItemIds,
+    bootsId = loadout.bootsId,
+    enchantId = loadout.enchantId,
+    keystoneId = loadout.keystoneId,
+    minorRuneIds = loadout.minorRuneIds,
+    spellIds = loadout.spellIds,
+    notes = if (loadout.lane != champion.lanes.firstOrNull()) loadout.conditionNoteEn else "",
   )
+}

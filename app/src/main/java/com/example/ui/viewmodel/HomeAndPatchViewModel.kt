@@ -4,6 +4,9 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.data.ai.GeminiCoachService
+import com.example.data.local.CoachCacheStats
+import com.example.data.local.GameDao
 import com.example.data.local.PreferencesRepository
 import com.example.data.local.UserPreferences
 import com.example.data.model.AppLanguage
@@ -18,6 +21,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -44,6 +48,8 @@ sealed interface PatchActionStatus {
 class HomeAndPatchViewModel(
   private val repository: GameDataRepository,
   private val preferencesRepository: PreferencesRepository,
+  private val gameDao: GameDao? = null,
+  private val geminiCoachService: GeminiCoachService? = null,
 ) : ViewModel() {
 
   private val _selectedTierLane = MutableStateFlow<Lane?>(null)
@@ -58,6 +64,13 @@ class HomeAndPatchViewModel(
       scope = viewModelScope,
       started = SharingStarted.WhileSubscribed(5000),
       initialValue = UserPreferences(),
+    )
+
+  val coachCacheStats: StateFlow<CoachCacheStats> =
+    (gameDao?.observeCoachCacheStats() ?: flowOf(CoachCacheStats())).stateIn(
+      scope = viewModelScope,
+      started = SharingStarted.WhileSubscribed(5000),
+      initialValue = CoachCacheStats(),
     )
 
   val homeUiState: StateFlow<HomeUiState> =
@@ -130,6 +143,12 @@ class HomeAndPatchViewModel(
     viewModelScope.launch { preferencesRepository.setInGameMiniMode(enabled) }
   }
 
+  fun clearCoachCache() {
+    viewModelScope.launch {
+      geminiCoachService?.clearPersistentCache() ?: gameDao?.clearAllCoachCache()
+    }
+  }
+
   fun importPatchJsonUri(uri: Uri) {
     viewModelScope.launch {
       _patchActionStatus.value = PatchActionStatus.Working
@@ -200,9 +219,11 @@ class HomeAndPatchViewModel(
   class Factory(
     private val repository: GameDataRepository,
     private val preferencesRepository: PreferencesRepository,
+    private val gameDao: GameDao? = null,
+    private val geminiCoachService: GeminiCoachService? = null,
   ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T =
-      HomeAndPatchViewModel(repository, preferencesRepository) as T
+      HomeAndPatchViewModel(repository, preferencesRepository, gameDao, geminiCoachService) as T
   }
 }

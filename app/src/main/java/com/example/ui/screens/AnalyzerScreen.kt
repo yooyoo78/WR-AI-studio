@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BookmarkAdd
@@ -85,6 +86,7 @@ import com.example.ui.components.RuneIconSlot
 import com.example.ui.components.SpellIconSlot
 import com.example.ui.components.TacticalMeterBar
 import com.example.ui.components.TierBadge
+import com.example.ui.components.WildRiftRuneLoadoutStrip
 import com.example.ui.theme.AdvantageEmerald
 import com.example.ui.theme.ArcaneCyan
 import com.example.ui.theme.HextechGold
@@ -592,7 +594,7 @@ fun AnalyzerScreen(
             item {
               SpellsAndSkillOrderCard(
                 build = build,
-                skillOrder = myChamp?.skillOrder.orEmpty(),
+                skillOrder = build.skillOrder.ifBlank { myChamp?.skillOrder.orEmpty() },
                 lang = lang,
                 onInspectSpell = { miniInspectTarget = MiniInspectTarget.Spell(it) },
               )
@@ -640,6 +642,7 @@ fun AnalyzerScreen(
     target = miniInspectTarget,
     language = lang,
     onDismiss = { miniInspectTarget = null },
+    itemsById = state.itemsById,
   )
 }
 
@@ -941,6 +944,7 @@ private fun BuildDiffCard(
           accentColor = if (isSwappedOut) ThreatCrimson else MaterialTheme.colorScheme.outline,
           badgeText = if (isSwappedOut) "−" else null,
           badgeColor = ThreatCrimson,
+          reserveBadgeSpace = true,
           showCost = true,
           showName = true,
           modifier = Modifier.testTag("diff_std_item_${item.id}"),
@@ -966,11 +970,71 @@ private fun BuildDiffCard(
           accentColor = if (isSwappedIn) AdvantageEmerald else HextechGold,
           badgeText = if (isSwappedIn) "+" else null,
           badgeColor = AdvantageEmerald,
+          reserveBadgeSpace = true,
           showCost = true,
           showName = true,
           modifier = Modifier.testTag("diff_adapted_item_${item.id}"),
         )
       }
+    }
+
+    Spacer(modifier = Modifier.height(10.dp))
+    Text(
+      text =
+        if (lang == AppLanguage.TH) "รองเท้า (ขั้น 2 → อัปเกรด 10:00+) & ไอเทมกดใช้:"
+        else "Boots (Tier 2 → 10:00+ Tier 3) & Active:",
+      style = MaterialTheme.typography.labelMedium,
+      color = HextechGoldBright,
+    )
+    Spacer(modifier = Modifier.height(6.dp))
+    FlowRow(
+      horizontalArrangement = Arrangement.spacedBy(8.dp),
+      verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+      ItemIconSlot(
+        item = build.recommendedBoots.item,
+        language = lang,
+        onClick = { onInspectItem(build.recommendedBoots.item) },
+        size = 44.dp,
+        accentColor = AdvantageEmerald,
+        badgeText = if (lang == AppLanguage.TH) "ขั้น 2" else "Tier 2",
+        badgeColor = AdvantageEmerald,
+        showCost = true,
+        showName = true,
+        modifier = Modifier.testTag("diff_boots_${build.recommendedBoots.item.id}"),
+      )
+      build.recommendedTier3Boots?.item?.let { t3Boot ->
+        Icon(
+          imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+          contentDescription = null,
+          tint = HextechGold,
+          modifier = Modifier.size(16.dp).align(Alignment.CenterVertically),
+        )
+        ItemIconSlot(
+          item = t3Boot,
+          language = lang,
+          onClick = { onInspectItem(t3Boot) },
+          size = 44.dp,
+          accentColor = HextechGoldBright,
+          badgeText = if (lang == AppLanguage.TH) "10น.+ T3" else "10m+ T3",
+          badgeColor = HextechGold,
+          showCost = true,
+          showName = true,
+          modifier = Modifier.testTag("diff_boots_t3_${t3Boot.id}"),
+        )
+      }
+      ItemIconSlot(
+        item = build.recommendedEnchant.item,
+        language = lang,
+        onClick = { onInspectItem(build.recommendedEnchant.item) },
+        size = 44.dp,
+        accentColor = SkillViolet,
+        badgeText = "Active",
+        badgeColor = SkillViolet,
+        showCost = true,
+        showName = true,
+        modifier = Modifier.testTag("diff_enchant_${build.recommendedEnchant.item.id}"),
+      )
     }
   }
 }
@@ -1101,29 +1165,13 @@ private fun RunesRecommendationCard(
     )
     Spacer(modifier = Modifier.height(8.dp))
 
-    FlowRow(
-      horizontalArrangement = Arrangement.spacedBy(10.dp),
-      verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-      build.keystone?.let { ks ->
-        RuneIconSlot(
-          rune = ks,
-          language = lang,
-          onClick = { onInspectRune(ks) },
-          size = 44.dp,
-          modifier = Modifier.testTag("analyzer_rune_${ks.id}"),
-        )
-      }
-      build.minorRunes.forEach { rune ->
-        RuneIconSlot(
-          rune = rune,
-          language = lang,
-          onClick = { onInspectRune(rune) },
-          size = 38.dp,
-          modifier = Modifier.testTag("analyzer_rune_${rune.id}"),
-        )
-      }
-    }
+    WildRiftRuneLoadoutStrip(
+      keystone = build.keystone,
+      minorRunes = build.minorRunes,
+      language = lang,
+      onInspectRune = onInspectRune,
+      tagPrefix = "analyzer_rune_",
+    )
 
     build.keystone?.let { ks ->
       Spacer(modifier = Modifier.height(6.dp))
@@ -1156,6 +1204,15 @@ private fun SpellsAndSkillOrderCard(
       style = MaterialTheme.typography.labelSmall,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+    val laneNote = if (lang == AppLanguage.TH) build.laneConditionNoteTh else build.laneConditionNoteEn
+    if (laneNote.isNotBlank()) {
+      Spacer(modifier = Modifier.height(6.dp))
+      Text(
+        text = laneNote,
+        style = MaterialTheme.typography.bodySmall,
+        color = ArcaneCyan,
+      )
+    }
     Spacer(modifier = Modifier.height(8.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
       build.spells.forEach { spell ->

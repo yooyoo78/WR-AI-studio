@@ -68,6 +68,7 @@ import com.example.data.model.Lane
 import com.example.data.model.RuneData
 import com.example.data.model.SpellData
 import com.example.data.model.TierRank
+import com.example.data.model.isTier3Boot
 import com.example.data.remote.DDragonIconResolver
 import com.example.ui.theme.AdvantageEmerald
 import com.example.ui.theme.ArcaneCyan
@@ -181,6 +182,7 @@ fun ItemIconSlot(
   accentColor: Color = HextechGold,
   badgeText: String? = null,
   badgeColor: Color = accentColor,
+  reserveBadgeSpace: Boolean = !badgeText.isNullOrBlank(),
   showCost: Boolean = true,
   showName: Boolean = false,
 ) {
@@ -203,59 +205,65 @@ fun ItemIconSlot(
         .padding(2.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
   ) {
-    Box(modifier = Modifier.size(effectiveSize)) {
+    if (!badgeText.isNullOrBlank() || reserveBadgeSpace) {
       Box(
-        modifier =
-          Modifier.fillMaxSize()
-            .clip(RoundedCornerShape(10.dp))
-            .background(Brush.linearGradient(listOf(HextechSurfaceHigh, HextechSurface)))
-            .border(1.5.dp, accentColor.copy(alpha = 0.78f), RoundedCornerShape(10.dp)),
-        contentAlignment = Alignment.Center,
+        modifier = Modifier.width(effectiveSize).height(18.dp),
+        contentAlignment = Alignment.BottomStart,
       ) {
-        val fallback: @Composable () -> Unit = {
-          Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-              imageVector = Icons.Default.Shield,
-              contentDescription = null,
-              tint = accentColor.copy(alpha = 0.7f),
-              modifier = Modifier.size(16.dp),
-            )
+        if (!badgeText.isNullOrBlank()) {
+          Surface(
+            shape = RoundedCornerShape(5.dp),
+            color = badgeColor,
+          ) {
             Text(
-              text = initials,
+              text = badgeText,
               style = MaterialTheme.typography.labelSmall,
               fontWeight = FontWeight.Bold,
-              color = accentColor,
+              color = Color(0xFF070B14),
+              maxLines = 1,
+              modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
             )
           }
         }
-        if (item.iconUrl.isNotBlank()) {
-          SubcomposeAsyncImage(
-            model = buildCoilImageRequest(LocalContext.current, item.iconUrl),
-            contentDescription = item.displayName(language),
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)),
-            loading = { fallback() },
-            error = { fallback() },
-          )
-        } else {
-          fallback()
-        }
       }
+      Spacer(modifier = Modifier.height(2.dp))
+    }
 
-      if (!badgeText.isNullOrBlank()) {
-        Surface(
-          shape = RoundedCornerShape(5.dp),
-          color = badgeColor,
-          modifier = Modifier.align(Alignment.TopEnd).padding(2.dp),
-        ) {
+    Box(
+      modifier =
+        Modifier.size(effectiveSize)
+          .clip(RoundedCornerShape(10.dp))
+          .background(Brush.linearGradient(listOf(HextechSurfaceHigh, HextechSurface)))
+          .border(1.5.dp, accentColor.copy(alpha = 0.78f), RoundedCornerShape(10.dp)),
+      contentAlignment = Alignment.Center,
+    ) {
+      val fallback: @Composable () -> Unit = {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+          Icon(
+            imageVector = Icons.Default.Shield,
+            contentDescription = null,
+            tint = accentColor.copy(alpha = 0.7f),
+            modifier = Modifier.size(16.dp),
+          )
           Text(
-            text = badgeText,
+            text = initials,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF070B14),
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+            color = accentColor,
           )
         }
+      }
+      if (item.iconUrl.isNotBlank()) {
+        SubcomposeAsyncImage(
+          model = buildCoilImageRequest(LocalContext.current, item.iconUrl),
+          contentDescription = item.displayName(language),
+          contentScale = ContentScale.Crop,
+          modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)),
+          loading = { fallback() },
+          error = { fallback() },
+        )
+      } else {
+        fallback()
       }
     }
 
@@ -368,24 +376,48 @@ fun AbilityIconBadge(
 ) {
   val isMiniMode = LocalInGameMiniMode.current
   val effectiveSize = if (isMiniMode) (size * 0.85f).coerceAtLeast(32.dp) else size
-  val slotColor =
+  val displaySlot =
     when (slot.uppercase()) {
+      "1" -> "Q"
+      "2" -> "W"
+      "3" -> "E"
+      "4" -> "R"
+      else -> slot.uppercase()
+    }
+  val slotColor =
+    when (displaySlot) {
       "P" -> ArcaneCyan
-      "4", "R" -> HextechGold
+      "R" -> HextechGold
       else -> SkillViolet
     }
 
-  Box(
+  Column(
     modifier =
       modifier
         .then(if (onClick != null) Modifier.minimumInteractiveComponentSize() else Modifier)
-        .size(effectiveSize)
         .clip(RoundedCornerShape(10.dp))
-        .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+        .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+    horizontalAlignment = Alignment.Start,
   ) {
+    Surface(
+      shape = RoundedCornerShape(5.dp),
+      color = Color(0xFF070B14),
+      border = BorderStroke(1.dp, slotColor.copy(alpha = 0.85f)),
+    ) {
+      Text(
+        text = displaySlot,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        color = slotColor,
+        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+      )
+    }
+
+    Spacer(modifier = Modifier.height(3.dp))
+
     Box(
       modifier =
-        Modifier.fillMaxSize()
+        Modifier.size(effectiveSize)
           .clip(RoundedCornerShape(10.dp))
           .background(Brush.linearGradient(listOf(HextechSurfaceHigh, HextechSurface)))
           .border(1.25.dp, slotColor.copy(alpha = 0.72f), RoundedCornerShape(10.dp)),
@@ -400,7 +432,7 @@ fun AbilityIconBadge(
             modifier = Modifier.size(16.dp),
           )
           Text(
-            text = slot,
+            text = displaySlot,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
             color = slotColor,
@@ -419,21 +451,6 @@ fun AbilityIconBadge(
       } else {
         fallback()
       }
-    }
-
-    Surface(
-      shape = RoundedCornerShape(5.dp),
-      color = Color(0xFF070B14).copy(alpha = 0.9f),
-      border = BorderStroke(1.dp, slotColor.copy(alpha = 0.8f)),
-      modifier = Modifier.align(Alignment.BottomEnd),
-    ) {
-      Text(
-        text = slot,
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.Bold,
-        color = slotColor,
-        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-      )
     }
   }
 }
@@ -508,6 +525,8 @@ fun ItemDetailBottomSheet(
   item: ItemData,
   language: AppLanguage,
   onDismiss: () -> Unit,
+  relatedBootItem: ItemData? = null,
+  onInspectRelatedItem: ((ItemData) -> Unit)? = null,
 ) {
   ModalBottomSheet(
     onDismissRequest = onDismiss,
@@ -624,6 +643,68 @@ fun ItemDetailBottomSheet(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
           )
+        }
+      }
+
+      if (relatedBootItem != null) {
+        Spacer(modifier = Modifier.height(10.dp))
+        val isT3 = isTier3Boot(item.id)
+        Surface(
+          shape = MaterialTheme.shapes.medium,
+          color = MaterialTheme.colorScheme.surfaceContainer,
+          border = BorderStroke(1.dp, AdvantageEmerald.copy(alpha = 0.5f)),
+          modifier =
+            Modifier.fillMaxWidth()
+              .clip(MaterialTheme.shapes.medium)
+              .then(
+                if (onInspectRelatedItem != null) {
+                  Modifier.clickable { onInspectRelatedItem(relatedBootItem) }
+                } else Modifier
+              )
+              .testTag("item_sheet_related_boot_${relatedBootItem.id}"),
+        ) {
+          Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            ItemIconSlot(
+              item = relatedBootItem,
+              language = language,
+              onClick = { onInspectRelatedItem?.invoke(relatedBootItem) },
+              size = 44.dp,
+              accentColor = if (isT3) AdvantageEmerald else HextechGoldBright,
+              showCost = false,
+              showName = false,
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+              Text(
+                text =
+                  if (isT3) {
+                    if (language == AppLanguage.TH) "อัปเกรดจากรองเท้าขั้น 2 (นาที 10:00+ • +1000g)"
+                    else "Upgrades from Tier 2 at 10:00+ (+1000g)"
+                  } else {
+                    if (language == AppLanguage.TH) "อัปเกรดขั้น 3 (ปลดล็อกนาที 10:00+ • +1000g)"
+                    else "10:00+ Tier 3 Upgrade (+1000g)"
+                  },
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = AdvantageEmerald,
+              )
+              Text(
+                text = "${relatedBootItem.displayName(language)} (${relatedBootItem.cost}g)",
+                style = MaterialTheme.typography.titleSmall,
+                color = HextechGoldBright,
+              )
+              Text(
+                text = relatedBootItem.statsSummary(language),
+                style = MaterialTheme.typography.labelSmall,
+                color = ArcaneCyan,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+              )
+            }
+          }
         }
       }
 
@@ -751,8 +832,17 @@ private fun runeAccentColor(rune: RuneData): Color =
     "PRECISION" -> HextechGold
     "DOMINATION" -> ThreatCrimson
     "RESOLVE" -> AdvantageEmerald
-    "INSPIRATION" -> ArcaneCyan
+    "SORCERY", "INSPIRATION" -> ArcaneCyan
     else -> if (rune.slotType.equals("KEYSTONE", ignoreCase = true)) HextechGoldBright else SkillViolet
+  }
+
+fun runeSlotLabel(slotType: String, language: AppLanguage): String =
+  when (slotType.uppercase()) {
+    "KEYSTONE" -> if (language == AppLanguage.TH) "รูนหลัก (Keystone)" else "Keystone"
+    "MINOR_1" -> if (language == AppLanguage.TH) "รูนรอง • ช่อง 1" else "Minor • Slot 1"
+    "MINOR_2" -> if (language == AppLanguage.TH) "รูนรอง • ช่อง 2" else "Minor • Slot 2"
+    "MINOR_3" -> if (language == AppLanguage.TH) "รูนรอง • ช่อง 3" else "Minor • Slot 3"
+    else -> if (language == AppLanguage.TH) "รูนรอง" else "Minor Rune"
   }
 
 @Composable
@@ -763,11 +853,14 @@ fun RuneIconSlot(
   modifier: Modifier = Modifier,
   size: Dp = 42.dp,
   showLabel: Boolean = true,
+  reserveBadgeSpace: Boolean = showLabel,
+  badgeOverride: String? = null,
 ) {
   val isMiniMode = LocalInGameMiniMode.current
   val effectiveSize = if (isMiniMode) (size * 0.85f).coerceAtLeast(32.dp) else size
   val isKeystone = rune.slotType.equals("KEYSTONE", ignoreCase = true)
   val accentColor = runeAccentColor(rune)
+  val topBadge = badgeOverride ?: if (isKeystone) "★" else null
   val initials =
     rune.nameEn
       .split(" ", "'", "-", ":")
@@ -785,55 +878,61 @@ fun RuneIconSlot(
         .padding(2.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
   ) {
-    Box(modifier = Modifier.size(effectiveSize)) {
+    if (topBadge != null || reserveBadgeSpace) {
       Box(
-        modifier =
-          Modifier.fillMaxSize()
-            .clip(CircleShape)
-            .background(Brush.linearGradient(listOf(HextechSurfaceHigh, HextechSurface)))
-            .border(
-              if (isKeystone) 2.dp else 1.5.dp,
-              accentColor.copy(alpha = 0.85f),
-              CircleShape,
-            ),
-        contentAlignment = Alignment.Center,
+        modifier = Modifier.width(effectiveSize).height(16.dp),
+        contentAlignment = Alignment.BottomStart,
       ) {
-        val fallback: @Composable () -> Unit = {
-          Text(
-            text = initials,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
+        if (topBadge != null) {
+          Surface(
+            shape = RoundedCornerShape(5.dp),
             color = accentColor,
-          )
-        }
-        if (rune.iconUrl.isNotBlank()) {
-          SubcomposeAsyncImage(
-            model = buildCoilImageRequest(LocalContext.current, rune.iconUrl),
-            contentDescription = rune.displayName(language),
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize().clip(CircleShape),
-            loading = { fallback() },
-            error = { fallback() },
-          )
-        } else {
-          fallback()
+          ) {
+            Text(
+              text = topBadge,
+              style = MaterialTheme.typography.labelSmall,
+              fontWeight = FontWeight.Bold,
+              color = Color(0xFF070B14),
+              maxLines = 1,
+              modifier = Modifier.padding(horizontal = 4.dp),
+            )
+          }
         }
       }
+      Spacer(modifier = Modifier.height(2.dp))
+    }
 
-      if (isKeystone) {
-        Surface(
-          shape = RoundedCornerShape(5.dp),
+    Box(
+      modifier =
+        Modifier.size(effectiveSize)
+          .clip(CircleShape)
+          .background(Brush.linearGradient(listOf(HextechSurfaceHigh, HextechSurface)))
+          .border(
+            if (isKeystone) 2.dp else 1.5.dp,
+            accentColor.copy(alpha = 0.85f),
+            CircleShape,
+          ),
+      contentAlignment = Alignment.Center,
+    ) {
+      val fallback: @Composable () -> Unit = {
+        Text(
+          text = initials,
+          style = MaterialTheme.typography.labelMedium,
+          fontWeight = FontWeight.Bold,
           color = accentColor,
-          modifier = Modifier.align(Alignment.BottomEnd),
-        ) {
-          Text(
-            text = "★",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF070B14),
-            modifier = Modifier.padding(horizontal = 3.dp),
-          )
-        }
+        )
+      }
+      if (rune.iconUrl.isNotBlank()) {
+        SubcomposeAsyncImage(
+          model = buildCoilImageRequest(LocalContext.current, rune.iconUrl),
+          contentDescription = rune.displayName(language),
+          contentScale = ContentScale.Fit,
+          modifier = Modifier.fillMaxSize().padding(2.dp).clip(CircleShape),
+          loading = { fallback() },
+          error = { fallback() },
+        )
+      } else {
+        fallback()
       }
     }
 
@@ -853,6 +952,127 @@ fun RuneIconSlot(
   }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun WildRiftRuneLoadoutStrip(
+  keystone: RuneData?,
+  minorRunes: List<RuneData>,
+  language: AppLanguage,
+  onInspectRune: (RuneData) -> Unit,
+  tagPrefix: String,
+  compact: Boolean = false,
+) {
+  val primaryMinors = minorRunes.take(3)
+  val secondaryMinors = minorRunes.drop(3).take(1)
+  val primaryTreeLabel =
+    primaryMinors.firstOrNull()?.tree?.lowercase()?.replaceFirstChar { it.uppercase() }.orEmpty()
+  val secondaryTreeLabel =
+    secondaryMinors.firstOrNull()?.tree?.lowercase()?.replaceFirstChar { it.uppercase() }.orEmpty()
+
+  FlowRow(
+    horizontalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 10.dp),
+    verticalArrangement = Arrangement.spacedBy(8.dp),
+  ) {
+    keystone?.let { ks ->
+      RuneGroupBox(
+        title = if (language == AppLanguage.TH) "รูนหลัก (1)" else "Keystone (1)",
+        accent = runeAccentColor(ks),
+      ) {
+        RuneIconSlot(
+          rune = ks,
+          language = language,
+          onClick = { onInspectRune(ks) },
+          size = if (compact) 36.dp else 44.dp,
+          showLabel = !compact,
+          badgeOverride = "★",
+          modifier = Modifier.testTag("${tagPrefix}${ks.id}"),
+        )
+      }
+    }
+
+    if (primaryMinors.isNotEmpty()) {
+      val primaryTitle =
+        if (language == AppLanguage.TH) {
+          if (primaryTreeLabel.isNotBlank()) "รูนรอง 1 • $primaryTreeLabel (3)" else "รูนรอง 1 (3)"
+        } else {
+          if (primaryTreeLabel.isNotBlank()) "Minor 1 • $primaryTreeLabel (3)" else "Minor 1 (3)"
+        }
+      RuneGroupBox(
+        title = primaryTitle,
+        accent = primaryMinors.firstOrNull()?.let { runeAccentColor(it) } ?: SkillViolet,
+      ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 6.dp)) {
+          primaryMinors.forEachIndexed { idx, rune ->
+            RuneIconSlot(
+              rune = rune,
+              language = language,
+              onClick = { onInspectRune(rune) },
+              size = if (compact) 32.dp else 38.dp,
+              showLabel = !compact,
+              badgeOverride = "${idx + 1}",
+              modifier = Modifier.testTag("${tagPrefix}${rune.id}"),
+            )
+          }
+        }
+      }
+    }
+
+    if (secondaryMinors.isNotEmpty()) {
+      val secTitle =
+        if (language == AppLanguage.TH) {
+          if (secondaryTreeLabel.isNotBlank()) "รูนรอง 2 • $secondaryTreeLabel (1)" else "รูนรอง 2 (1)"
+        } else {
+          if (secondaryTreeLabel.isNotBlank()) "Minor 2 • $secondaryTreeLabel (1)" else "Minor 2 (1)"
+        }
+      RuneGroupBox(
+        title = secTitle,
+        accent = secondaryMinors.firstOrNull()?.let { runeAccentColor(it) } ?: ArcaneCyan,
+      ) {
+        secondaryMinors.forEach { rune ->
+          RuneIconSlot(
+            rune = rune,
+            language = language,
+            onClick = { onInspectRune(rune) },
+            size = if (compact) 32.dp else 38.dp,
+            showLabel = !compact,
+            badgeOverride = if (language == AppLanguage.TH) "รอง2" else "2nd",
+            modifier = Modifier.testTag("${tagPrefix}${rune.id}"),
+          )
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun RuneGroupBox(
+  title: String,
+  accent: Color,
+  content: @Composable () -> Unit,
+) {
+  Surface(
+    shape = RoundedCornerShape(10.dp),
+    color = MaterialTheme.colorScheme.surfaceContainerLow,
+    border = BorderStroke(0.75.dp, accent.copy(alpha = 0.35f)),
+  ) {
+    Column(
+      modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+      horizontalAlignment = Alignment.Start,
+    ) {
+      Text(
+        text = title,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.SemiBold,
+        color = accent,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+      )
+      Spacer(modifier = Modifier.height(4.dp))
+      content()
+    }
+  }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RuneDetailBottomSheet(
@@ -861,7 +1081,6 @@ fun RuneDetailBottomSheet(
   onDismiss: () -> Unit,
 ) {
   val accentColor = runeAccentColor(rune)
-  val isKeystone = rune.slotType.equals("KEYSTONE", ignoreCase = true)
 
   ModalBottomSheet(
     onDismissRequest = onDismiss,
@@ -897,12 +1116,7 @@ fun RuneDetailBottomSheet(
               border = BorderStroke(1.dp, accentColor.copy(alpha = 0.55f)),
             ) {
               Text(
-                text =
-                  if (isKeystone) {
-                    if (language == AppLanguage.TH) "Keystone รูนหลัก" else "Keystone"
-                  } else {
-                    if (language == AppLanguage.TH) "รูนรอง" else "Minor Rune"
-                  },
+                text = runeSlotLabel(rune.slotType, language),
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = accentColor,
@@ -1240,6 +1454,7 @@ private fun buildCoilImageRequest(context: android.content.Context, url: String)
   ImageRequest.Builder(context)
     .data(url)
     .addHeader("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36")
+    .addHeader("Accept", "image/*")
     .crossfade(true)
     .build()
 

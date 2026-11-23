@@ -20,8 +20,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
       FavoriteChampionEntity::class,
       SavedMatchupEntity::class,
       CustomBuildEntity::class,
+      AiCoachCacheEntity::class,
     ],
-  version = 4,
+  version = 6,
   exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -77,6 +78,37 @@ abstract class AppDatabase : RoomDatabase() {
         }
       }
 
+    val MIGRATION_4_5 =
+      object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+          db.execSQL("ALTER TABLE champions ADD COLUMN laneOverrides TEXT NOT NULL DEFAULT '[]'")
+        }
+      }
+
+    val MIGRATION_5_6 =
+      object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+          db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS ai_coach_cache (
+              cacheKey TEXT NOT NULL PRIMARY KEY,
+              normalizedQuestion TEXT NOT NULL,
+              championId TEXT NOT NULL,
+              lane TEXT NOT NULL,
+              patchVersion TEXT NOT NULL,
+              languageCode TEXT NOT NULL,
+              responseText TEXT NOT NULL,
+              modelId TEXT NOT NULL,
+              modelLabel TEXT NOT NULL,
+              createdAt INTEGER NOT NULL,
+              lastAccessedAt INTEGER NOT NULL,
+              hitCount INTEGER NOT NULL DEFAULT 0
+            )
+            """.trimIndent()
+          )
+        }
+      }
+
     fun getInstance(context: Context): AppDatabase {
       return INSTANCE
         ?: synchronized(this) {
@@ -86,7 +118,13 @@ abstract class AppDatabase : RoomDatabase() {
                 AppDatabase::class.java,
                 "wild_rift_companion.db",
               )
-              .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+              .addMigrations(
+                MIGRATION_1_2,
+                MIGRATION_2_3,
+                MIGRATION_3_4,
+                MIGRATION_4_5,
+                MIGRATION_5_6,
+              )
               .fallbackToDestructiveMigration(dropAllTables = true)
               .build()
               .also { INSTANCE = it }

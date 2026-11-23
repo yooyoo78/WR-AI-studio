@@ -99,6 +99,8 @@ fun RiftCompanionApp(appContainer: AppContainer) {
         HomeAndPatchViewModel.Factory(
           appContainer.gameDataRepository,
           appContainer.preferencesRepository,
+          appContainer.gameDao,
+          appContainer.geminiCoachService,
         )
     )
   val analyzerVm: AnalyzerViewModel =
@@ -137,6 +139,7 @@ fun RiftCompanionApp(appContainer: AppContainer) {
     )
 
   val prefs by homePatchVm.preferences.collectAsStateWithLifecycle()
+  val coachCacheStats by homePatchVm.coachCacheStats.collectAsStateWithLifecycle()
   val homeState by homePatchVm.homeUiState.collectAsStateWithLifecycle()
   val patchActionStatus by homePatchVm.patchActionStatus.collectAsStateWithLifecycle()
   val validationResult by homePatchVm.validationResult.collectAsStateWithLifecycle()
@@ -148,6 +151,7 @@ fun RiftCompanionApp(appContainer: AppContainer) {
   val coachMessages by coachVm.messages.collectAsStateWithLifecycle()
   val coachSpeechState by coachVm.speechState.collectAsStateWithLifecycle()
   val coachLiveState by coachVm.liveState.collectAsStateWithLifecycle()
+  val keyTestStates by coachVm.keyTestStates.collectAsStateWithLifecycle()
   val quickScanState by appContainer.quickScanCoordinator.uiState.collectAsStateWithLifecycle()
   val openLiveCoachRequested by
     appContainer.quickScanCoordinator.openLiveCoachRequested.collectAsStateWithLifecycle()
@@ -407,8 +411,8 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                     onToggleFavorite = championsVm::toggleFavorite,
                     onSaveCustomBuild = championsVm::saveCustomBuild,
                     onDeleteCustomBuild = championsVm::deleteCustomBuild,
-                    onAnalyze1v5 = { id ->
-                      analyzerVm.selectMyChampionById(id)
+                    onAnalyze1v5 = { id, lane ->
+                      analyzerVm.selectMyChampionWithLane(id, lane)
                       navController.popBackStack()
                       navigateTopLevel(NavRoutes.ANALYZER)
                     },
@@ -442,13 +446,21 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                   speechState = coachSpeechState,
                   liveState = coachLiveState,
                   isQuickCaptureActive = quickScanState.isQuickCaptureActive,
+                  keyTestStates = keyTestStates,
                   openLiveTabRequest = openLiveCoachRequested,
                   onConsumeOpenLiveTabRequest = {
                     appContainer.quickScanCoordinator.consumeOpenLiveCoachRequest()
                   },
                   onSelectChampion = coachVm::selectChampion,
                   onSelectLane = coachVm::selectLane,
-                  onAskGemini = coachVm::askGeminiCoach,
+                  onSelectCoachModel = coachVm::selectCoachModel,
+                  onSelectLiveModel = coachVm::selectLiveModel,
+                  onSaveAndTestApiKey = coachVm::saveAndTestApiKey,
+                  onClearApiKey = coachVm::clearApiKey,
+                  onClearAiCache = coachVm::clearAiCache,
+                  onAskGemini = { q -> coachVm.askGeminiCoach(q) },
+                  onRegenerateQuestion = coachVm::regenerateQuestion,
+                  onSwitchModelAndRetry = coachVm::switchModelAndRetry,
                   onRetryGemini = coachVm::retryLastQuestion,
                   onClearChat = coachVm::clearChat,
                   onToggleSpeak = coachVm::toggleSpeak,
@@ -489,10 +501,18 @@ fun RiftCompanionApp(appContainer: AppContainer) {
               composable(NavRoutes.SETTINGS) {
                 SettingsScreen(
                   preferences = prefs,
+                  keyStatus = coachState.keyStatus,
+                  keyTestStates = keyTestStates,
+                  cacheStats = coachCacheStats,
+                  cooldownModelIds = coachState.cooldownModelIds,
                   onSelectLanguage = homePatchVm::setLanguage,
                   onChangeFontScale = homePatchVm::setFontScale,
                   onToggleHighContrast = homePatchVm::setHighContrastCards,
                   onToggleMiniMode = homePatchVm::setInGameMiniMode,
+                  onSelectCoachModel = coachVm::selectCoachModel,
+                  onSaveAndTestApiKey = coachVm::saveAndTestApiKey,
+                  onClearApiKey = coachVm::clearApiKey,
+                  onClearAiCache = homePatchVm::clearCoachCache,
                   onBack = { navController.popBackStack() },
                 )
               }

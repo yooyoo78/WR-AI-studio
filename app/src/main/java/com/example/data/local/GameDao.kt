@@ -128,4 +128,34 @@ interface GameDao {
   @Query("DELETE FROM matchup_rules") suspend fun clearMatchupRules()
 
   @Query("DELETE FROM patch_notes") suspend fun clearPatchNotes()
+
+  @Query("SELECT * FROM ai_coach_cache WHERE cacheKey = :cacheKey LIMIT 1")
+  suspend fun getCoachCacheEntry(cacheKey: String): AiCoachCacheEntity?
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun upsertCoachCacheEntry(entry: AiCoachCacheEntity)
+
+  @Query(
+    "UPDATE ai_coach_cache SET hitCount = hitCount + 1, lastAccessedAt = :accessedAt WHERE cacheKey = :cacheKey"
+  )
+  suspend fun incrementCoachCacheHit(cacheKey: String, accessedAt: Long)
+
+  @Query(
+    "SELECT COUNT(*) AS entryCount, COALESCE(SUM(hitCount), 0) AS totalHitsSaved FROM ai_coach_cache"
+  )
+  fun observeCoachCacheStats(): Flow<CoachCacheStats>
+
+  @Query("DELETE FROM ai_coach_cache WHERE createdAt < :cutoffMillis OR patchVersion != :activePatch")
+  suspend fun pruneExpiredCoachCache(cutoffMillis: Long, activePatch: String)
+
+  @Query(
+    """
+    DELETE FROM ai_coach_cache WHERE cacheKey NOT IN (
+      SELECT cacheKey FROM ai_coach_cache ORDER BY lastAccessedAt DESC LIMIT :keepLimit
+    )
+    """
+  )
+  suspend fun trimCoachCacheToLimit(keepLimit: Int)
+
+  @Query("DELETE FROM ai_coach_cache") suspend fun clearAllCoachCache()
 }

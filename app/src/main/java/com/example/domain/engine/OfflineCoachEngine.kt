@@ -85,12 +85,18 @@ class OfflineCoachEngine {
         "โฟกัสการเจอ ${enemies.joinToString(", ") { it.nameTh }}: นับคูลดาวน์สกิล CC และเบิร์สของศัตรูก่อนดันสูงหรือเปิดไฟต์"
       }
 
+    val laneLoadout = champion.resolveForLane(lane)
+    val laneSetupEn =
+      "${laneLoadout.conditionNoteEn} (Skill Order: ${laneLoadout.skillOrder} • Spells: ${laneLoadout.spellIds.joinToString(" + ")} • Core: ${laneLoadout.coreItemIds.take(3).joinToString(" -> ")})"
+    val laneSetupTh =
+      "${laneLoadout.conditionNoteTh} (อัปสกิล ${laneLoadout.skillOrder} • Spells: ${laneLoadout.spellIds.joinToString(" + ")})"
+
     return listOf(
       CoachPlaybookSection(
         titleEn = "Early Game & Laning",
         titleTh = "แผนการเล่นช่วงต้นเกม (Early)",
-        bodyEn = "${champion.earlyPlanEn}\n\n$waveTipEn",
-        bodyTh = "${champion.earlyPlanTh}\n\n$waveTipTh",
+        bodyEn = "${champion.earlyPlanEn}\n\n$laneSetupEn\n\n$waveTipEn",
+        bodyTh = "${champion.earlyPlanTh}\n\n$laneSetupTh\n\n$waveTipTh",
       ),
       CoachPlaybookSection(
         titleEn = "Mid Game & Objectives",

@@ -69,6 +69,8 @@ import com.example.data.model.ItemCategory
 import com.example.data.model.ItemData
 import com.example.data.model.Lane
 import com.example.data.model.RuneData
+import com.example.data.model.isTier3Boot
+import com.example.data.model.tier3BootUpgradeId
 import com.example.data.remote.DDragonIconResolver
 import com.example.ui.components.AbilityIconBadge
 import com.example.ui.components.ChampionCrestAvatar
@@ -83,8 +85,10 @@ import com.example.ui.components.RuneIconSlot
 import com.example.ui.components.SpellIconSlot
 import com.example.ui.components.TacticalMeterBar
 import com.example.ui.components.TierBadge
+import com.example.ui.components.WildRiftRuneLoadoutStrip
 import com.example.ui.components.WinRatePillsRow
 import com.example.ui.components.buildDefaultCustomDraft
+import com.example.ui.components.runeSlotLabel
 import com.example.ui.theme.AdvantageEmerald
 import com.example.ui.theme.ArcaneCyan
 import com.example.ui.theme.HextechGold
@@ -437,6 +441,21 @@ fun ChampionsScreen(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                       )
+                      if (isTier3Boot(item.id)) {
+                        Surface(
+                          shape = RoundedCornerShape(5.dp),
+                          color = HextechGold.copy(alpha = 0.2f),
+                          modifier = Modifier.padding(end = 6.dp),
+                        ) {
+                          Text(
+                            text = if (lang == AppLanguage.TH) "10:00+ T3" else "10:00+ T3",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = HextechGoldBright,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                          )
+                        }
+                      }
                       Text(
                         text = "${item.cost}g",
                         style = MaterialTheme.typography.labelMedium,
@@ -486,7 +505,7 @@ fun ChampionsScreen(
               )
             }
             item {
-              val trees = listOf("PRECISION", "DOMINATION", "RESOLVE", "INSPIRATION")
+              val trees = listOf("PRECISION", "DOMINATION", "RESOLVE", "SORCERY")
               LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 item {
                   FilterChip(
@@ -523,7 +542,7 @@ fun ChampionsScreen(
                   Column(modifier = Modifier.weight(1f)) {
                     Row(
                       verticalAlignment = Alignment.CenterVertically,
-                      horizontalArrangement = Arrangement.spacedBy(8.dp),
+                      horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                       Text(
                         text = rune.displayName(lang),
@@ -531,6 +550,7 @@ fun ChampionsScreen(
                         color = if (isKeystone) HextechGoldBright else MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
                       )
                       Surface(
                         shape = RoundedCornerShape(5.dp),
@@ -539,9 +559,15 @@ fun ChampionsScreen(
                           else SkillViolet.copy(alpha = 0.16f),
                       ) {
                         Text(
-                          text = if (isKeystone) "Keystone" else (rune.tree.ifBlank { "Minor" }),
+                          text =
+                            if (rune.tree.isNotBlank()) {
+                              "${rune.tree.lowercase().replaceFirstChar { it.uppercase() }} • ${runeSlotLabel(rune.slotType, lang)}"
+                            } else {
+                              runeSlotLabel(rune.slotType, lang)
+                            },
                           style = MaterialTheme.typography.labelSmall,
                           color = if (isKeystone) HextechGoldBright else SkillViolet,
+                          maxLines = 1,
                           modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                         )
                       }
@@ -611,6 +637,7 @@ fun ChampionsScreen(
     target = miniInspectTarget,
     language = lang,
     onDismiss = { miniInspectTarget = null },
+    itemsById = state.itemsById,
   )
 }
 
@@ -622,7 +649,7 @@ fun ChampionDetailScreen(
   onToggleFavorite: (String) -> Unit,
   onSaveCustomBuild: (CustomBuildData) -> Unit,
   onDeleteCustomBuild: (Long) -> Unit,
-  onAnalyze1v5: (String) -> Unit,
+  onAnalyze1v5: (String, Lane) -> Unit,
   onOpenChampionDetail: (String) -> Unit = {},
   onBack: () -> Unit,
 ) {
@@ -636,6 +663,13 @@ fun ChampionDetailScreen(
     remember(state.customBuilds, champion.id) {
       state.customBuilds.filter { it.championId == champion.id }
     }
+
+  var selectedLane by remember(champion.id) {
+    mutableStateOf(champion.lanes.firstOrNull() ?: Lane.BARON)
+  }
+  val laneLoadout = remember(champion, selectedLane) {
+    champion.resolveForLane(selectedLane)
+  }
 
   var miniInspectTarget by remember { mutableStateOf<MiniInspectTarget?>(null) }
   var editingCustomBuild by remember { mutableStateOf<CustomBuildData?>(null) }
@@ -734,7 +768,7 @@ fun ChampionDetailScreen(
             )
             Spacer(modifier = Modifier.height(10.dp))
             Button(
-              onClick = { onAnalyze1v5(champion.id) },
+              onClick = { onAnalyze1v5(champion.id, selectedLane) },
               modifier =
                 Modifier.fillMaxWidth()
                   .minimumInteractiveComponentSize()
@@ -749,8 +783,8 @@ fun ChampionDetailScreen(
               Spacer(modifier = Modifier.width(8.dp))
               Text(
                 text =
-                  if (lang == AppLanguage.TH) "วิเคราะห์ 1v5 & จัดบิลด์แก้ทางให้ ${champion.nameTh}"
-                  else "Analyze 1v5 Matchup for ${champion.nameEn}",
+                  if (lang == AppLanguage.TH) "วิเคราะห์ 1v5 (${selectedLane.labelTh}) • ${champion.nameTh}"
+                  else "Analyze 1v5 (${selectedLane.labelEn}) • ${champion.nameEn}",
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -759,7 +793,7 @@ fun ChampionDetailScreen(
           }
         }
 
-        // LoLegacy-inspired Compact Interactive Skill Strip (P, 1, 2, 3, 4) -> tap for Mini Text Box
+        // Compact Interactive Skill Strip (P, Q, W, E, R) -> 1-line truncated name, tap icon for Mini Text Box
         item {
           HextechCard {
             Row(
@@ -769,25 +803,28 @@ fun ChampionDetailScreen(
             ) {
               Text(
                 text =
-                  if (lang == AppLanguage.TH) "Skill • ลำดับอัป ${champion.skillOrder}"
-                  else "Skill • Order ${champion.skillOrder}",
+                  if (lang == AppLanguage.TH) "Skill • ลำดับอัป ${laneLoadout.skillOrder}"
+                  else "Skill • Order ${laneLoadout.skillOrder}",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.testTag("detail_skill_title"),
               )
               Text(
-                text = if (lang == AppLanguage.TH) "แตะเพื่อดูย่อ" else "Tap icon",
+                text = if (lang == AppLanguage.TH) "กดไอคอนดูข้อมูล" else "Tap icon",
                 style = MaterialTheme.typography.labelSmall,
                 color = ArcaneCyan,
               )
             }
             Spacer(modifier = Modifier.height(8.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyRow(
+              modifier = Modifier.testTag("detail_skill_row"),
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
               items(champion.abilities, key = { it.slot }) { ab ->
                 val iconUrl = ab.iconUrl.ifBlank { resolvedAbilityIcons[ab.slot].orEmpty() }
                 val abilityName = if (lang == AppLanguage.TH) ab.nameTh else ab.nameEn
                 Column(
                   modifier =
-                    Modifier.width(74.dp)
+                    Modifier.width(76.dp)
                       .minimumInteractiveComponentSize()
                       .clip(RoundedCornerShape(10.dp))
                       .clickable {
@@ -809,7 +846,7 @@ fun ChampionDetailScreen(
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = HextechGoldBright,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,
                   )
@@ -828,7 +865,7 @@ fun ChampionDetailScreen(
           }
         }
 
-        // Standard Build, Runes & Spells (Tap any icon -> Stage 1 Mini Text Box -> Expand -> Sheet)
+        // Lane-Adaptive Build, Runes & Spells (Switch lanes to inspect off-role conditions)
         item {
           HextechCard {
             Row(
@@ -838,8 +875,8 @@ fun ChampionDetailScreen(
             ) {
               Text(
                 text =
-                  if (lang == AppLanguage.TH) "บิลด์มาตรฐาน รูน และ Spell"
-                  else "Standard Build, Runes & Spells",
+                  if (lang == AppLanguage.TH) "ไอเทม รูน และ Spell ตามเลน"
+                  else "Lane Build, Runes & Spells",
                 style = MaterialTheme.typography.titleMedium,
               )
               Text(
@@ -848,25 +885,84 @@ fun ChampionDetailScreen(
                 color = ArcaneCyan,
               )
             }
-            Spacer(modifier = Modifier.height(8.dp))
 
-            val starterItem = state.itemsById[champion.starterItemId]
-            val coreItems = champion.coreItemIds.mapNotNull { state.itemsById[it] }
-            val bootsItem = state.itemsById[champion.defaultBootsId]
-            val enchantItem = state.itemsById[champion.defaultEnchantId]
-            val keystone = state.runesById[champion.defaultKeystoneId]
-            val minorRunes = champion.defaultMinorRuneIds.mapNotNull { state.runesById[it] }
-            val spells = champion.defaultSpellIds.mapNotNull { state.spellsById[it] }
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyRow(
+              modifier = Modifier.testTag("detail_lane_row"),
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              items(Lane.entries, key = { it.name }) { lane ->
+                val isListed = lane in champion.lanes
+                val isPrimary = champion.lanes.firstOrNull() == lane
+                val laneTitle = if (lang == AppLanguage.TH) lane.labelTh else lane.labelEn
+                val chipLabel =
+                  when {
+                    isPrimary -> "$laneTitle ★"
+                    isListed -> laneTitle
+                    else -> if (lang == AppLanguage.TH) "$laneTitle (ปรับ)" else "$laneTitle (Alt)"
+                  }
+                FilterChip(
+                  selected = selectedLane == lane,
+                  onClick = { selectedLane = lane },
+                  modifier = Modifier.testTag("detail_lane_${lane.name}"),
+                  label = {
+                    Text(
+                      text = chipLabel,
+                      style = MaterialTheme.typography.labelMedium,
+                      maxLines = 1,
+                    )
+                  },
+                )
+              }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+            Surface(
+              shape = RoundedCornerShape(10.dp),
+              color =
+                if (laneLoadout.isOffMetaLane) ArcaneCyan.copy(alpha = 0.1f)
+                else HextechGold.copy(alpha = 0.1f),
+              border =
+                BorderStroke(
+                  0.75.dp,
+                  if (laneLoadout.isOffMetaLane) ArcaneCyan.copy(alpha = 0.45f)
+                  else HextechGold.copy(alpha = 0.45f),
+                ),
+              modifier = Modifier.fillMaxWidth().testTag("detail_lane_condition"),
+            ) {
+              Text(
+                text =
+                  if (lang == AppLanguage.TH) laneLoadout.conditionNoteTh
+                  else laneLoadout.conditionNoteEn,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (laneLoadout.isOffMetaLane) ArcaneCyan else HextechGoldBright,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+              )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            val starterItem = state.itemsById[laneLoadout.starterItemId]
+            val coreItems = laneLoadout.coreItemIds.mapNotNull { state.itemsById[it] }
+            val bootsItem = state.itemsById[laneLoadout.bootsId]
+            val tier3BootsItem = bootsItem?.let { tier3BootUpgradeId(it.id) }?.let { state.itemsById[it] }
+            val enchantItem = state.itemsById[laneLoadout.enchantId]
+            val keystone = state.runesById[laneLoadout.keystoneId]
+            val minorRunes = laneLoadout.minorRuneIds.mapNotNull { state.runesById[it] }
+            val spells = laneLoadout.spellIds.mapNotNull { state.spellsById[it] }
 
             Text(
-              text = if (lang == AppLanguage.TH) "เริ่มต้น & ไอเทมหลัก (Core):" else "Starter & Core Build:",
+              text = if (lang == AppLanguage.TH) "เริ่มต้น & ไอเทมหลัก (${selectedLane.labelTh}):" else "Starter & Core Build (${selectedLane.labelEn}):",
               style = MaterialTheme.typography.labelMedium,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.height(6.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyRow(
+              modifier = Modifier.testTag("detail_build_items_row"),
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
               starterItem?.let { item ->
-                item(key = "starter_${item.id}") {
+                item(key = "starter_${selectedLane.name}_${item.id}") {
                   ItemIconSlot(
                     item = item,
                     language = lang,
@@ -880,7 +976,7 @@ fun ChampionDetailScreen(
                   )
                 }
               }
-              items(coreItems.size, key = { idx -> "core_${idx}_${coreItems[idx].id}" }) { idx ->
+              items(coreItems.size, key = { idx -> "core_${selectedLane.name}_${idx}_${coreItems[idx].id}" }) { idx ->
                 val item = coreItems[idx]
                 ItemIconSlot(
                   item = item,
@@ -895,7 +991,7 @@ fun ChampionDetailScreen(
                 )
               }
               bootsItem?.let { item ->
-                item(key = "boots_${item.id}") {
+                item(key = "boots_${selectedLane.name}_${item.id}") {
                   ItemIconSlot(
                     item = item,
                     language = lang,
@@ -910,7 +1006,7 @@ fun ChampionDetailScreen(
                 }
               }
               enchantItem?.let { item ->
-                item(key = "enchant_${item.id}") {
+                item(key = "enchant_${selectedLane.name}_${item.id}") {
                   ItemIconSlot(
                     item = item,
                     language = lang,
@@ -924,40 +1020,39 @@ fun ChampionDetailScreen(
                   )
                 }
               }
+              tier3BootsItem?.let { t3Item ->
+                item(key = "boots_t3_${selectedLane.name}_${t3Item.id}") {
+                  ItemIconSlot(
+                    item = t3Item,
+                    language = lang,
+                    onClick = { miniInspectTarget = MiniInspectTarget.Item(t3Item) },
+                    accentColor = HextechGoldBright,
+                    badgeText = if (lang == AppLanguage.TH) "10น.+ T3" else "10m+ T3",
+                    badgeColor = HextechGold,
+                    showCost = true,
+                    showName = true,
+                    modifier = Modifier.testTag("detail_item_${t3Item.id}"),
+                  )
+                }
+              }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
             Text(
               text =
-                if (lang == AppLanguage.TH) "รูน (Keystone & รูนรอง):"
-                else "Keystone & Minor Runes:",
+                if (lang == AppLanguage.TH) "รูน (รูนหลัก 1 + รูนรอง1 3 + รูนรอง2 1):"
+                else "Runes (1 Keystone + 3 Primary + 1 Secondary):",
               style = MaterialTheme.typography.labelMedium,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.height(6.dp))
-            FlowRow(
-              horizontalArrangement = Arrangement.spacedBy(10.dp),
-              verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-              keystone?.let { ks ->
-                RuneIconSlot(
-                  rune = ks,
-                  language = lang,
-                  onClick = { miniInspectTarget = MiniInspectTarget.Rune(ks) },
-                  size = 44.dp,
-                  modifier = Modifier.testTag("detail_rune_${ks.id}"),
-                )
-              }
-              minorRunes.forEach { rune ->
-                RuneIconSlot(
-                  rune = rune,
-                  language = lang,
-                  onClick = { miniInspectTarget = MiniInspectTarget.Rune(rune) },
-                  size = 38.dp,
-                  modifier = Modifier.testTag("detail_rune_${rune.id}"),
-                )
-              }
-            }
+            WildRiftRuneLoadoutStrip(
+              keystone = keystone,
+              minorRunes = minorRunes,
+              language = lang,
+              onInspectRune = { rune -> miniInspectTarget = MiniInspectTarget.Rune(rune) },
+              tagPrefix = "detail_rune_",
+            )
 
             if (spells.isNotEmpty()) {
               Spacer(modifier = Modifier.height(10.dp))
@@ -981,7 +1076,7 @@ fun ChampionDetailScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
             OutlinedButton(
-              onClick = { editingCustomBuild = buildDefaultCustomDraft(champion) },
+              onClick = { editingCustomBuild = buildDefaultCustomDraft(champion, selectedLane) },
               modifier =
                 Modifier.fillMaxWidth()
                   .minimumInteractiveComponentSize()
@@ -991,8 +1086,8 @@ fun ChampionDetailScreen(
               Spacer(modifier = Modifier.width(8.dp))
               Text(
                 text =
-                  if (lang == AppLanguage.TH) "จัดเซ็ตไอเทมเอง (Custom Build)"
-                  else "Customize Items & Runes",
+                  if (lang == AppLanguage.TH) "จัดเซ็ตไอเทมเอง (${selectedLane.labelTh})"
+                  else "Customize ${selectedLane.labelEn} Build",
                 color = HextechGoldBright,
                 fontWeight = FontWeight.SemiBold,
               )
@@ -1291,5 +1386,6 @@ fun ChampionDetailScreen(
     target = miniInspectTarget,
     language = lang,
     onDismiss = { miniInspectTarget = null },
+    itemsById = state.itemsById,
   )
 }

@@ -8,6 +8,7 @@ import com.example.data.model.DataSourceType
 import com.example.data.model.ItemCategory
 import com.example.data.model.ItemCounterTag
 import com.example.data.model.Lane
+import com.example.data.model.LaneBuildOverride
 import com.example.data.model.LaneDifficulty
 import com.example.data.model.PatchChangeEntry
 import com.example.data.model.ThreatTag
@@ -29,6 +30,10 @@ class Converters {
     moshi.adapter<List<PatchChangeEntry>>(
       Types.newParameterizedType(List::class.java, PatchChangeEntry::class.java)
     )
+  private val laneOverrideListAdapter =
+    moshi.adapter<List<LaneBuildOverride>>(
+      Types.newParameterizedType(List::class.java, LaneBuildOverride::class.java)
+    )
 
   @TypeConverter
   fun fromStringList(value: List<String>): String = stringListAdapter.toJson(value)
@@ -48,6 +53,14 @@ class Converters {
   @TypeConverter
   fun toChangeList(value: String): List<PatchChangeEntry> =
     changeListAdapter.fromJson(value).orEmpty()
+
+  @TypeConverter
+  fun fromLaneOverrideList(value: List<LaneBuildOverride>): String =
+    laneOverrideListAdapter.toJson(value)
+
+  @TypeConverter
+  fun toLaneOverrideList(value: String): List<LaneBuildOverride> =
+    if (value.isBlank()) emptyList() else laneOverrideListAdapter.fromJson(value).orEmpty()
 
   @TypeConverter
   fun fromRoleList(value: List<ChampionRole>): String = value.joinToString(",") { it.name }

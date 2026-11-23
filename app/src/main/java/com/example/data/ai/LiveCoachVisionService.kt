@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Log
+import com.example.data.local.SecureApiKeyStore
 import com.example.data.model.AppLanguage
 import com.example.data.model.ChampionData
 import com.example.data.model.Lane
@@ -55,6 +56,7 @@ data class LiveCoachAnalysisResult(
   val earlyLanePlan: String,
   val threatAlert: String,
   val spokenBriefing: String,
+  val usedModelLabel: String = "",
 )
 
 sealed interface LiveCoachOutcome {
@@ -66,6 +68,8 @@ sealed interface LiveCoachOutcome {
 class LiveCoachVisionService(
   private val context: Context,
   private val matcher: ChampionScanMatcher = ChampionScanMatcher(),
+  private val secureKeyStore: SecureApiKeyStore? = null,
+  private val externalClient: ExternalAiProvidersClient = ExternalAiProvidersClient(),
 ) {
   private val liveSchema =
     Schema.obj(
@@ -148,14 +152,14 @@ class LiveCoachVisionService(
 
   private val primaryModel by lazy {
     Firebase.ai.generativeModel(
-      modelName = "gemini-3.8-flash",
+      modelName = AiModelCatalog.FIREBASE_FLASH.remoteModelId,
       generationConfig = liveConfig,
     )
   }
 
   private val fallbackModel by lazy {
     Firebase.ai.generativeModel(
-      modelName = "gemini-3.5-flash-lite",
+      modelName = AiModelCatalog.FIREBASE_FLASH_LITE.remoteModelId,
       generationConfig = liveConfig,
     )
   }
@@ -167,6 +171,7 @@ class LiveCoachVisionService(
     fallbackLane: Lane,
     patchVersion: String,
     language: AppLanguage,
+    preferredModelId: String = AiModelCatalog.AUTO_MODEL_ID,
   ): LiveCoachOutcome {
     val bitmap =
       withContext(Dispatchers.IO) { decodeScaledBitmapFromUri(uri) }
@@ -177,7 +182,15 @@ class LiveCoachVisionService(
             "Could not decode screenshot image. Please try capturing or picking again."
           }
         )
-    return analyzeBitmap(bitmap, catalog, fallbackChampion, fallbackLane, patchVersion, language)
+    return analyzeBitmap(
+      sourceBitmap = bitmap,
+      catalog = catalog,
+      fallbackChampion = fallbackChampion,
+      fallbackLane = fallbackLane,
+      patchVersion = patchVersion,
+      language = language,
+      preferredModelId = preferredModelId,
+    )
   }
 
   suspend fun analyzeBitmap(
@@ -187,86 +200,138 @@ class LiveCoachVisionService(
     fallbackLane: Lane,
     patchVersion: String,
     language: AppLanguage,
+    preferredModelId: String = AiModelCatalog.AUTO_MODEL_ID,
   ): LiveCoachOutcome {
     val appCtx = context.applicationContext
     if (FirebaseApp.getApps(appCtx).isEmpty()) {
-      FirebaseApp.initializeApp(appCtx)
+      try {
+        FirebaseApp.initializeApp(appCtx)
+      } catch (_: Exception) {
+        // Handled cleanly below
+      }
     }
-    if (FirebaseApp.getApps(appCtx).isEmpty()) {
+    val firebaseReady = FirebaseApp.getApps(appCtx).isNotEmpty()
+    val keyStatus = secureKeyStore?.keyStatusFlow?.value ?: ExternalApiKeyStatus()
+
+    val candidates = buildVisionCandidates(preferredModelId, firebaseReady, keyStatus)
+    if (candidates.isEmpty()) {
       return LiveCoachOutcome.Failure(
         if (language == AppLanguage.TH) {
-          "ยังไม่ได้ตั้งค่า Firebase ในบิลด์นี้ (ไม่พบ google-services.json) จึงยังไม่สามารถใช้ Live Coach ได้"
+          "โมเดลที่เลือกไม่รองรับการสแกนภาพ หรือยังไม่ได้ตั้งค่า Key ฟรี (AI Studio / Groq Vision)"
         } else {
-          "Firebase is not configured in this build (missing google-services.json)."
+          "No vision-capable AI model available. Switch to Auto/Firebase or add an AI Studio / Groq free key."
         }
       )
     }
 
     val scaledBitmap = withContext(Dispatchers.Default) { prepareScaledBitmap(sourceBitmap) }
     val prompt = buildLiveCoachPrompt(fallbackChampion, fallbackLane, patchVersion, language)
-    val inputContent = content {
-      image(scaledBitmap)
-      text(prompt)
+    val isManualLock = preferredModelId != AiModelCatalog.AUTO_MODEL_ID
+    var lastError: Exception? = null
+
+    for (spec in candidates) {
+      try {
+        val rawJson =
+          if (spec.provider == AiProviderId.FIREBASE_AI) {
+            val fbModel =
+              if (spec.id == AiModelCatalog.FIREBASE_FLASH_LITE.id) fallbackModel else primaryModel
+            val inputContent = content {
+              image(scaledBitmap)
+              text(prompt)
+            }
+            val response = withTimeout(35_000L) { fbModel.generateContent(inputContent) }
+            response.text?.trim().orEmpty()
+          } else {
+            val apiKey = secureKeyStore?.getKey(spec.provider).orEmpty()
+            if (apiKey.isBlank()) {
+              throw ExternalAiHttpException(401, spec.provider, "Missing saved API key")
+            }
+            withTimeout(40_000L) {
+              externalClient.generateVisionJson(spec, apiKey, scaledBitmap, prompt)
+            }
+          }
+
+        if (rawJson.isNotEmpty()) {
+          return LiveCoachOutcome.Success(
+            parseAndResolve(
+              jsonString = rawJson,
+              catalog = catalog,
+              fallbackChampion = fallbackChampion,
+              fallbackLane = fallbackLane,
+              usedModelLabel = spec.displayName,
+            )
+          )
+        }
+      } catch (e: CancellationException) {
+        if (e is TimeoutCancellationException) {
+          Log.w(TAG, "Live Coach ${spec.displayName} timed out", e)
+          lastError = e
+          if (isManualLock) break
+        } else {
+          throw e
+        }
+      } catch (e: Exception) {
+        Log.w(TAG, "Live Coach ${spec.displayName} failed (${e::class.simpleName}): ${e.message}", e)
+        lastError = e
+        if (isManualLock) break
+        if (!GeminiCoachService.shouldFallbackToSecondaryModel(e) &&
+          GeminiCoachService.classifyError(e) == CoachErrorKind.NETWORK
+        ) {
+          break
+        }
+      }
     }
 
-    var primaryError: Exception? = null
-    try {
-      val response = withTimeout(35_000L) { primaryModel.generateContent(inputContent) }
-      val rawJson = response.text?.trim().orEmpty()
-      if (rawJson.isNotEmpty()) {
-        return LiveCoachOutcome.Success(
-          parseAndResolve(rawJson, catalog, fallbackChampion, fallbackLane)
-        )
-      }
-    } catch (e: TimeoutCancellationException) {
-      Log.w(TAG, "Primary Live Coach scan timed out; falling back", e)
-      primaryError = e
-    } catch (e: CancellationException) {
-      throw e
-    } catch (e: Exception) {
-      if (GeminiCoachService.shouldFallbackToSecondaryModel(e)) {
-        Log.w(TAG, "Primary Live Coach failed (${e::class.simpleName}); falling back", e)
-        primaryError = e
+    val err = lastError
+    return if (err is TimeoutCancellationException) {
+      LiveCoachOutcome.Failure(
+        if (language == AppLanguage.TH) {
+          "หมดเวลาเชื่อมต่อ Live Coach กรุณาลองเปลี่ยนโมเดลหรือสแกนใหม่อีกครั้ง"
+        } else {
+          "Live Coach analysis timed out. Try switching models or retry."
+        }
+      )
+    } else if (err != null) {
+      LiveCoachOutcome.Failure(GeminiCoachService.buildDetailedErrorMessage(err, language))
+    } else {
+      LiveCoachOutcome.Failure(
+        if (language == AppLanguage.TH) {
+          "Live Coach ไม่ได้รับข้อมูลจากภาพนี้ ลองแคปหน้าเลือกตัวหรือหน้าโหลดใหม่อีกครั้ง"
+        } else {
+          "Live Coach returned empty analysis. Capture a clearer Draft or Loading screen."
+        }
+      )
+    }
+  }
+
+  private fun buildVisionCandidates(
+    preferredModelId: String,
+    firebaseReady: Boolean,
+    keyStatus: ExternalApiKeyStatus,
+  ): List<AiModelSpec> {
+    if (preferredModelId != AiModelCatalog.AUTO_MODEL_ID) {
+      val spec = AiModelCatalog.findById(preferredModelId)
+      if (!spec.supportsVision || spec.id == AiModelCatalog.AUTO_MODEL_ID) {
+        // Fallback smoothly to Auto Vision pool if user picked a text-only model for chat
       } else {
-        Log.e(TAG, "Live Coach failed on primary model", e)
-        return LiveCoachOutcome.Failure(GeminiCoachService.buildDetailedErrorMessage(e, language))
+        if (spec.provider == AiProviderId.FIREBASE_AI && !firebaseReady) return emptyList()
+        if (spec.provider.requiresApiKey && !keyStatus.hasKeyFor(spec.provider)) return emptyList()
+        return listOf(spec)
       }
     }
 
-    return try {
-      val response = withTimeout(25_000L) { fallbackModel.generateContent(inputContent) }
-      val rawJson = response.text?.trim().orEmpty()
-      if (rawJson.isEmpty()) {
-        LiveCoachOutcome.Failure(
-          if (language == AppLanguage.TH) {
-            "Live Coach ไม่ได้รับข้อมูลจากภาพนี้ ลองแคปหน้าเลือกตัวหรือหน้าโหลดใหม่อีกครั้ง"
-          } else {
-            "Live Coach returned empty analysis. Capture a clearer Draft or Loading screen."
-          }
-        )
-      } else {
-        LiveCoachOutcome.Success(
-          parseAndResolve(rawJson, catalog, fallbackChampion, fallbackLane)
-        )
+    return buildList {
+      if (firebaseReady) {
+        add(AiModelCatalog.FIREBASE_FLASH)
+        add(AiModelCatalog.FIREBASE_FLASH_LITE)
       }
-    } catch (e: TimeoutCancellationException) {
-      val prior = primaryError
-      if (prior != null && GeminiCoachService.classifyError(prior) == CoachErrorKind.QUOTA_LIMIT) {
-        LiveCoachOutcome.Failure(GeminiCoachService.buildDetailedErrorMessage(prior, language))
-      } else {
-        LiveCoachOutcome.Failure(
-          if (language == AppLanguage.TH) {
-            "หมดเวลาเชื่อมต่อ Live Coach (60 วินาที) กรุณาลองใหม่อีกครั้ง"
-          } else {
-            "Live Coach analysis timed out after 60 seconds. Please retry."
-          }
-        )
+      if (keyStatus.hasAiStudioKey) {
+        add(AiModelCatalog.AI_STUDIO_FLASH)
+        add(AiModelCatalog.AI_STUDIO_FLASH_LITE)
       }
-    } catch (e: CancellationException) {
-      throw e
-    } catch (e: Exception) {
-      Log.e(TAG, "Live Coach fallback failed", e)
-      LiveCoachOutcome.Failure(GeminiCoachService.buildDetailedErrorMessage(e, language))
+      if (keyStatus.hasGroqKey) {
+        add(AiModelCatalog.GROQ_LLAMA4_SCOUT)
+      }
     }
   }
 
@@ -275,8 +340,9 @@ class LiveCoachVisionService(
     catalog: List<ChampionData>,
     fallbackChampion: ChampionData?,
     fallbackLane: Lane,
+    usedModelLabel: String = "",
   ): LiveCoachAnalysisResult {
-    val json = JSONObject(jsonString)
+    val json = JSONObject(ExternalAiProvidersClient.stripCodeFence(jsonString))
     val rawPhase = json.optString("screenPhase", "UNKNOWN")
     val phase =
       when (rawPhase.uppercase()) {
@@ -364,6 +430,7 @@ class LiveCoachVisionService(
       earlyLanePlan = json.optString("earlyLanePlan", "").trim(),
       threatAlert = json.optString("threatAlert", "").trim(),
       spokenBriefing = json.optString("spokenBriefing", "").trim(),
+      usedModelLabel = usedModelLabel,
     )
   }
 
@@ -447,7 +514,7 @@ class LiveCoachVisionService(
       3. Tailored Live Coaching:
          - If `CHAMP_SELECT`: Give 2–3 top counter/synergy `recommendedPicks` for the player's lane/team with 1-sentence `reason`, plus 2–3 core/counter `recommendedItems` to prepare, and a crisp early game plan.
          - If `LOADING_SCREEN` or `IN_GAME`: Leave `recommendedPicks` empty, give 3–4 exact Wild Rift items & boot enchants (`recommendedItems` e.g. Plated Steelcaps + Stasis, Oblivion Orb early, Serpent's Fang), give a punchy `earlyLanePlan` (Lv 1–5 wave control, trading, level-up spikes against the visible enemy laner/jungler), and `threatAlert`.
-      4. Use strictly Wild Rift items/mechanics (no PC LoL Mythics, no Doran's items, Skill 1/2/3/Ultimate).
+      4. Use strictly Wild Rift Patch 7.3f items/mechanics (no PC LoL Mythics or Doran's items; use P/Q/W/E/R ability labels and Wild Rift Active slot items like Stasis/Quicksilver/Gargoyle/Mikael's/Stridebreaker).
       5. Keep `spokenBriefing` to 2–3 natural spoken sentences suitable for reading aloud before the match starts.
       6. $langRule
       7. $contextHint

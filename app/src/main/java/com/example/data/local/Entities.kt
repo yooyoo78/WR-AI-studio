@@ -12,6 +12,7 @@ import com.example.data.model.ItemCategory
 import com.example.data.model.ItemCounterTag
 import com.example.data.model.ItemData
 import com.example.data.model.Lane
+import com.example.data.model.LaneBuildOverride
 import com.example.data.model.LaneDifficulty
 import com.example.data.model.MatchupRuleData
 import com.example.data.model.PatchChangeEntry
@@ -71,6 +72,7 @@ data class ChampionEntity(
   val patchVersion: String,
   val lastUpdated: String,
   val sourceType: DataSourceType,
+  val laneOverrides: List<LaneBuildOverride> = emptyList(),
 )
 
 @Entity(tableName = "items")
@@ -183,6 +185,27 @@ data class CustomBuildEntity(
   val updatedAt: Long = System.currentTimeMillis(),
 )
 
+@Entity(tableName = "ai_coach_cache")
+data class AiCoachCacheEntity(
+  @PrimaryKey val cacheKey: String,
+  val normalizedQuestion: String,
+  val championId: String,
+  val lane: String,
+  val patchVersion: String,
+  val languageCode: String,
+  val responseText: String,
+  val modelId: String,
+  val modelLabel: String,
+  val createdAt: Long,
+  val lastAccessedAt: Long,
+  val hitCount: Int = 0,
+)
+
+data class CoachCacheStats(
+  val entryCount: Int = 0,
+  val totalHitsSaved: Int = 0,
+)
+
 fun ChampionEntity.toDomain() =
   ChampionData(
     id = id,
@@ -233,6 +256,7 @@ fun ChampionEntity.toDomain() =
     patchVersion = patchVersion,
     lastUpdated = lastUpdated,
     sourceType = sourceType,
+    laneOverrides = laneOverrides,
   )
 
 fun ChampionData.toEntity() =
@@ -285,6 +309,7 @@ fun ChampionData.toEntity() =
     patchVersion = patchVersion,
     lastUpdated = lastUpdated,
     sourceType = sourceType,
+    laneOverrides = laneOverrides,
   )
 
 fun ItemEntity.toDomain() =
