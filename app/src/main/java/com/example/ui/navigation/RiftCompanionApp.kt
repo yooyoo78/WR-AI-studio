@@ -357,6 +357,7 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                   state = homeState,
                   otaStatus = otaStatus,
                   onSelectTierLane = homePatchVm::selectTierLane,
+                  onSelectMetaSortMode = homePatchVm::selectMetaSortMode,
                   onOpenAnalyzer = { champId ->
                     if (champId != null) {
                       analyzerVm.selectMyChampionById(champId)

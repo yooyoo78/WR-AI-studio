@@ -60,11 +60,13 @@ import com.example.data.model.ChampionData
 import com.example.data.model.Lane
 import com.example.data.model.PatchChangeType
 import com.example.data.remote.OtaCheckStatus
+import com.example.domain.engine.TopMetaSortMode
 import com.example.ui.components.ChampionCrestAvatar
 import com.example.ui.components.DamageTypeBadge
 import com.example.ui.components.HextechCard
 import com.example.ui.components.PatchBadgePill
 import com.example.ui.components.TierBadge
+import com.example.ui.components.TopPlayedMetaWidget
 import com.example.ui.components.WinRatePillsRow
 import com.example.ui.theme.AdvantageEmerald
 import com.example.ui.theme.ArcaneCyan
@@ -82,6 +84,7 @@ fun HomeDashboardScreen(
   state: HomeUiState,
   otaStatus: OtaCheckStatus = OtaCheckStatus.Idle,
   onSelectTierLane: (Lane?) -> Unit,
+  onSelectMetaSortMode: (TopMetaSortMode) -> Unit = {},
   onOpenAnalyzer: (String?) -> Unit,
   onOpenChampionDetail: (String) -> Unit,
   onOpenDraft: () -> Unit,
@@ -97,7 +100,7 @@ fun HomeDashboardScreen(
 
   Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
-      modifier = Modifier.fillMaxSize().widthIn(max = 760.dp),
+      modifier = Modifier.fillMaxSize().widthIn(max = 760.dp).testTag("home_lazy_column"),
       contentPadding = PaddingValues(if (isMiniMode) 8.dp else 12.dp),
       verticalArrangement = Arrangement.spacedBy(if (isMiniMode) 8.dp else 10.dp),
     ) {
@@ -469,6 +472,23 @@ fun HomeDashboardScreen(
             }
           }
         }
+      }
+
+      // Top 5 Ranked Played Meta & Win Rate Widget
+      item {
+        TopPlayedMetaWidget(
+          entries = state.topPlayedMeta,
+          selectedLane = state.selectedTierLane,
+          selectedSortMode = state.selectedMetaSortMode,
+          avgWinRatePct = state.topMetaAvgWinRatePct,
+          avgPickRatePct = state.topMetaAvgPickRatePct,
+          patchVersion = state.activePatch?.version ?: state.preferences.activePatchLabel,
+          language = lang,
+          onSelectLane = onSelectTierLane,
+          onSelectSortMode = onSelectMetaSortMode,
+          onOpenChampionDetail = onOpenChampionDetail,
+          onOpenAnalyzer = { champId -> onOpenAnalyzer(champId) },
+        )
       }
 
       // Active Patch Highlights (collapsible for compact breathing room)

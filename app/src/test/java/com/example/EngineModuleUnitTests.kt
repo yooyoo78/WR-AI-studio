@@ -37,6 +37,8 @@ import com.example.domain.engine.MatchJournalAggregator
 import com.example.domain.engine.MatchupCounterEngine
 import com.example.domain.engine.OfflineCoachEngine
 import com.example.domain.engine.SmartItemEngine
+import com.example.domain.engine.TopMetaRankingEngine
+import com.example.domain.engine.TopMetaSortMode
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.io.File
@@ -868,5 +870,104 @@ class EngineModuleUnitTests {
       )
     assertEquals(1, diff.addedChampions.size)
     assertEquals(1, diff.updatedChampions.size)
+  }
+
+  @Test
+  fun `TopMetaRankingEngine ranks top 5 champions by meta winrate banrate lane and merges personal journal`() {
+    val seed = loadSeedPayload()
+
+    val mostPlayed =
+      TopMetaRankingEngine.computeTopChampions(
+        champions = seed.champions,
+        sortMode = TopMetaSortMode.MOST_PLAYED,
+      )
+    assertEquals(5, mostPlayed.entries.size)
+    assertEquals(listOf(1, 2, 3, 4, 5), mostPlayed.entries.map { it.rank })
+    assertTrue(
+      mostPlayed.entries.zipWithNext().all { (a, b) ->
+        a.metaCompositeScore >= b.metaCompositeScore
+      }
+    )
+    assertTrue(mostPlayed.avgWinRatePct in 45.0..60.0)
+    assertTrue(mostPlayed.avgPickRatePct > 0.0)
+
+    val highestWrMid =
+      TopMetaRankingEngine.computeTopChampions(
+        champions = seed.champions,
+        laneFilter = Lane.MID,
+        sortMode = TopMetaSortMode.HIGHEST_WINRATE,
+      )
+    assertEquals(5, highestWrMid.entries.size)
+    assertTrue(highestWrMid.entries.all { Lane.MID in it.champion.lanes })
+    assertTrue(
+      highestWrMid.entries.zipWithNext().all { (a, b) ->
+        a.champion.winRatePct >= b.champion.winRatePct
+      }
+    )
+
+    val banPriority =
+      TopMetaRankingEngine.computeTopChampions(
+        champions = seed.champions,
+        sortMode = TopMetaSortMode.BAN_PRIORITY,
+      )
+    assertEquals(5, banPriority.entries.size)
+    assertTrue(
+      banPriority.entries.zipWithNext().all { (a, b) ->
+        a.champion.banRatePct >= b.champion.banRatePct
+      }
+    )
+
+    val targetMidChamp = highestWrMid.entries.first().champion
+    val journal =
+      listOf(
+        MatchJournalEntryData(
+          id = 10L,
+          championId = targetMidChamp.id,
+          lane = Lane.MID,
+          isWin = true,
+          kills = 8,
+          deaths = 2,
+          assists = 7,
+          goldEarned = 14000,
+          durationMinutes = 17,
+          buildAccuracyPct = 90,
+        ),
+        MatchJournalEntryData(
+          id = 11L,
+          championId = targetMidChamp.id,
+          lane = Lane.MID,
+          isWin = false,
+          kills = 3,
+          deaths = 5,
+          assists = 4,
+          goldEarned = 11000,
+          durationMinutes = 18,
+          buildAccuracyPct = 70,
+        ),
+        MatchJournalEntryData(
+          id = 12L,
+          championId = targetMidChamp.id,
+          lane = Lane.BARON,
+          isWin = true,
+          kills = 6,
+          deaths = 1,
+          assists = 3,
+          goldEarned = 13500,
+          durationMinutes = 16,
+          buildAccuracyPct = 85,
+        ),
+      )
+
+    val mergedMid =
+      TopMetaRankingEngine.computeTopChampions(
+        champions = seed.champions,
+        journalEntries = journal,
+        laneFilter = Lane.MID,
+        sortMode = TopMetaSortMode.HIGHEST_WINRATE,
+      )
+    val firstEntry = mergedMid.entries.first()
+    assertEquals(targetMidChamp.id, firstEntry.champion.id)
+    assertEquals(2, firstEntry.personalGames)
+    assertEquals(50, firstEntry.personalWinRatePct)
   }
 }

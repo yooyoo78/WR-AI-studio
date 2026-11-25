@@ -1,6 +1,10 @@
 package com.example
 
 import android.content.Context
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.hasTestTag
@@ -1107,5 +1111,40 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("ota_check_button").assertIsDisplayed()
     composeTestRule.onNodeWithTag("patch_back_button").performClick()
     composeTestRule.waitForIdle()
+  }
+
+  @Test
+  fun `cuj home top 5 ranked meta widget switches metric and filters by lane`() {
+    fun hasTestTagPrefix(prefix: String): SemanticsMatcher =
+      SemanticsMatcher("TestTag starts with '$prefix'") { node ->
+        node.config.getOrNull(SemanticsProperties.TestTag)?.startsWith(prefix) == true
+      }
+
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("home_lazy_column")
+      .performScrollToNode(hasTestTag("top_played_meta_widget"))
+    composeTestRule.onNodeWithTag("top_played_meta_widget").assertIsDisplayed()
+    composeTestRule.onAllNodes(hasTestTagPrefix("top_meta_row_")).assertCountEquals(5)
+
+    // Switch metric mode to Win Rate and filter by Mid lane
+    composeTestRule.onNodeWithTag("top_meta_sort_HIGHEST_WINRATE").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("top_meta_lane_MID").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onAllNodes(hasTestTagPrefix("top_meta_row_")).assertCountEquals(5)
+
+    // Expand the #1 row to verify inline power curve breakdown & View Kit button
+    composeTestRule.onAllNodes(hasTestTagPrefix("top_meta_row_"))[0].performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onAllNodes(hasTestTagPrefix("top_meta_expand_"), useUnmergedTree = true)
+      .assertCountEquals(1)
+    composeTestRule.onAllNodes(hasTestTagPrefix("top_meta_kit_"))[0].performScrollTo().assertIsDisplayed()
+
+    // Launch 1v5 Analyzer directly from Top 5 widget row
+    composeTestRule.onAllNodes(hasTestTagPrefix("top_meta_analyze_"))[0].performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("analyzer_lazy_column").assertIsDisplayed()
   }
 }

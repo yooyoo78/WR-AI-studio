@@ -12,6 +12,7 @@ import com.example.data.local.UserPreferences
 import com.example.data.model.AppLanguage
 import com.example.data.model.ChampionData
 import com.example.data.model.Lane
+import com.example.data.model.MatchJournalEntryData
 import com.example.data.model.PatchNoteData
 import com.example.data.model.PatchSnapshotSummary
 import com.example.data.remote.OtaCheckStatus
@@ -19,6 +20,9 @@ import com.example.data.remote.OtaPatchRepository
 import com.example.data.repository.GameDataRepository
 import com.example.data.repository.ImportResult
 import com.example.data.validation.ValidationResult
+import com.example.domain.engine.TopMetaChampionEntry
+import com.example.domain.engine.TopMetaRankingEngine
+import com.example.domain.engine.TopMetaSortMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +41,10 @@ data class HomeUiState(
   val totalItems: Int = 0,
   val favoriteChampions: List<ChampionData> = emptyList(),
   val topMetaChampions: List<ChampionData> = emptyList(),
+  val topPlayedMeta: List<TopMetaChampionEntry> = emptyList(),
+  val selectedMetaSortMode: TopMetaSortMode = TopMetaSortMode.MOST_PLAYED,
+  val topMetaAvgWinRatePct: Double = 0.0,
+  val topMetaAvgPickRatePct: Double = 0.0,
   val selectedTierLane: Lane? = null,
   val preferences: UserPreferences = UserPreferences(),
 )
@@ -58,6 +66,7 @@ class HomeAndPatchViewModel(
 ) : ViewModel() {
 
   private val _selectedTierLane = MutableStateFlow<Lane?>(null)
+  private val _selectedMetaSortMode = MutableStateFlow(TopMetaSortMode.MOST_PLAYED)
   private val _patchActionStatus = MutableStateFlow<PatchActionStatus>(PatchActionStatus.Idle)
   val patchActionStatus: StateFlow<PatchActionStatus> = _patchActionStatus.asStateFlow()
 
@@ -98,6 +107,8 @@ class HomeAndPatchViewModel(
         repository.favoriteChampionIds,
         preferences,
         _selectedTierLane,
+        repository.matchJournal,
+        _selectedMetaSortMode,
       ) { values ->
         @Suppress("UNCHECKED_CAST")
         val champions = values[0] as List<ChampionData>
@@ -109,6 +120,9 @@ class HomeAndPatchViewModel(
         val favIds = values[3] as Set<String>
         val prefs = values[4] as UserPreferences
         val tierLane = values[5] as Lane?
+        @Suppress("UNCHECKED_CAST")
+        val journalEntries = values[6] as List<MatchJournalEntryData>
+        val metaSortMode = values[7] as TopMetaSortMode
 
         val favorites = champions.filter { it.id in favIds }
         val filteredMeta =
@@ -117,6 +131,14 @@ class HomeAndPatchViewModel(
             .sortedWith(
               compareBy<ChampionData> { it.tierRank.sortOrder }.thenByDescending { it.winRatePct }
             )
+        val topPlayedSlice =
+          TopMetaRankingEngine.computeTopChampions(
+            champions = champions,
+            journalEntries = journalEntries,
+            laneFilter = tierLane,
+            sortMode = metaSortMode,
+            limit = 5,
+          )
 
         HomeUiState(
           isLoading = champions.isEmpty(),
@@ -126,6 +148,10 @@ class HomeAndPatchViewModel(
           totalItems = items.size,
           favoriteChampions = favorites,
           topMetaChampions = filteredMeta,
+          topPlayedMeta = topPlayedSlice.entries,
+          selectedMetaSortMode = metaSortMode,
+          topMetaAvgWinRatePct = topPlayedSlice.avgWinRatePct,
+          topMetaAvgPickRatePct = topPlayedSlice.avgPickRatePct,
           selectedTierLane = tierLane,
           preferences = prefs,
         )
@@ -142,6 +168,10 @@ class HomeAndPatchViewModel(
 
   fun selectTierLane(lane: Lane?) {
     _selectedTierLane.value = lane
+  }
+
+  fun selectMetaSortMode(mode: TopMetaSortMode) {
+    _selectedMetaSortMode.value = mode
   }
 
   fun setLanguage(language: AppLanguage) {
