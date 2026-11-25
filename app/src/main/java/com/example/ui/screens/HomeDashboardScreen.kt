@@ -59,6 +59,7 @@ import com.example.data.model.AppLanguage
 import com.example.data.model.ChampionData
 import com.example.data.model.Lane
 import com.example.data.model.PatchChangeType
+import com.example.data.remote.OtaCheckStatus
 import com.example.ui.components.ChampionCrestAvatar
 import com.example.ui.components.DamageTypeBadge
 import com.example.ui.components.HextechCard
@@ -79,6 +80,7 @@ import com.example.ui.viewmodel.HomeUiState
 @Composable
 fun HomeDashboardScreen(
   state: HomeUiState,
+  otaStatus: OtaCheckStatus = OtaCheckStatus.Idle,
   onSelectTierLane: (Lane?) -> Unit,
   onOpenAnalyzer: (String?) -> Unit,
   onOpenChampionDetail: (String) -> Unit,
@@ -298,6 +300,49 @@ fun HomeDashboardScreen(
                   )
                 }
               }
+            }
+          }
+        }
+      }
+
+      if (otaStatus is OtaCheckStatus.UpdateReady) {
+        item {
+          val diff = otaStatus.download.diff
+          HextechCard(
+            accentColor = AdvantageEmerald,
+            onClick = onOpenPatchCenter,
+            modifier = Modifier.fillMaxWidth().testTag("home_ota_update_banner"),
+          ) {
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+              Column(modifier = Modifier.weight(1f)) {
+                Text(
+                  text =
+                    if (lang == AppLanguage.TH) {
+                      "พบ OTA Patch ${diff.incomingPatchVersion} (ยืนยันลายเซ็นแล้ว ✓)"
+                    } else {
+                      "Signed OTA Patch ${diff.incomingPatchVersion} Ready ✓"
+                    },
+                  style = MaterialTheme.typography.titleSmall,
+                  fontWeight = FontWeight.Bold,
+                  color = AdvantageEmerald,
+                )
+                Text(
+                  text =
+                    if (lang == AppLanguage.TH) "แตะเพื่อดู Diff และอัปเดตใน Patch Center"
+                    else "Tap to inspect diff & apply in Patch Center",
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+              }
+              Icon(
+                Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = "Open Patch Center",
+                tint = AdvantageEmerald,
+              )
             }
           }
         }

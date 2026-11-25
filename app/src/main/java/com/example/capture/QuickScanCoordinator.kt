@@ -41,6 +41,7 @@ data class QuickScanUiState(
   val isScanning: Boolean = false,
   val countdownSeconds: Int? = null,
   val previewBitmap: Bitmap? = null,
+  val sourceUri: Uri? = null,
   val scanResult: ChampionScanMatchResult? = null,
   val errorMessage: String? = null,
   val autoAppliedToAllModes: Boolean = false,
@@ -70,6 +71,9 @@ class QuickScanCoordinator(
 
   private val _openLiveCoachRequested = MutableStateFlow(false)
   val openLiveCoachRequested: StateFlow<Boolean> = _openLiveCoachRequested.asStateFlow()
+
+  @Volatile var lastPostGameBitmap: Bitmap? = null
+    private set
 
   fun setCaptureTarget(target: CaptureTarget) {
     _captureTarget.value = target
@@ -110,11 +114,13 @@ class QuickScanCoordinator(
     scanJob =
       scope.launch {
         val preview = withContext(Dispatchers.IO) { decodePreviewThumbnail(uri) }
+        lastPostGameBitmap = null
         _uiState.update {
           it.copy(
             isSheetOpen = openSheet || it.isSheetOpen,
             isScanning = true,
             previewBitmap = preview ?: it.previewBitmap,
+            sourceUri = uri,
             errorMessage = null,
             autoAppliedToAllModes = false,
           )
@@ -131,13 +137,16 @@ class QuickScanCoordinator(
     bitmap: Bitmap,
     openSheet: Boolean = true,
   ): ScreenScanOutcome {
-    val thumb = withContext(Dispatchers.Default) { createThumbnail(bitmap) }
+    val thumb = withContext(Dispatchers.Default) { createThumbnail(bitmap, 640) }
+    val sharpCopy = withContext(Dispatchers.Default) { createThumbnail(bitmap, 1440) }
+    lastPostGameBitmap = sharpCopy
     _uiState.update {
       it.copy(
         isSheetOpen = openSheet || it.isSheetOpen,
         isScanning = true,
         countdownSeconds = null,
         previewBitmap = thumb,
+        sourceUri = null,
         errorMessage = null,
         autoAppliedToAllModes = false,
       )
@@ -296,16 +305,16 @@ class QuickScanCoordinator(
       val opts = BitmapFactory.Options().apply { inSampleSize = 2 }
       context.contentResolver.openInputStream(uri)?.use { stream ->
         BitmapFactory.decodeStream(stream, null, opts)
-      }?.let { createThumbnail(it) }
+      }?.let { createThumbnail(it, 640) }
     } catch (_: Exception) {
       null
     }
   }
 
-  private fun createThumbnail(source: Bitmap): Bitmap {
+  private fun createThumbnail(source: Bitmap, maxDim: Int = 640): Bitmap {
     val maxSide = max(source.width, source.height)
-    if (maxSide <= 640 || maxSide <= 0) return source
-    val ratio = 640f / maxSide.toFloat()
+    if (maxSide <= maxDim || maxSide <= 0) return source
+    val ratio = maxDim.toFloat() / maxSide.toFloat()
     val w = (source.width * ratio).roundToInt().coerceAtLeast(1)
     val h = (source.height * ratio).roundToInt().coerceAtLeast(1)
     return Bitmap.createScaledBitmap(source, w, h, true)

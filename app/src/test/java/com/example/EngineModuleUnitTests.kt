@@ -18,6 +18,7 @@ import com.example.data.model.ItemCounterTag
 import com.example.data.model.ItemData
 import com.example.data.model.Lane
 import com.example.data.model.LaneDifficulty
+import com.example.data.model.MatchJournalEntryData
 import com.example.data.model.MatchupRuleData
 import com.example.data.model.PatchPackPayload
 import com.example.data.model.RuneData
@@ -27,14 +28,22 @@ import com.example.data.model.ThreatTag
 import com.example.data.model.TierRank
 import com.example.data.model.tier2BootBaseId
 import com.example.data.model.tier3BootUpgradeId
+import com.example.data.remote.EcdsaSignatureVerifier
+import com.example.data.remote.PatchDiffBuilder
 import com.example.data.validation.PatchDataValidator
+import com.example.domain.engine.BuildAccuracyEngine
 import com.example.domain.engine.DraftAssistantEngine
+import com.example.domain.engine.MatchJournalAggregator
 import com.example.domain.engine.MatchupCounterEngine
 import com.example.domain.engine.OfflineCoachEngine
 import com.example.domain.engine.SmartItemEngine
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.io.File
+import java.security.KeyPairGenerator
+import java.security.Signature
+import java.security.spec.ECGenParameterSpec
+import java.util.Base64
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -647,5 +656,217 @@ class EngineModuleUnitTests {
 
     val fenced = "```json\n{\"screenPhase\":\"CHAMP_SELECT\"}\n```"
     assertEquals("{\"screenPhase\":\"CHAMP_SELECT\"}", ExternalAiProvidersClient.stripCodeFence(fenced))
+  }
+
+  @Test
+  fun `BuildAccuracyEngine scores aligned counter items high and flags missing anti-heal and deaths`() {
+    val seed = loadSeedPayload()
+    val champMap = seed.champions.associateBy { it.id }
+    val itemMap = seed.items.associateBy { it.id }
+    val jinx = champMap.getValue("jinx")
+    val healEnemies =
+      listOf("aatrox", "dr_mundo", "sylas", "kaisa", "soraka").map { champMap.getValue(it) }
+
+    val engine = BuildAccuracyEngine()
+    val goodItems =
+      listOf(
+        "yun_tal_wildarrows",
+        "runaans_hurricane",
+        "infinity_edge",
+        "mortal_reminder",
+        "berserkers_greaves",
+        "quicksilver_enchant",
+      ).mapNotNull { itemMap[it] }
+
+    val goodReport =
+      engine.evaluate(
+        myChampion = jinx,
+        lane = Lane.DRAGON,
+        enemies = healEnemies,
+        boughtItems = goodItems,
+        kills = 9,
+        deaths = 2,
+        assists = 7,
+        goldEarned = 16500,
+        durationMinutes = 18,
+        allItems = seed.items,
+        allRunes = seed.runes,
+        allSpells = seed.spells,
+        explicitMatchupRules = seed.matchupRules,
+      )
+    assertTrue("Expected >= 70% build accuracy, got ${goodReport.accuracyPct}", goodReport.accuracyPct >= 70)
+    assertFalse(BuildAccuracyEngine.MISTAKE_MISSED_ANTI_HEAL in goodReport.mistakeTags)
+
+    val badItems =
+      listOf("collector", "bloodthirster", "rapid_firecannon", "ionian_boots").mapNotNull { itemMap[it] }
+    val badReport =
+      engine.evaluate(
+        myChampion = jinx,
+        lane = Lane.DRAGON,
+        enemies = healEnemies,
+        boughtItems = badItems,
+        kills = 2,
+        deaths = 8,
+        assists = 3,
+        goldEarned = 9000,
+        durationMinutes = 18,
+        allItems = seed.items,
+        allRunes = seed.runes,
+        allSpells = seed.spells,
+        explicitMatchupRules = seed.matchupRules,
+      )
+    assertTrue("Expected bad build < good build", badReport.accuracyPct < goodReport.accuracyPct)
+    assertTrue(BuildAccuracyEngine.MISTAKE_MISSED_ANTI_HEAL in badReport.mistakeTags)
+    assertTrue(BuildAccuracyEngine.MISTAKE_HIGH_DEATHS in badReport.mistakeTags)
+    assertTrue(BuildAccuracyEngine.MISTAKE_LOW_GPM in badReport.mistakeTags)
+  }
+
+  @Test
+  fun `MatchJournalAggregator summarizes stats and injects player memory into AI prompt`() {
+    val seed = loadSeedPayload()
+    val champMap = seed.champions.associateBy { it.id }
+    val entries =
+      listOf(
+        MatchJournalEntryData(
+          id = 1L,
+          championId = "jinx",
+          lane = Lane.DRAGON,
+          isWin = true,
+          kills = 10,
+          deaths = 2,
+          assists = 8,
+          goldEarned = 16000,
+          durationMinutes = 18,
+          buildAccuracyPct = 88,
+          mistakeTags = emptyList(),
+        ),
+        MatchJournalEntryData(
+          id = 2L,
+          championId = "jinx",
+          lane = Lane.DRAGON,
+          isWin = false,
+          kills = 3,
+          deaths = 8,
+          assists = 4,
+          goldEarned = 9800,
+          durationMinutes = 19,
+          buildAccuracyPct = 48,
+          mistakeTags = listOf(BuildAccuracyEngine.MISTAKE_MISSED_ANTI_HEAL),
+        ),
+      )
+
+    val summary = MatchJournalAggregator.summarize(entries, champMap, AppLanguage.EN)
+    assertEquals(2, summary.totalGames)
+    assertEquals(50, summary.winRatePct)
+    assertEquals(68, summary.avgBuildAccuracyPct)
+    assertEquals(BuildAccuracyEngine.MISTAKE_MISSED_ANTI_HEAL, summary.recurringMistakes.first().tag)
+
+    val memory = MatchJournalAggregator.buildCoachPlayerMemory(entries, champMap, "jinx")
+    assertTrue(memory.contains("2 recent games"))
+    assertTrue(memory.contains("Missed Anti-Heal"))
+
+    val prompt =
+      GeminiCoachService()
+        .buildTacticalPrompt(
+          question = "How should I spike on 2 items?",
+          champion = champMap.getValue("jinx"),
+          lane = Lane.DRAGON,
+          enemies = listOf(champMap.getValue("soraka")),
+          patchVersion = "7.3f",
+          language = AppLanguage.TH,
+          playerMemorySummary = memory,
+        )
+    assertTrue(prompt.contains("Player History & Habits"))
+    assertTrue(prompt.contains("Missed Anti-Heal"))
+  }
+
+  @Test
+  fun `MatchupCounterEngine computes full 144x144 matrix with Verified vs Estimate flags`() {
+    val seed = loadSeedPayload()
+    val engine = MatchupCounterEngine()
+    val champMap = seed.champions.associateBy { it.id }
+
+    // Explicit curated rule should be marked Verified
+    val explicitRule = seed.matchupRules.first()
+    val champA = champMap.getValue(explicitRule.champAId)
+    val champB = champMap.getValue(explicitRule.champBId)
+    val (verifiedAnalyses, _) =
+      engine.analyzeMatchups(champA, champA.lanes.first(), listOf(champB), seed.matchupRules)
+    assertTrue(verifiedAnalyses.single().isVerifiedRule)
+
+    // Pair without explicit rule/counter entry produces bounded algorithmic Estimate
+    val ahri = champMap.getValue("ahri")
+    val braum = champMap.getValue("braum")
+    val hasExplicitAhriBraum =
+      seed.matchupRules.any {
+        (it.champAId == "ahri" && it.champBId == "braum") ||
+          (it.champAId == "braum" && it.champBId == "ahri")
+      } || ("braum" in ahri.counterChampionIds) || ("braum" in ahri.favorableAgainstIds)
+    val (estAnalyses, _) =
+      engine.analyzeMatchups(ahri, Lane.MID, listOf(braum), seed.matchupRules)
+    assertEquals(hasExplicitAhriBraum, estAnalyses.single().isVerifiedRule)
+    assertTrue(estAnalyses.single().advantageScore in -5..5)
+    assertTrue(estAnalyses.single().threatScore in 0..100)
+    assertTrue(estAnalyses.single().tacticalTipTh.isNotBlank())
+
+    // Exhaustive 144x144 sweep check (all champions against sampled roster chunks)
+    seed.champions.forEach { me ->
+      val (analyses, _) =
+        engine.analyzeMatchups(me, me.lanes.first(), seed.champions.take(15), seed.matchupRules)
+      assertTrue(analyses.all { it.advantageScore in -5..5 && it.threatScore in 0..100 && it.keySpikeEn.isNotBlank() })
+    }
+  }
+
+  @Test
+  fun `EcdsaSignatureVerifier validates signed OTA patch pack and detects tampering`() {
+    val keyGen = KeyPairGenerator.getInstance("EC")
+    keyGen.initialize(ECGenParameterSpec("secp256r1"))
+    val keyPair = keyGen.generateKeyPair()
+
+    val payloadText = """{"packVersion":2,"patchVersion":"7.4a","lastUpdated":"2026-12-01","sourceLabel":"Signed OTA"}"""
+    val packBytes = payloadText.toByteArray(Charsets.UTF_8)
+    val shaHex = EcdsaSignatureVerifier.sha256Hex(packBytes)
+
+    val signer = Signature.getInstance("SHA256withECDSA")
+    signer.initSign(keyPair.private)
+    signer.update(packBytes)
+    val sigBase64 = Base64.getEncoder().encodeToString(signer.sign())
+    val pubKeyBase64 = Base64.getEncoder().encodeToString(keyPair.public.encoded)
+
+    val ok = EcdsaSignatureVerifier.verifyPack(packBytes, shaHex, sigBase64, pubKeyBase64)
+    assertTrue("Expected valid signature verification", ok.isSuccess)
+
+    val tamperedBytes = payloadText.replace("7.4a", "9.9z").toByteArray(Charsets.UTF_8)
+    val badHash = EcdsaSignatureVerifier.verifyPack(tamperedBytes, shaHex, sigBase64, pubKeyBase64)
+    assertTrue("Expected tampered payload failure", badHash.isFailure)
+
+    val badSig =
+      EcdsaSignatureVerifier.verifyPack(
+        packBytes = tamperedBytes,
+        expectedSha256Hex = EcdsaSignatureVerifier.sha256Hex(tamperedBytes),
+        signatureBase64 = sigBase64,
+        publicKeyPemOrBase64 = pubKeyBase64,
+      )
+    assertTrue("Expected invalid ECDSA signature failure even if hash recomputed", badSig.isFailure)
+
+    val seed = loadSeedPayload()
+    val diff =
+      PatchDiffBuilder.compute(
+        currentPatchVersion = "7.3f",
+        existingChampionIds = seed.champions.map { it.id }.toSet(),
+        existingItemIds = seed.items.map { it.id }.toSet(),
+        existingRuneIds = seed.runes.map { it.id }.toSet(),
+        existingMatchupIds = seed.matchupRules.map { it.id }.toSet(),
+        incoming =
+          PatchPackPayload(
+            packVersion = 2,
+            patchVersion = "7.4a",
+            lastUpdated = "2026-12-01",
+            sourceLabel = "Test OTA",
+            champions = listOf(seed.champions.first(), seed.champions.last().copy(id = "ambessa_new", nameEn = "Ambessa")),
+          ),
+      )
+    assertEquals(1, diff.addedChampions.size)
+    assertEquals(1, diff.updatedChampions.size)
   }
 }

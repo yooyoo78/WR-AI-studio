@@ -141,19 +141,23 @@ jobs:
           fi
           APK_DEST="dist/rift-companion-${SAFE_TAG}.apk"
           cp "$APK_SRC" "$APK_DEST"
+          MAPPING_SRC="app/build/outputs/mapping/release/mapping.txt"
+          if [ -f "$MAPPING_SRC" ]; then
+            cp "$MAPPING_SRC" "dist/mapping-${SAFE_TAG}.txt"
+          fi
           echo "apk_path=$APK_DEST" >> "$GITHUB_OUTPUT"
           echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
-          ls -lh "$APK_DEST"
+          ls -lh dist/
 
       - name: Clean up release keystore
         if: always()
         run: rm -f "${{ github.workspace }}/my-upload-key.jks"
 
-      - name: Upload Release APK artifact
+      - name: Upload Release APK & Mapping artifact
         uses: actions/upload-artifact@v4
         with:
           name: rift-companion-release-apk
-          path: ${{ steps.package_apk.outputs.apk_path }}
+          path: dist/
           if-no-files-found: error
           retention-days: 30
 

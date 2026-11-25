@@ -359,6 +359,28 @@ fun CoachScreen(
           onOpenApiKeys = { showFreeKeysSheet = true },
           onOpenCacheInfo = { showCacheInfoDialog = true },
         )
+        if (selectedTab == 1 && state.journalGameCount > 0) {
+          Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = ArcaneCyan.copy(alpha = 0.1f),
+            border = BorderStroke(1.dp, ArcaneCyan.copy(alpha = 0.35f)),
+            modifier = Modifier.fillMaxWidth().testTag("coach_journal_memory_badge"),
+          ) {
+            Text(
+              text =
+                if (lang == AppLanguage.TH) {
+                  "Journal Memory: AI โค้ชกำลังวิเคราะห์ร่วมกับสถิติย้อนหลัง ${state.journalGameCount} เกมของคุณ"
+                } else {
+                  "Journal Memory Active: Personalizing advice using your ${state.journalGameCount} saved matches"
+                },
+              style = MaterialTheme.typography.labelSmall,
+              color = ArcaneCyan,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
+              modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            )
+          }
+        }
       }
 
       // Optional TTS error banner (only shown if device TTS fails)

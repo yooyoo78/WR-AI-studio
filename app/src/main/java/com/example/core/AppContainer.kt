@@ -5,6 +5,7 @@ import com.example.capture.QuickScanCoordinator
 import com.example.data.ai.ExternalAiProvidersClient
 import com.example.data.ai.GeminiCoachService
 import com.example.data.ai.LiveCoachVisionService
+import com.example.data.ai.PostGameVisionService
 import com.example.data.ai.ScreenChampionScanner
 import com.example.data.local.AppDatabase
 import com.example.data.local.GameDao
@@ -12,7 +13,9 @@ import com.example.data.local.PreferencesRepository
 import com.example.data.local.SecureApiKeyStore
 import com.example.data.model.ChampionRole
 import com.example.data.model.Lane
+import com.example.data.remote.OtaPatchRepository
 import com.example.data.repository.GameDataRepository
+import com.example.domain.engine.BuildAccuracyEngine
 import com.example.domain.engine.ChampionScanMatcher
 import com.example.domain.engine.DraftAssistantEngine
 import com.example.domain.engine.MatchupCounterEngine
@@ -58,6 +61,9 @@ class AppContainer(context: Context) {
   val smartItemEngine: SmartItemEngine by lazy { SmartItemEngine() }
   val draftAssistantEngine: DraftAssistantEngine by lazy { DraftAssistantEngine() }
   val offlineCoachEngine: OfflineCoachEngine by lazy { OfflineCoachEngine() }
+  val buildAccuracyEngine: BuildAccuracyEngine by lazy {
+    BuildAccuracyEngine(matchupCounterEngine, smartItemEngine)
+  }
   val geminiCoachService: GeminiCoachService by lazy {
     GeminiCoachService(
       context = appContext,
@@ -76,6 +82,21 @@ class AppContainer(context: Context) {
       matcher = championScanMatcher,
       secureKeyStore = secureApiKeyStore,
       externalClient = externalAiClient,
+    )
+  }
+  val postGameVisionService: PostGameVisionService by lazy {
+    PostGameVisionService(
+      context = appContext,
+      matcher = championScanMatcher,
+      accuracyEngine = buildAccuracyEngine,
+      secureKeyStore = secureApiKeyStore,
+      externalClient = externalAiClient,
+    )
+  }
+  val otaPatchRepository: OtaPatchRepository by lazy {
+    OtaPatchRepository(
+      gameDataRepository = gameDataRepository,
+      preferencesRepository = preferencesRepository,
     )
   }
   val quickScanCoordinator: QuickScanCoordinator by lazy {

@@ -158,4 +158,38 @@ interface GameDao {
   suspend fun trimCoachCacheToLimit(keepLimit: Int)
 
   @Query("DELETE FROM ai_coach_cache") suspend fun clearAllCoachCache()
+
+  @Query("SELECT * FROM match_journal ORDER BY playedAt DESC")
+  fun observeMatchJournal(): Flow<List<MatchJournalEntity>>
+
+  @Query("SELECT * FROM match_journal ORDER BY playedAt DESC LIMIT :limit")
+  suspend fun getRecentMatchJournalOnce(limit: Int): List<MatchJournalEntity>
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertMatchJournal(entry: MatchJournalEntity): Long
+
+  @Query("DELETE FROM match_journal WHERE id = :id")
+  suspend fun deleteMatchJournal(id: Long)
+
+  @Query("SELECT * FROM patch_snapshots ORDER BY createdAt DESC LIMIT 10")
+  fun observePatchSnapshots(): Flow<List<PatchSnapshotEntity>>
+
+  @Query("SELECT * FROM patch_snapshots WHERE isRolledBack = 0 ORDER BY createdAt DESC LIMIT 1")
+  suspend fun getLatestRollbackSnapshot(): PatchSnapshotEntity?
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertPatchSnapshot(snapshot: PatchSnapshotEntity): Long
+
+  @Query("UPDATE patch_snapshots SET isRolledBack = 1 WHERE id = :id")
+  suspend fun markSnapshotRolledBack(id: Long)
+
+  @Query(
+    """
+    DELETE FROM patch_snapshots WHERE id NOT IN (
+      SELECT id FROM patch_snapshots ORDER BY createdAt DESC LIMIT :keepLimit
+    )
+    """
+  )
+  suspend fun trimPatchSnapshots(keepLimit: Int)
 }
+

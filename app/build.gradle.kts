@@ -8,6 +8,29 @@ plugins {
   alias(libs.plugins.google.services)
 }
 
+val gitTagInfo: Pair<Int, String> = run {
+  val rawTag =
+    providers
+      .exec {
+        commandLine("git", "describe", "--tags", "--abbrev=0")
+        isIgnoreExitValue = true
+      }
+      .standardOutput
+      .asText
+      .get()
+      .trim()
+  val match = Regex("""v?(\d+)\.(\d+)\.(\d+)""").find(rawTag)
+  if (match != null) {
+    val major = match.groupValues[1].toIntOrNull() ?: 1
+    val minor = match.groupValues[2].toIntOrNull() ?: 1
+    val patch = match.groupValues[3].toIntOrNull() ?: 0
+    val code = major * 10000 + minor * 100 + patch
+    code to "$major.$minor.$patch"
+  } else {
+    10100 to "1.1.0"
+  }
+}
+
 android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
@@ -16,8 +39,8 @@ android {
     applicationId = "com.aistudio.wildriftcompanion.wrxkpz"
     minSdk = 24
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+    versionCode = gitTagInfo.first
+    versionName = gitTagInfo.second
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -43,7 +66,8 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = false
+      isMinifyEnabled = true
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       // Do not remove or modify this signingConfig assignment. It is necessary for Android apps in
       // AI Studio.

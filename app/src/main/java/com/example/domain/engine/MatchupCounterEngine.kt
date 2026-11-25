@@ -22,6 +22,7 @@ data class EnemyMatchupAnalysis(
   val tacticalTipTh: String,
   val keySpikeEn: String,
   val keySpikeTh: String,
+  val isVerifiedRule: Boolean = false,
 ) {
   fun dangerAbilities(lang: AppLanguage) =
     if (lang == AppLanguage.TH) dangerAbilitiesTh else dangerAbilitiesEn
@@ -81,36 +82,69 @@ class MatchupCounterEngine {
     val reverseRule =
       rules.firstOrNull { it.champAId == enemy.id && it.champBId == myChamp.id }
 
-    var score = 0
+    val hasExplicitRule = directRule != null || reverseRule != null
+    val isCounterListed = enemy.id in myChamp.counterChampionIds
+    val isFavorableListed = enemy.id in myChamp.favorableAgainstIds
+    val isVerified = hasExplicitRule || isCounterListed || isFavorableListed
+
+    var score = 0.0
     val reasonsEn = mutableListOf<String>()
     val reasonsTh = mutableListOf<String>()
 
     when {
       directRule != null -> {
-        score = directRule.advantageScore
+        score = directRule.advantageScore.toDouble()
         reasonsEn.add(directRule.tipEn)
         reasonsTh.add(directRule.tipTh)
       }
       reverseRule != null -> {
-        score = -reverseRule.advantageScore
+        score = -reverseRule.advantageScore.toDouble()
+      }
+      else -> {
+        // Explicit roster counter/favorable relationships
+        if (isCounterListed) score -= 2.8
+        if (isFavorableListed) score += 2.8
+
+        // Full 144x144 deterministic multi-factor rating matrix
+        val (phaseDelta, burstVsTankDelta, ccVsMobilityDelta, sustainDelta, dpsTankDelta) =
+          computeRatingDeltas(myChamp, myLane, enemy)
+
+        score += phaseDelta * 0.45
+        score += burstVsTankDelta * 0.25
+        score += ccVsMobilityDelta * 0.22
+        score += sustainDelta * 0.18
+        score += dpsTankDelta * 0.20
+
+        when {
+          phaseDelta >= 1.8 -> {
+            reasonsEn.add("Power curve favors you (${weightedCurve(myChamp, myLane)} vs ${weightedCurve(enemy, myLane)} phase tempo).")
+            reasonsTh.add("กราฟพลังช่วงเลนเอียงมาฝั่งคุณ (${weightedCurve(myChamp, myLane)} ต่อ ${weightedCurve(enemy, myLane)}) ดันชิงจังหวะก่อนได้")
+          }
+          phaseDelta <= -1.8 -> {
+            reasonsEn.add("${enemy.nameEn} out-curves in this lane phase; respect spikes and farm cleanly.")
+            reasonsTh.add("${enemy.nameTh} ได้เปรียบช่วงพลังในเลนนี้ ควรฟาร์มประคองและรอจังหวะพาวเวอร์สไปก์")
+          }
+        }
+        when {
+          ccVsMobilityDelta <= -2.0 -> {
+            reasonsEn.add("${enemy.nameEn}'s CC (${enemy.ccRating}/10) threatens your mobility (${myChamp.mobilityRating}/10).")
+            reasonsTh.add("CC ของ ${enemy.nameTh} (${enemy.ccRating}/10) กดดันการขยับตัวของคุณ ควรเผื่อ QSS/Cleanse")
+          }
+          sustainDelta >= 2.5 -> {
+            reasonsEn.add("Your sustain (${myChamp.sustainRating}/10) lets you win extended trades vs ${enemy.nameEn}.")
+            reasonsTh.add("ค่าฟื้นฟูเลือด (${myChamp.sustainRating}/10) ช่วยให้เทรดยื้อใส่ ${enemy.nameTh} ได้เปรียบ")
+          }
+        }
       }
     }
 
-    // Explicit roster counter/favorable relationships
-    if (enemy.id in myChamp.counterChampionIds && directRule == null && reverseRule == null) {
-      score -= 3
-    }
-    if (enemy.id in myChamp.favorableAgainstIds && directRule == null && reverseRule == null) {
-      score += 3
-    }
-
-    // Kit & stat compatibility heuristics
+    // Kit & ThreatTag tactical adjustments (applied across both Verified & Estimate pairs)
     if (
       ThreatTag.ASSASSIN_DIVE in enemy.threatTags &&
         myChamp.mobilityRating <= 4 &&
         myChamp.tankinessRating <= 4
     ) {
-      score -= 2
+      score -= 1.6
       reasonsEn.add("${enemy.nameEn} can dive your immobile kit quickly.")
       reasonsTh.add("${enemy.nameTh} สามารถพุ่งล้วงตัวคุณที่ไม่มีสกิลหนีได้ง่าย")
     }
@@ -119,7 +153,7 @@ class MatchupCounterEngine {
         ChampionRole.ASSASSIN in myChamp.roles &&
         myChamp.tankinessRating <= 5
     ) {
-      score -= 1
+      score -= 1.0
       reasonsEn.add("${enemy.nameEn}'s hard CC disrupts your dive windows.")
       reasonsTh.add("CC ของ ${enemy.nameTh} ขัดจังหวะการพุ่งเข้าล้วงของคุณได้ดี")
     }
@@ -127,7 +161,7 @@ class MatchupCounterEngine {
       myChamp.damageType == DamageType.TRUE &&
         ThreatTag.HIGH_HP_TANK in enemy.threatTags
     ) {
-      score += 2
+      score += 1.8
       reasonsEn.add("Your True Damage cuts directly through ${enemy.nameEn}'s resistances.")
       reasonsTh.add("True Damage ของคุณเจาะเกราะและเลือดของ ${enemy.nameTh} ได้โดยตรง")
     }
@@ -136,7 +170,7 @@ class MatchupCounterEngine {
         (ThreatTag.HIGH_ATTACK_SPEED in myChamp.threatTags ||
           ThreatTag.CRIT_HYPERCARRY in myChamp.threatTags)
     ) {
-      score -= 3
+      score -= 2.8
       reasonsEn.add("Rammus W + Thornmail reflects your rapid auto-attacks.")
       reasonsTh.add("สกิล W + Thornmail ของ Rammus สะท้อนดาเมจใส่การโจมตีต่อเนื่องของคุณ")
     }
@@ -144,26 +178,31 @@ class MatchupCounterEngine {
       enemy.id == "sylas" &&
         myChamp.id in listOf("malphite", "leona", "nautilus", "orianna")
     ) {
-      score -= 2
+      score -= 1.8
       reasonsEn.add("Sylas gains massive value stealing your high-impact teamfight Ultimate.")
       reasonsTh.add("Sylas ได้เปรียบมากจากการขโมยอัลติเปิดไฟต์ของคุณไปใช้สเกล AP")
     }
-    if (myChamp.earlyPower - enemy.earlyPower >= 3) {
-      score += 1
+    if (!hasExplicitRule && myChamp.earlyPower - enemy.earlyPower >= 3) {
+      score += 0.8
       reasonsEn.add("You hold stronger early-game priority (${myChamp.earlyPower} vs ${enemy.earlyPower}).")
       reasonsTh.add("คุณได้เปรียบจังหวะต้นเกมมากกว่า (${myChamp.earlyPower} ต่อ ${enemy.earlyPower})")
-    } else if (enemy.earlyPower - myChamp.earlyPower >= 3) {
-      score -= 1
+    } else if (!hasExplicitRule && enemy.earlyPower - myChamp.earlyPower >= 3) {
+      score -= 0.8
       reasonsEn.add("${enemy.nameEn} spikes earlier; respect levels 1-5.")
       reasonsTh.add("${enemy.nameTh} เก่งต้นเกมกว่า ควรระวังช่วงเลเวล 1-5")
     }
 
-    val clampedScore = score.coerceIn(-5, 5)
+    val clampedScore = score.roundToInt().coerceIn(-5, 5)
+    val bothSkillCarry =
+      myChamp.mobilityRating >= 6 &&
+        enemy.mobilityRating >= 6 &&
+        (myChamp.burstRating >= 7 || myChamp.dpsRating >= 7) &&
+        (enemy.burstRating >= 7 || enemy.dpsRating >= 7)
     val verdict =
       when {
         clampedScore >= 2 -> LaneDifficulty.EASY
         clampedScore <= -2 -> LaneDifficulty.HARD
-        directRule?.laneDifficulty == LaneDifficulty.SKILL -> LaneDifficulty.SKILL
+        directRule?.laneDifficulty == LaneDifficulty.SKILL || bothSkillCarry -> LaneDifficulty.SKILL
         else -> LaneDifficulty.EVEN
       }
 
@@ -180,12 +219,8 @@ class MatchupCounterEngine {
     if (enemy.tierRank.sortOrder <= 1) threat += 4
     val clampedThreat = threat.coerceIn(15, 99)
 
-    val dangerEn =
-      directRule?.dangerAbilitiesEn
-        ?: buildDefaultDangerEn(enemy)
-    val dangerTh =
-      directRule?.dangerAbilitiesTh
-        ?: buildDefaultDangerTh(enemy)
+    val dangerEn = directRule?.dangerAbilitiesEn ?: buildDefaultDangerEn(enemy)
+    val dangerTh = directRule?.dangerAbilitiesTh ?: buildDefaultDangerTh(enemy)
 
     val tipEn =
       reasonsEn.firstOrNull()
@@ -229,8 +264,50 @@ class MatchupCounterEngine {
       tacticalTipTh = tipTh,
       keySpikeEn = spikeEn,
       keySpikeTh = spikeTh,
+      isVerifiedRule = isVerified,
     )
   }
+
+  private data class RatingDeltaTuple(
+    val phaseDelta: Double,
+    val burstVsTankDelta: Double,
+    val ccVsMobilityDelta: Double,
+    val sustainDelta: Double,
+    val dpsTankDelta: Double,
+  )
+
+  private fun computeRatingDeltas(
+    myChamp: ChampionData,
+    myLane: Lane,
+    enemy: ChampionData,
+  ): RatingDeltaTuple {
+    val phaseDelta = weightedCurveScore(myChamp, myLane) - weightedCurveScore(enemy, myLane)
+    val myKillPressure = (myChamp.burstRating - enemy.tankinessRating).toDouble()
+    val enemyKillPressure = (enemy.burstRating - myChamp.tankinessRating).toDouble()
+    val burstVsTankDelta = (myKillPressure - enemyKillPressure) * 0.5
+    val ccVsMobilityDelta =
+      ((myChamp.ccRating - enemy.mobilityRating) - (enemy.ccRating - myChamp.mobilityRating)) * 0.45
+    val sustainDelta = (myChamp.sustainRating - enemy.sustainRating).toDouble() * 0.55
+    val dpsTankDelta =
+      when {
+        enemy.tankinessRating >= 7 && myChamp.dpsRating >= 7 -> 1.6
+        enemy.tankinessRating >= 8 && myChamp.dpsRating <= 4 -> -1.4
+        myChamp.tankinessRating >= 8 && enemy.dpsRating <= 4 -> 1.4
+        else -> 0.0
+      }
+    return RatingDeltaTuple(phaseDelta, burstVsTankDelta, ccVsMobilityDelta, sustainDelta, dpsTankDelta)
+  }
+
+  private fun weightedCurveScore(champ: ChampionData, lane: Lane): Double =
+    when (lane) {
+      Lane.DRAGON -> champ.earlyPower * 0.25 + champ.midPower * 0.35 + champ.latePower * 0.40
+      Lane.JUNGLE -> champ.earlyPower * 0.40 + champ.midPower * 0.40 + champ.latePower * 0.20
+      Lane.BARON, Lane.MID, Lane.SUPPORT ->
+        champ.earlyPower * 0.45 + champ.midPower * 0.35 + champ.latePower * 0.20
+    }
+
+  private fun weightedCurve(champ: ChampionData, lane: Lane): String =
+    "%.1f".format(weightedCurveScore(champ, lane))
 
   private fun buildDefaultDangerEn(enemy: ChampionData): String {
     val firstTag = enemy.threatTags.firstOrNull()?.labelEn ?: enemy.damageType.labelEn

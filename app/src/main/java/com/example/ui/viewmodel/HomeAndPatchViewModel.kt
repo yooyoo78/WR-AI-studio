@@ -13,6 +13,9 @@ import com.example.data.model.AppLanguage
 import com.example.data.model.ChampionData
 import com.example.data.model.Lane
 import com.example.data.model.PatchNoteData
+import com.example.data.model.PatchSnapshotSummary
+import com.example.data.remote.OtaCheckStatus
+import com.example.data.remote.OtaPatchRepository
 import com.example.data.repository.GameDataRepository
 import com.example.data.repository.ImportResult
 import com.example.data.validation.ValidationResult
@@ -21,6 +24,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -50,6 +54,7 @@ class HomeAndPatchViewModel(
   private val preferencesRepository: PreferencesRepository,
   private val gameDao: GameDao? = null,
   private val geminiCoachService: GeminiCoachService? = null,
+  private val otaPatchRepository: OtaPatchRepository? = null,
 ) : ViewModel() {
 
   private val _selectedTierLane = MutableStateFlow<Lane?>(null)
@@ -58,6 +63,11 @@ class HomeAndPatchViewModel(
 
   private val _validationResult = MutableStateFlow<ValidationResult?>(null)
   val validationResult: StateFlow<ValidationResult?> = _validationResult.asStateFlow()
+
+  private val _otaStatus = MutableStateFlow<OtaCheckStatus>(OtaCheckStatus.Idle)
+  val otaStatus: StateFlow<OtaCheckStatus> = _otaStatus.asStateFlow()
+
+  private var startupOtaChecked = false
 
   val preferences: StateFlow<UserPreferences> =
     preferencesRepository.preferencesFlow.stateIn(
@@ -71,6 +81,13 @@ class HomeAndPatchViewModel(
       scope = viewModelScope,
       started = SharingStarted.WhileSubscribed(5000),
       initialValue = CoachCacheStats(),
+    )
+
+  val patchSnapshots: StateFlow<List<PatchSnapshotSummary>> =
+    repository.patchSnapshots.stateIn(
+      scope = viewModelScope,
+      started = SharingStarted.WhileSubscribed(5000),
+      initialValue = emptyList(),
     )
 
   val homeUiState: StateFlow<HomeUiState> =
@@ -214,6 +231,106 @@ class HomeAndPatchViewModel(
     _patchActionStatus.value = PatchActionStatus.Idle
   }
 
+  fun clearOtaStatus() {
+    _otaStatus.value = OtaCheckStatus.Idle
+  }
+
+  fun runStartupOtaCheckIfDue() {
+    if (startupOtaChecked) return
+    val repo = otaPatchRepository ?: return
+    startupOtaChecked = true
+    viewModelScope.launch {
+      val lang = preferencesRepository.preferencesFlow.first().language
+      val res = repo.checkForUpdatesOnLaunchIfDue(lang)
+      if (res != null) {
+        _otaStatus.value = res
+      }
+    }
+  }
+
+  fun saveOtaConfig(repoSlug: String, publicKeyBase64: String, autoCheckOnLaunch: Boolean) {
+    viewModelScope.launch {
+      preferencesRepository.setOtaConfig(
+        repoSlug = repoSlug.trim(),
+        publicKeyBase64 = publicKeyBase64.trim(),
+        autoCheckOnLaunch = autoCheckOnLaunch,
+      )
+    }
+  }
+
+  fun checkOtaUpdates(repoSlugOverride: String? = null, publicKeyOverride: String? = null) {
+    val repo = otaPatchRepository ?: return
+    viewModelScope.launch {
+      val lang = preferencesRepository.preferencesFlow.first().language
+      if (repoSlugOverride != null || publicKeyOverride != null) {
+        val current = preferencesRepository.preferencesFlow.first()
+        preferencesRepository.setOtaConfig(
+          repoSlug = (repoSlugOverride ?: current.otaRepoSlug).trim(),
+          publicKeyBase64 = (publicKeyOverride ?: current.otaPublicKeyBase64).trim(),
+          autoCheckOnLaunch = current.autoCheckOtaOnLaunch,
+        )
+      }
+      _otaStatus.value = OtaCheckStatus.Checking
+      _otaStatus.value =
+        repo.checkAndVerifyLatestRelease(
+          repoSlugOverride = repoSlugOverride,
+          publicKeyOverride = publicKeyOverride,
+          language = lang,
+        )
+    }
+  }
+
+  fun applyVerifiedOtaPack() {
+    val repo = otaPatchRepository ?: return
+    val ready = (_otaStatus.value as? OtaCheckStatus.UpdateReady)?.download ?: return
+    viewModelScope.launch {
+      val lang = preferencesRepository.preferencesFlow.first().language
+      _otaStatus.value = OtaCheckStatus.Checking
+      val outcome = repo.applyVerifiedOtaPack(ready, lang)
+      _otaStatus.value = outcome
+      if (outcome is OtaCheckStatus.Applied) {
+        _validationResult.value = ready.validation
+        _patchActionStatus.value =
+          PatchActionStatus.Message(
+            isError = false,
+            text =
+              if (lang == AppLanguage.TH) {
+                "อัปเดต OTA Patch ${outcome.patchVersion} สำเร็จ (บันทึกจุด Rollback แล้ว)"
+              } else {
+                "Applied signed OTA Patch ${outcome.patchVersion} (Rollback snapshot saved)."
+              },
+          )
+      }
+    }
+  }
+
+  fun rollbackToPreviousPatch() {
+    viewModelScope.launch {
+      val lang = preferencesRepository.preferencesFlow.first().language
+      _patchActionStatus.value = PatchActionStatus.Working
+      when (val result = repository.rollbackToLatestSnapshot()) {
+        is ImportResult.Success -> {
+          _validationResult.value = result.validation
+          _otaStatus.value = OtaCheckStatus.Idle
+          _patchActionStatus.value =
+            PatchActionStatus.Message(
+              isError = false,
+              text =
+                if (lang == AppLanguage.TH) {
+                  "ย้อนกลับเป็น Patch ${result.patchVersion} เรียบร้อย"
+                } else {
+                  "Rolled back cleanly to Patch ${result.patchVersion}."
+                },
+            )
+        }
+        is ImportResult.Invalid -> {
+          _patchActionStatus.value =
+            PatchActionStatus.Message(isError = true, text = result.message)
+        }
+      }
+    }
+  }
+
   fun getSampleSchemaJson(): String = repository.buildSamplePatchPackTemplateJson()
 
   class Factory(
@@ -221,9 +338,16 @@ class HomeAndPatchViewModel(
     private val preferencesRepository: PreferencesRepository,
     private val gameDao: GameDao? = null,
     private val geminiCoachService: GeminiCoachService? = null,
+    private val otaPatchRepository: OtaPatchRepository? = null,
   ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T =
-      HomeAndPatchViewModel(repository, preferencesRepository, gameDao, geminiCoachService) as T
+      HomeAndPatchViewModel(
+        repository = repository,
+        preferencesRepository = preferencesRepository,
+        gameDao = gameDao,
+        geminiCoachService = geminiCoachService,
+        otaPatchRepository = otaPatchRepository,
+      ) as T
   }
 }

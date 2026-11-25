@@ -122,9 +122,19 @@ class GeminiCoachService(
     language: AppLanguage,
     preferredModelId: String = AiModelCatalog.AUTO_MODEL_ID,
     bypassCache: Boolean = false,
+    playerMemorySummary: String = "",
   ): Flow<CoachStreamEvent> = flow {
     val now = System.currentTimeMillis()
-    val cacheKey = buildCacheKey(question, champion, lane, enemies, patchVersion, language)
+    val cacheKey =
+      buildCacheKey(
+        question = question,
+        champion = champion,
+        lane = lane,
+        enemies = enemies,
+        patchVersion = patchVersion,
+        language = language,
+        playerMemorySummary = playerMemorySummary,
+      )
 
     if (!bypassCache) {
       val cachedEntry = readCachedEntry(cacheKey, patchVersion, now)
@@ -179,7 +189,16 @@ class GeminiCoachService(
       return@flow
     }
 
-    val prompt = buildTacticalPrompt(question, champion, lane, enemies, patchVersion, language)
+    val prompt =
+      buildTacticalPrompt(
+        question = question,
+        champion = champion,
+        lane = lane,
+        enemies = enemies,
+        patchVersion = patchVersion,
+        language = language,
+        playerMemorySummary = playerMemorySummary,
+      )
     val isManualLock = preferredModelId != AiModelCatalog.AUTO_MODEL_ID
     var lastError: Throwable? = null
     var lastFailedModelId = candidates.first().id
@@ -499,6 +518,7 @@ class GeminiCoachService(
       enemies: List<ChampionData>,
       patchVersion: String,
       language: AppLanguage,
+      playerMemorySummary: String = "",
     ): String {
       val enemyKey = enemies.map { it.id }.sorted().joinToString(",")
       val canonical =
@@ -509,6 +529,7 @@ class GeminiCoachService(
             patchVersion.trim(),
             language.code,
             normalizeQuestion(question),
+            playerMemorySummary.trim(),
           )
           .joinToString("|")
       val digest = MessageDigest.getInstance("SHA-256").digest(canonical.toByteArray(StandardCharsets.UTF_8))
@@ -613,13 +634,14 @@ class GeminiCoachService(
     }
   }
 
-  private fun buildTacticalPrompt(
+  internal fun buildTacticalPrompt(
     question: String,
     champion: ChampionData?,
     lane: Lane,
     enemies: List<ChampionData>,
     patchVersion: String,
     language: AppLanguage,
+    playerMemorySummary: String = "",
   ): String {
     val langInstruction =
       if (language == AppLanguage.TH) {
@@ -638,13 +660,17 @@ class GeminiCoachService(
       } else {
         "Enemy Team (up to 5): ${enemies.joinToString(", ") { "${it.nameEn} (${it.damageType.name})" }}."
       }
+    val memoryBlock =
+      if (playerMemorySummary.isNotBlank()) {
+        "\nPlayer History & Habits (tailor advice to fix recurring gaps): $playerMemorySummary"
+      } else ""
 
     return """
       You are an elite League of Legends: Wild Rift tactical coach (Patch $patchVersion).
       IMPORTANT: Use strictly Wild Rift Patch 7.3f mechanics and P/Q/W/E/R ability labels for clarity (and respect Wild Rift cooldowns/map tempo), Wild Rift items (Active boot-slot items like Stasis/Quicksilver/Gargoyle/Glory/Locket/Mikael's/Stridebreaker/Goredrinker/Galeforce, Yun Tal Wildarrows, Hexoptics C44, Kaenic Rookern, Statikk Shiv [hybrid on-hit, NO crit], Amaranth's Twinguard, Heartsteel, Oceanid's Trident, Sundered Sky, Terminus, Echoes of Helia, Yordle Trap, Gluttonous Greaves, Boots of Mana/Dynamism), and Wild Rift runes (no PC LoL Mythics, Doran's items, or retired items like Magnetic Blaster or Crystalline Reflector).
       $langInstruction
       $champContext
-      $enemyContext
+      $enemyContext$memoryBlock
       
       Give actionable, match-winning advice covering laning, lane-specific starter/spells (e.g. Smite for Jungle, Support Quest item + Exhaust for Support), itemization/Active timing, wave control, objective setup, and teamfight positioning as relevant to the player's question. Keep formatting crisp with 4-6 short bullet points so it is fast and easy to read before or during champion select.
       

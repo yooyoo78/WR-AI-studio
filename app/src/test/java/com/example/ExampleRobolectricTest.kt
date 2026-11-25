@@ -929,7 +929,7 @@ class ExampleRobolectricTest {
 
     val migratedDb =
       Room.databaseBuilder(context, AppDatabase::class.java, dbName)
-        .addMigrations(AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6)
+        .addMigrations(AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7)
         .allowMainThreadQueries()
         .build()
 
@@ -1054,4 +1054,58 @@ class ExampleRobolectricTest {
         db.close()
       }
     }
+
+  @Test
+  fun `cuj journal tab opens post game review saves match and displays stats`() {
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("nav_champions").performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("catalog_tab_journal").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("journal_scan_post_game_button").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("post_game_review_sheet").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("post_game_accuracy_card").performScrollTo().assertIsDisplayed()
+    composeTestRule.onNodeWithTag("post_game_save_button").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("post_game_close_button").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("journal_summary_card").assertIsDisplayed()
+  }
+
+  @Test
+  fun `cuj analyzer shows matchup confidence badge for analyzed enemy`() {
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("home_launch_analyzer_button").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("analyzer_lazy_column").performScrollToIndex(1)
+    composeTestRule.onNodeWithTag("preset_heal_burst").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule
+      .onNodeWithTag("analyzer_lazy_column")
+      .performScrollToNode(hasTestTag("matchup_badge_soraka"))
+    composeTestRule.onNodeWithTag("matchup_badge_soraka").assertIsDisplayed()
+  }
+
+  @Test
+  fun `cuj patch center displays signed ota config and check controls`() {
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("topbar_patch_button").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule
+      .onNodeWithTag("patch_lazy_column")
+      .performScrollToNode(hasTestTag("ota_config_card"))
+    composeTestRule.onNodeWithTag("ota_config_card").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("ota_repo_input").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("ota_pubkey_input").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("ota_check_button").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("patch_back_button").performClick()
+    composeTestRule.waitForIdle()
+  }
 }

@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.data.model.AppLanguage
@@ -26,6 +27,11 @@ data class UserPreferences(
   val inGameMiniMode: Boolean = false,
   val selectedCoachModelId: String = "auto",
   val selectedLiveModelId: String = "auto",
+  val otaRepoSlug: String = "",
+  val otaPublicKeyBase64: String = "",
+  val autoCheckOtaOnLaunch: Boolean = true,
+  val lastOtaCheckMs: Long = 0L,
+  val lastKnownOtaTag: String = "",
 )
 
 class PreferencesRepository(private val context: Context) {
@@ -39,6 +45,11 @@ class PreferencesRepository(private val context: Context) {
     val IN_GAME_MINI_MODE = booleanPreferencesKey("in_game_mini_mode")
     val SELECTED_COACH_MODEL_ID = stringPreferencesKey("selected_coach_model_id")
     val SELECTED_LIVE_MODEL_ID = stringPreferencesKey("selected_live_model_id")
+    val OTA_REPO_SLUG = stringPreferencesKey("ota_repo_slug")
+    val OTA_PUBLIC_KEY_B64 = stringPreferencesKey("ota_public_key_b64")
+    val AUTO_CHECK_OTA = booleanPreferencesKey("auto_check_ota_on_launch")
+    val LAST_OTA_CHECK_MS = longPreferencesKey("last_ota_check_ms")
+    val LAST_KNOWN_OTA_TAG = stringPreferencesKey("last_known_ota_tag")
   }
 
   val preferencesFlow: Flow<UserPreferences> =
@@ -55,6 +66,11 @@ class PreferencesRepository(private val context: Context) {
         inGameMiniMode = prefs[Keys.IN_GAME_MINI_MODE] ?: false,
         selectedCoachModelId = prefs[Keys.SELECTED_COACH_MODEL_ID] ?: "auto",
         selectedLiveModelId = prefs[Keys.SELECTED_LIVE_MODEL_ID] ?: "auto",
+        otaRepoSlug = prefs[Keys.OTA_REPO_SLUG] ?: "",
+        otaPublicKeyBase64 = prefs[Keys.OTA_PUBLIC_KEY_B64] ?: "",
+        autoCheckOtaOnLaunch = prefs[Keys.AUTO_CHECK_OTA] ?: true,
+        lastOtaCheckMs = prefs[Keys.LAST_OTA_CHECK_MS] ?: 0L,
+        lastKnownOtaTag = prefs[Keys.LAST_KNOWN_OTA_TAG] ?: "",
       )
     }
 
@@ -91,5 +107,20 @@ class PreferencesRepository(private val context: Context) {
 
   suspend fun setSelectedLiveModelId(modelId: String) {
     context.dataStore.edit { it[Keys.SELECTED_LIVE_MODEL_ID] = modelId }
+  }
+
+  suspend fun setOtaConfig(repoSlug: String, publicKeyBase64: String, autoCheckOnLaunch: Boolean) {
+    context.dataStore.edit {
+      it[Keys.OTA_REPO_SLUG] = repoSlug.trim()
+      it[Keys.OTA_PUBLIC_KEY_B64] = publicKeyBase64.trim()
+      it[Keys.AUTO_CHECK_OTA] = autoCheckOnLaunch
+    }
+  }
+
+  suspend fun setLastOtaCheck(timestampMs: Long, latestTag: String) {
+    context.dataStore.edit {
+      it[Keys.LAST_OTA_CHECK_MS] = timestampMs
+      if (latestTag.isNotBlank()) it[Keys.LAST_KNOWN_OTA_TAG] = latestTag
+    }
   }
 }

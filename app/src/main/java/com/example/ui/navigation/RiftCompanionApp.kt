@@ -50,6 +50,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.core.AppContainer
+import com.example.ui.components.PostGameReviewSheet
 import com.example.ui.components.QuickScanBottomSheet
 import com.example.ui.screens.AnalyzerScreen
 import com.example.ui.screens.ChampionDetailScreen
@@ -101,6 +102,7 @@ fun RiftCompanionApp(appContainer: AppContainer) {
           appContainer.preferencesRepository,
           appContainer.gameDao,
           appContainer.geminiCoachService,
+          appContainer.otaPatchRepository,
         )
     )
   val analyzerVm: AnalyzerViewModel =
@@ -114,7 +116,15 @@ fun RiftCompanionApp(appContainer: AppContainer) {
         )
     )
   val championsVm: ChampionsViewModel =
-    viewModel(factory = ChampionsViewModel.Factory(appContainer.gameDataRepository))
+    viewModel(
+      factory =
+        ChampionsViewModel.Factory(
+          repository = appContainer.gameDataRepository,
+          postGameVisionService = appContainer.postGameVisionService,
+          preferencesRepository = appContainer.preferencesRepository,
+          appContainer = appContainer,
+        )
+    )
   val draftVm: DraftViewModel =
     viewModel(
       factory =
@@ -143,8 +153,11 @@ fun RiftCompanionApp(appContainer: AppContainer) {
   val homeState by homePatchVm.homeUiState.collectAsStateWithLifecycle()
   val patchActionStatus by homePatchVm.patchActionStatus.collectAsStateWithLifecycle()
   val validationResult by homePatchVm.validationResult.collectAsStateWithLifecycle()
+  val otaStatus by homePatchVm.otaStatus.collectAsStateWithLifecycle()
+  val patchSnapshots by homePatchVm.patchSnapshots.collectAsStateWithLifecycle()
   val analyzerState by analyzerVm.uiState.collectAsStateWithLifecycle()
   val championsState by championsVm.uiState.collectAsStateWithLifecycle()
+  val postGameState by championsVm.postGameState.collectAsStateWithLifecycle()
   val draftState by draftVm.uiState.collectAsStateWithLifecycle()
   val coachState by coachVm.uiState.collectAsStateWithLifecycle()
   val geminiState by coachVm.geminiState.collectAsStateWithLifecycle()
@@ -155,6 +168,8 @@ fun RiftCompanionApp(appContainer: AppContainer) {
   val quickScanState by appContainer.quickScanCoordinator.uiState.collectAsStateWithLifecycle()
   val openLiveCoachRequested by
     appContainer.quickScanCoordinator.openLiveCoachRequested.collectAsStateWithLifecycle()
+
+  LaunchedEffect(Unit) { homePatchVm.runStartupOtaCheckIfDue() }
 
   BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
     val useNavRail = maxWidth >= 680.dp
@@ -340,6 +355,7 @@ fun RiftCompanionApp(appContainer: AppContainer) {
               composable(NavRoutes.HOME) {
                 HomeDashboardScreen(
                   state = homeState,
+                  otaStatus = otaStatus,
                   onSelectTierLane = homePatchVm::selectTierLane,
                   onOpenAnalyzer = { champId ->
                     if (champId != null) {
@@ -383,6 +399,7 @@ fun RiftCompanionApp(appContainer: AppContainer) {
               composable(NavRoutes.CHAMPIONS) {
                 ChampionsScreen(
                   state = championsState,
+                  speechState = coachSpeechState,
                   onSearchChange = championsVm::setSearchQuery,
                   onSelectLane = championsVm::setSelectedLane,
                   onSelectRole = championsVm::setSelectedRole,
@@ -394,6 +411,13 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                   onOpenDetail = { champId ->
                     navController.navigate(NavRoutes.championDetail(champId))
                   },
+                  onOpenPostGameScanner = { championsVm.openPostGameSheet() },
+                  onToggleJournalSpeak = coachVm::toggleSpeak,
+                  onAskCoachAboutMatch = { entry ->
+                    coachVm.askMatchFollowUp(entry)
+                    navigateTopLevel(NavRoutes.COACH)
+                  },
+                  onDeleteJournalEntry = championsVm::deleteMatchJournalEntry,
                 )
               }
 
@@ -488,6 +512,12 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                   actionStatus = patchActionStatus,
                   validationResult = validationResult,
                   sampleSchemaJson = homePatchVm.getSampleSchemaJson(),
+                  otaStatus = otaStatus,
+                  patchSnapshots = patchSnapshots,
+                  onSaveOtaConfig = homePatchVm::saveOtaConfig,
+                  onCheckOtaUpdates = homePatchVm::checkOtaUpdates,
+                  onApplyVerifiedOta = homePatchVm::applyVerifiedOtaPack,
+                  onRollbackToPreviousPatch = homePatchVm::rollbackToPreviousPatch,
                   onImportJsonUri = homePatchVm::importPatchJsonUri,
                   onVerifyIntegrity = homePatchVm::verifyDatabaseIntegrity,
                   onResetSeed = homePatchVm::resetToBundledSeed,
@@ -529,7 +559,34 @@ fun RiftCompanionApp(appContainer: AppContainer) {
           onNavigateToAnalyzer = { navigateTopLevel(NavRoutes.ANALYZER) },
           onNavigateToDraft = { navigateTopLevel(NavRoutes.DRAFT) },
           onNavigateToCoach = { navigateTopLevel(NavRoutes.COACH) },
+          onAnalyzePostGame = { uri, bmp ->
+            when {
+              uri != null -> championsVm.scanPostGameUri(uri, bmp)
+              bmp != null -> championsVm.scanPostGameBitmap(bmp)
+              else -> championsVm.openPostGameSheet()
+            }
+          },
           onDismiss = { appContainer.quickScanCoordinator.dismissSheet() },
+        )
+      }
+
+      if (postGameState.isSheetOpen) {
+        PostGameReviewSheet(
+          state = postGameState,
+          allChampions = championsState.allChampions,
+          allItems = championsState.itemsById.values.toList(),
+          language = prefs.language,
+          speechState = coachSpeechState,
+          onPickScoreboardUri = { uri -> championsVm.scanPostGameUri(uri) },
+          onUpdateDraft = championsVm::updatePostGameDraft,
+          onToggleSpeak = coachVm::toggleSpeak,
+          onSaveToJournal = championsVm::savePostGameToJournal,
+          onAskCoachAboutMatch = { entry ->
+            championsVm.dismissPostGameSheet()
+            coachVm.askMatchFollowUp(entry)
+            navigateTopLevel(NavRoutes.COACH)
+          },
+          onDismiss = championsVm::dismissPostGameSheet,
         )
       }
     }

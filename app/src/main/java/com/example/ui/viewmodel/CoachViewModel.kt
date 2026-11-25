@@ -26,8 +26,10 @@ import com.example.data.local.PreferencesRepository
 import com.example.data.model.AppLanguage
 import com.example.data.model.ChampionData
 import com.example.data.model.Lane
+import com.example.data.model.MatchJournalEntryData
 import com.example.data.repository.GameDataRepository
 import com.example.domain.engine.CoachPlaybookSection
+import com.example.domain.engine.MatchJournalAggregator
 import com.example.domain.engine.OfflineCoachEngine
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -107,6 +109,8 @@ data class CoachUiState(
   val keyStatus: ExternalApiKeyStatus = ExternalApiKeyStatus(),
   val cacheStats: CoachCacheStats = CoachCacheStats(),
   val cooldownModelIds: Set<String> = emptySet(),
+  val playerMemorySummary: String = "",
+  val journalGameCount: Int = 0,
 )
 
 class CoachViewModel(
@@ -155,6 +159,7 @@ class CoachViewModel(
         appContainer.secureApiKeyStore.keyStatusFlow,
         appContainer.gameDao.observeCoachCacheStats(),
         geminiCoachService.cooldownModelIds,
+        repository.matchJournal,
       ) { values ->
         @Suppress("UNCHECKED_CAST")
         val champions = values[0] as List<ChampionData>
@@ -167,6 +172,8 @@ class CoachViewModel(
         val cacheStats = values[6] as CoachCacheStats
         @Suppress("UNCHECKED_CAST")
         val cooldowns = values[7] as Set<String>
+        @Suppress("UNCHECKED_CAST")
+        val journalEntries = values[8] as List<MatchJournalEntryData>
 
         val map = champions.associateBy { it.id }
         val selected = map[champId] ?: champions.firstOrNull()
@@ -176,6 +183,8 @@ class CoachViewModel(
             offlineCoachEngine.buildPlaybook(selected, lane, enemies)
           } else emptyList()
         val prompts = buildQuickPrompts(selected, lane, enemies, prefs.language)
+        val playerMemory =
+          MatchJournalAggregator.buildCoachPlayerMemory(journalEntries, map, selected?.id)
 
         CoachUiState(
           allChampions = champions,
@@ -191,6 +200,8 @@ class CoachViewModel(
           keyStatus = keyStatus,
           cacheStats = cacheStats,
           cooldownModelIds = cooldowns,
+          playerMemorySummary = playerMemory,
+          journalGameCount = journalEntries.size,
         )
       }
       .stateIn(
@@ -473,6 +484,33 @@ class CoachViewModel(
     }
   }
 
+  fun askMatchFollowUp(entry: MatchJournalEntryData) {
+    _selectedChampId.value = entry.championId
+    _selectedLane.value = entry.lane
+    _enemyIds.value = entry.enemyChampionIds
+    appContainer.updateSharedMatchupContext(
+      myChampionId = entry.championId,
+      lane = entry.lane,
+      enemyIds = entry.enemyChampionIds,
+      isExternal = false,
+    )
+    val state = uiState.value
+    val champName =
+      state.allChampions.firstOrNull { it.id == entry.championId }?.displayName(state.language)
+        ?: entry.championId
+    val prompt =
+      if (state.language == AppLanguage.TH) {
+        val resTag = if (entry.isWin) "ชนะ" else "แพ้"
+        "เพิ่งจบเกม $champName ($resTag ${entry.kills}/${entry.deaths}/${entry.assists}, Build Accuracy ${entry.buildAccuracyPct}%) " +
+          "อยากให้ช่วยวางแผนแก้จุดพลาดเกมหน้า โดยเฉพาะช่วงต้นเกมและลำดับไอเทมครับ"
+      } else {
+        val resTag = if (entry.isWin) "WIN" else "LOSS"
+        "Review my recent $champName match ($resTag ${entry.kills}/${entry.deaths}/${entry.assists}, Build Accuracy ${entry.buildAccuracyPct}%). " +
+          "Give me concrete fixes for laning and itemization next game."
+      }
+    askGeminiCoach(prompt)
+  }
+
   private fun launchCoachRequest(
     question: String,
     bypassCache: Boolean,
@@ -496,6 +534,7 @@ class CoachViewModel(
             language = current.language,
             preferredModelId = targetModelId,
             bypassCache = bypassCache,
+            playerMemorySummary = current.playerMemorySummary,
           )
           .collect { event ->
             when (event) {

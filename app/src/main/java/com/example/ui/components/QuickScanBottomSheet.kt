@@ -32,6 +32,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
@@ -92,6 +93,7 @@ fun QuickScanBottomSheet(
   onNavigateToAnalyzer: () -> Unit,
   onNavigateToDraft: () -> Unit,
   onNavigateToCoach: () -> Unit,
+  onAnalyzePostGame: (android.net.Uri?, android.graphics.Bitmap?) -> Unit = { _, _ -> },
   onDismiss: () -> Unit,
 ) {
   val context = LocalContext.current
@@ -348,12 +350,41 @@ fun QuickScanBottomSheet(
             tint = HextechGoldBright,
             modifier = Modifier.size(18.dp),
           )
-          Spacer(modifier = Modifier.width(8.dp))
+          Spacer(modifier = Modifier.width(6.dp))
           Text(
             text =
-              if (language == AppLanguage.TH) "เลือกรูปหน้าจอที่แคปไว้ (Photo Picker)"
-              else "Pick Screenshot from Gallery",
+              if (language == AppLanguage.TH) "เลือกรูปสแกน"
+              else "Pick Image",
             color = HextechGoldBright,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+          )
+        }
+        OutlinedButton(
+          onClick = {
+            onDismiss()
+            onAnalyzePostGame(state.sourceUri, coordinator.lastPostGameBitmap ?: state.previewBitmap)
+          },
+          modifier =
+            Modifier.weight(1f)
+              .minimumInteractiveComponentSize()
+              .testTag("quick_scan_post_game_button"),
+          border = BorderStroke(1.dp, AdvantageEmerald.copy(alpha = 0.7f)),
+        ) {
+          Icon(
+            Icons.Default.Analytics,
+            contentDescription = null,
+            tint = AdvantageEmerald,
+            modifier = Modifier.size(18.dp),
+          )
+          Spacer(modifier = Modifier.width(6.dp))
+          Text(
+            text =
+              if (language == AppLanguage.TH) "วิเคราะห์จบเกม"
+              else "Post-Game",
+            color = AdvantageEmerald,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
           )
         }
       }

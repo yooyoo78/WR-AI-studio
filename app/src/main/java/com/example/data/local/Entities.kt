@@ -14,9 +14,11 @@ import com.example.data.model.ItemData
 import com.example.data.model.Lane
 import com.example.data.model.LaneBuildOverride
 import com.example.data.model.LaneDifficulty
+import com.example.data.model.MatchJournalEntryData
 import com.example.data.model.MatchupRuleData
 import com.example.data.model.PatchChangeEntry
 import com.example.data.model.PatchNoteData
+import com.example.data.model.PatchSnapshotSummary
 import com.example.data.model.RuneData
 import com.example.data.model.SpellData
 import com.example.data.model.ThreatTag
@@ -204,6 +206,39 @@ data class AiCoachCacheEntity(
 data class CoachCacheStats(
   val entryCount: Int = 0,
   val totalHitsSaved: Int = 0,
+)
+
+@Entity(tableName = "match_journal")
+data class MatchJournalEntity(
+  @PrimaryKey(autoGenerate = true) val id: Long = 0,
+  val playedAt: Long,
+  val championId: String,
+  val lane: Lane,
+  val isWin: Boolean,
+  val kills: Int,
+  val deaths: Int,
+  val assists: Int,
+  val goldEarned: Int,
+  val durationMinutes: Int,
+  val boughtItemIds: List<String>,
+  val recommendedItemIds: List<String>,
+  val enemyChampionIds: List<String>,
+  val buildAccuracyPct: Int,
+  val mistakeTags: List<String>,
+  val lessons: List<String>,
+  val coachSummaryText: String,
+  val patchVersion: String,
+  val notes: String = "",
+)
+
+@Entity(tableName = "patch_snapshots")
+data class PatchSnapshotEntity(
+  @PrimaryKey(autoGenerate = true) val id: Long = 0,
+  val patchVersion: String,
+  val sourceLabel: String,
+  val createdAt: Long,
+  val payloadJson: String,
+  val isRolledBack: Boolean = false,
 )
 
 fun ChampionEntity.toDomain() =
@@ -458,3 +493,57 @@ fun CustomBuildData.toEntity() =
     updatedAt = updatedAt,
   )
 
+fun MatchJournalEntity.toDomain() =
+  MatchJournalEntryData(
+    id = id,
+    playedAt = playedAt,
+    championId = championId,
+    lane = lane,
+    isWin = isWin,
+    kills = kills,
+    deaths = deaths,
+    assists = assists,
+    goldEarned = goldEarned,
+    durationMinutes = durationMinutes,
+    boughtItemIds = boughtItemIds,
+    recommendedItemIds = recommendedItemIds,
+    enemyChampionIds = enemyChampionIds,
+    buildAccuracyPct = buildAccuracyPct,
+    mistakeTags = mistakeTags,
+    lessons = lessons,
+    coachSummaryText = coachSummaryText,
+    patchVersion = patchVersion,
+    notes = notes,
+  )
+
+fun MatchJournalEntryData.toEntity() =
+  MatchJournalEntity(
+    id = id,
+    playedAt = playedAt,
+    championId = championId,
+    lane = lane,
+    isWin = isWin,
+    kills = kills,
+    deaths = deaths,
+    assists = assists,
+    goldEarned = goldEarned,
+    durationMinutes = durationMinutes,
+    boughtItemIds = boughtItemIds,
+    recommendedItemIds = recommendedItemIds,
+    enemyChampionIds = enemyChampionIds,
+    buildAccuracyPct = buildAccuracyPct,
+    mistakeTags = mistakeTags,
+    lessons = lessons,
+    coachSummaryText = coachSummaryText,
+    patchVersion = patchVersion,
+    notes = notes,
+  )
+
+fun PatchSnapshotEntity.toSummary() =
+  PatchSnapshotSummary(
+    id = id,
+    patchVersion = patchVersion,
+    sourceLabel = sourceLabel,
+    createdAt = createdAt,
+    isRolledBack = isRolledBack,
+  )

@@ -629,3 +629,33 @@ data class CustomBuildData(
   val updatedAt: Long = System.currentTimeMillis(),
 )
 
+data class MatchJournalEntryData(
+  val id: Long = 0,
+  val playedAt: Long = System.currentTimeMillis(),
+  val championId: String,
+  val lane: Lane,
+  val isWin: Boolean,
+  val kills: Int,
+  val deaths: Int,
+  val assists: Int,
+  val goldEarned: Int = 0,
+  val durationMinutes: Int = 18,
+  val boughtItemIds: List<String> = emptyList(),
+  val recommendedItemIds: List<String> = emptyList(),
+  val enemyChampionIds: List<String> = emptyList(),
+  val buildAccuracyPct: Int = 0,
+  val mistakeTags: List<String> = emptyList(),
+  val lessons: List<String> = emptyList(),
+  val coachSummaryText: String = "",
+  val patchVersion: String = "7.3f",
+  val notes: String = "",
+)
+
+data class PatchSnapshotSummary(
+  val id: Long,
+  val patchVersion: String,
+  val sourceLabel: String,
+  val createdAt: Long,
+  val isRolledBack: Boolean,
+)
+

@@ -5,17 +5,21 @@ import android.net.Uri
 import android.util.Log
 import com.example.data.local.FavoriteChampionEntity
 import com.example.data.local.GameDao
+import com.example.data.local.PatchSnapshotEntity
 import com.example.data.local.PreferencesRepository
 import com.example.data.local.SavedMatchupEntity
 import com.example.data.local.toDomain
 import com.example.data.local.toEntity
+import com.example.data.local.toSummary
 import com.example.data.model.ChampionData
 import com.example.data.model.CustomBuildData
 import com.example.data.model.ItemData
 import com.example.data.model.Lane
+import com.example.data.model.MatchJournalEntryData
 import com.example.data.model.MatchupRuleData
 import com.example.data.model.PatchNoteData
 import com.example.data.model.PatchPackPayload
+import com.example.data.model.PatchSnapshotSummary
 import com.example.data.model.RuneData
 import com.example.data.model.SpellData
 import com.example.data.validation.PatchDataValidator
@@ -69,6 +73,12 @@ class GameDataRepository(
 
   val customBuilds: Flow<List<CustomBuildData>> =
     dao.observeCustomBuilds().map { list -> list.map { it.toDomain() } }
+
+  val matchJournal: Flow<List<MatchJournalEntryData>> =
+    dao.observeMatchJournal().map { list -> list.map { it.toDomain() } }
+
+  val patchSnapshots: Flow<List<PatchSnapshotSummary>> =
+    dao.observePatchSnapshots().map { list -> list.map { it.toSummary() } }
 
   suspend fun ensureSeeded() {
     withContext(Dispatchers.IO) {
@@ -256,4 +266,67 @@ class GameDataRepository(
   suspend fun deleteCustomBuild(id: Long) {
     withContext(Dispatchers.IO) { dao.deleteCustomBuild(id) }
   }
+
+  suspend fun saveMatchJournalEntry(entry: MatchJournalEntryData): Long =
+    withContext(Dispatchers.IO) { dao.insertMatchJournal(entry.toEntity()) }
+
+  suspend fun deleteMatchJournalEntry(id: Long) {
+    withContext(Dispatchers.IO) { dao.deleteMatchJournal(id) }
+  }
+
+  suspend fun getRecentMatchJournal(limit: Int = 20): List<MatchJournalEntryData> =
+    withContext(Dispatchers.IO) { dao.getRecentMatchJournalOnce(limit).map { it.toDomain() } }
+
+  suspend fun buildCurrentPatchSnapshotPayload(): PatchPackPayload =
+    withContext(Dispatchers.IO) {
+      val prefs = preferencesRepository.preferencesFlow.first()
+      val champions = dao.getAllChampionsOnce().map { it.toDomain() }
+      val items = dao.getAllItemsOnce().map { it.toDomain() }
+      val runes = dao.getAllRunesOnce().map { it.toDomain() }
+      val spells = dao.getAllSpellsOnce().map { it.toDomain() }
+      val matchups = dao.getAllMatchupRulesOnce().map { it.toDomain() }
+      val notes = dao.observePatchNotes().first().map { it.toDomain() }
+      PatchPackPayload(
+        packVersion = 1,
+        patchVersion = prefs.activePatchLabel,
+        lastUpdated = champions.firstOrNull()?.lastUpdated ?: "2026-11-15",
+        sourceLabel = prefs.lastImportedPackInfo.ifBlank { "Patch ${prefs.activePatchLabel}" },
+        champions = champions,
+        items = items,
+        runes = runes,
+        spells = spells,
+        matchupRules = matchups,
+        patchNotes = notes,
+      )
+    }
+
+  suspend fun capturePatchRollbackSnapshot() {
+    withContext(Dispatchers.IO) {
+      val current = buildCurrentPatchSnapshotPayload()
+      val json = payloadAdapter.toJson(current)
+      dao.insertPatchSnapshot(
+        PatchSnapshotEntity(
+          patchVersion = current.patchVersion,
+          sourceLabel = current.sourceLabel,
+          createdAt = System.currentTimeMillis(),
+          payloadJson = json,
+          isRolledBack = false,
+        )
+      )
+      dao.trimPatchSnapshots(keepLimit = 5)
+    }
+  }
+
+  suspend fun rollbackToLatestSnapshot(): ImportResult =
+    withContext(Dispatchers.IO) {
+      val snap =
+        dao.getLatestRollbackSnapshot()
+          ?: return@withContext ImportResult.Invalid("No saved patch snapshot available for rollback.")
+      val res = importPatchJson(snap.payloadJson, replaceExisting = true)
+      if (res is ImportResult.Success) {
+        dao.markSnapshotRolledBack(snap.id)
+      }
+      res
+    }
 }
+

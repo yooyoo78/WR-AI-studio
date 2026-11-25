@@ -21,8 +21,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
       SavedMatchupEntity::class,
       CustomBuildEntity::class,
       AiCoachCacheEntity::class,
+      MatchJournalEntity::class,
+      PatchSnapshotEntity::class,
     ],
-  version = 6,
+  version = 7,
   exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -109,6 +111,49 @@ abstract class AppDatabase : RoomDatabase() {
         }
       }
 
+    val MIGRATION_6_7 =
+      object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+          db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS match_journal (
+              id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+              playedAt INTEGER NOT NULL,
+              championId TEXT NOT NULL,
+              lane TEXT NOT NULL,
+              isWin INTEGER NOT NULL,
+              kills INTEGER NOT NULL,
+              deaths INTEGER NOT NULL,
+              assists INTEGER NOT NULL,
+              goldEarned INTEGER NOT NULL,
+              durationMinutes INTEGER NOT NULL,
+              boughtItemIds TEXT NOT NULL,
+              recommendedItemIds TEXT NOT NULL,
+              enemyChampionIds TEXT NOT NULL,
+              buildAccuracyPct INTEGER NOT NULL,
+              mistakeTags TEXT NOT NULL,
+              lessons TEXT NOT NULL,
+              coachSummaryText TEXT NOT NULL,
+              patchVersion TEXT NOT NULL,
+              notes TEXT NOT NULL DEFAULT ''
+            )
+            """.trimIndent()
+          )
+          db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS patch_snapshots (
+              id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+              patchVersion TEXT NOT NULL,
+              sourceLabel TEXT NOT NULL,
+              createdAt INTEGER NOT NULL,
+              payloadJson TEXT NOT NULL,
+              isRolledBack INTEGER NOT NULL DEFAULT 0
+            )
+            """.trimIndent()
+          )
+        }
+      }
+
     fun getInstance(context: Context): AppDatabase {
       return INSTANCE
         ?: synchronized(this) {
@@ -124,6 +169,7 @@ abstract class AppDatabase : RoomDatabase() {
                 MIGRATION_3_4,
                 MIGRATION_4_5,
                 MIGRATION_5_6,
+                MIGRATION_6_7,
               )
               .fallbackToDestructiveMigration(dropAllTables = true)
               .build()
