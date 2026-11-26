@@ -84,6 +84,21 @@ interface GameDao {
 
   @Query("SELECT COUNT(*) FROM champions") suspend fun getChampionCount(): Int
 
+  @Query("UPDATE champions SET patchVersion = :patchVersion, lastUpdated = :lastUpdated")
+  suspend fun syncAllChampionsPatchLabel(patchVersion: String, lastUpdated: String)
+
+  @Query("UPDATE items SET patchVersion = :patchVersion")
+  suspend fun syncAllItemsPatchLabel(patchVersion: String)
+
+  @Query("UPDATE runes SET patchVersion = :patchVersion")
+  suspend fun syncAllRunesPatchLabel(patchVersion: String)
+
+  @Query("UPDATE spells SET patchVersion = :patchVersion")
+  suspend fun syncAllSpellsPatchLabel(patchVersion: String)
+
+  @Query("UPDATE matchup_rules SET patchVersion = :patchVersion")
+  suspend fun syncAllMatchupsPatchLabel(patchVersion: String)
+
   @Transaction
   suspend fun applyPatchPack(
     champions: List<ChampionEntity>,
@@ -93,7 +108,19 @@ interface GameDao {
     matchupRules: List<MatchupRuleEntity>,
     patchNotes: List<PatchNoteEntity>,
     deactivateOlderNotes: Boolean,
+    syncPatchVersion: String? = null,
+    syncLastUpdated: String? = null,
   ) {
+    if (!syncPatchVersion.isNullOrBlank()) {
+      syncAllItemsPatchLabel(syncPatchVersion)
+      syncAllRunesPatchLabel(syncPatchVersion)
+      syncAllSpellsPatchLabel(syncPatchVersion)
+      syncAllChampionsPatchLabel(
+        patchVersion = syncPatchVersion,
+        lastUpdated = syncLastUpdated?.takeIf { it.isNotBlank() } ?: syncPatchVersion,
+      )
+      syncAllMatchupsPatchLabel(syncPatchVersion)
+    }
     if (items.isNotEmpty()) upsertItems(items)
     if (runes.isNotEmpty()) upsertRunes(runes)
     if (spells.isNotEmpty()) upsertSpells(spells)

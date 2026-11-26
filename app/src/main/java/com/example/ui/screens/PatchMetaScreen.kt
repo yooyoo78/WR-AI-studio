@@ -125,7 +125,8 @@ fun PatchMetaScreen(
       }
     }
 
-  val activePatchVersion = homeState.activePatch?.version ?: homeState.preferences.activePatchLabel
+  val activePatchVersion =
+    homeState.preferences.activePatchLabel.ifBlank { homeState.activePatch?.version ?: "7.3f" }
 
   Scaffold(
     topBar = {

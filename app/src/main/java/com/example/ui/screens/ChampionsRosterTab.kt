@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
@@ -29,6 +30,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
@@ -100,39 +102,62 @@ fun ChampionsRosterTab(
     }
 
     item {
-      LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        item {
-          FilterChip(
-            selected = state.sortMode == ChampionSortMode.TIER,
-            onClick = { onSortModeChange(ChampionSortMode.TIER) },
-            modifier = Modifier.testTag("sort_tier_chip"),
-            label = { Text(if (language == AppLanguage.TH) "Tier" else "Sort: Tier") },
-          )
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        LazyRow(
+          modifier = Modifier.weight(1f),
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          item {
+            FilterChip(
+              selected = state.sortMode == ChampionSortMode.TIER,
+              onClick = { onSortModeChange(ChampionSortMode.TIER) },
+              modifier = Modifier.testTag("sort_tier_chip"),
+              label = { Text(if (language == AppLanguage.TH) "Tier" else "Sort: Tier") },
+            )
+          }
+          item {
+            FilterChip(
+              selected = state.sortMode == ChampionSortMode.WIN_RATE,
+              onClick = { onSortModeChange(ChampionSortMode.WIN_RATE) },
+              modifier = Modifier.testTag("sort_winrate_chip"),
+              label = { Text(if (language == AppLanguage.TH) "Winrate" else "Sort: WR") },
+            )
+          }
+          item {
+            FilterChip(
+              selected = activeFilterCount > 0,
+              onClick = { showFilterSheet = true },
+              modifier = Modifier.testTag("champions_filter_button"),
+              leadingIcon = {
+                Icon(
+                  Icons.Default.FilterList,
+                  contentDescription = null,
+                  modifier = Modifier.size(16.dp),
+                )
+              },
+              label = {
+                val labelBase = if (language == AppLanguage.TH) "ตัวกรอง" else "Filter"
+                Text(if (activeFilterCount > 0) "$labelBase ($activeFilterCount)" else labelBase)
+              },
+            )
+          }
         }
-        item {
-          FilterChip(
-            selected = state.sortMode == ChampionSortMode.WIN_RATE,
-            onClick = { onSortModeChange(ChampionSortMode.WIN_RATE) },
-            modifier = Modifier.testTag("sort_winrate_chip"),
-            label = { Text(if (language == AppLanguage.TH) "Winrate" else "Sort: WR") },
-          )
-        }
-        item {
-          FilterChip(
-            selected = activeFilterCount > 0,
-            onClick = { showFilterSheet = true },
-            modifier = Modifier.testTag("champions_filter_button"),
-            leadingIcon = {
-              Icon(
-                Icons.Default.FilterList,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-              )
-            },
-            label = {
-              val labelBase = if (language == AppLanguage.TH) "ตัวกรอง" else "Filter"
-              Text(if (activeFilterCount > 0) "$labelBase ($activeFilterCount)" else labelBase)
-            },
+        Spacer(modifier = Modifier.width(8.dp))
+        Surface(
+          color = HextechGold.copy(alpha = 0.14f),
+          shape = RoundedCornerShape(8.dp),
+          modifier = Modifier.testTag("champions_patch_badge"),
+        ) {
+          Text(
+            text = "Patch ${state.activePatchVersion}",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = HextechGoldBright,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
           )
         }
       }

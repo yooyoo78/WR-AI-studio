@@ -1205,4 +1205,82 @@ class ExampleRobolectricTest {
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("analyzer_lazy_column").assertIsDisplayed()
   }
+
+  @Test
+  fun `cuj champions screen shows active patch badge and delta import syncs stats items skills and all patch labels`() {
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("nav_champions").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("champions_patch_badge").assertIsDisplayed()
+
+    val appContext = ApplicationProvider.getApplicationContext<Context>()
+    val container = MainActivity::class.java
+    val prefsRepo = PreferencesRepository(appContext)
+    val db = Room.inMemoryDatabaseBuilder(appContext, AppDatabase::class.java).allowMainThreadQueries().build()
+    val repo = GameDataRepository(appContext, db.gameDao(), prefsRepo)
+
+    runBlocking {
+      repo.ensureSeeded()
+      val deltaJson =
+        """
+        {
+          "packVersion": 3,
+          "patchVersion": "7.4a",
+          "lastUpdated": "2026-11-26",
+          "sourceLabel": "OTA Delta Test",
+          "championUpdates": [
+            {
+              "id": "ahri",
+              "winRatePct": 55.1,
+              "abilityUpdates": [
+                {
+                  "slot": "Q",
+                  "cooldownNote": "5s"
+                }
+              ]
+            }
+          ],
+          "itemUpdates": [
+            {
+              "id": "statikk_shiv",
+              "cost": 2800
+            }
+          ],
+          "patchNotes": [
+            {
+              "version": "7.4a",
+              "releaseDate": "2026-11-26",
+              "headlineEn": "7.4a",
+              "headlineTh": "7.4a",
+              "summaryEn": "Delta",
+              "summaryTh": "เดลตา",
+              "sourceLabel": "OTA",
+              "isActive": true,
+              "changes": [
+                {
+                  "targetName": "Ahri",
+                  "changeType": "CHANGE",
+                  "detailEn": "Q cooldown reduced",
+                  "detailTh": "ลดคูลดาวน์ Q"
+                }
+              ]
+            }
+          ]
+        }
+        """.trimIndent()
+      val res = repo.importPatchJson(deltaJson, replaceExisting = false)
+      assertTrue(res is ImportResult.Success)
+      val champs = repo.champions.first()
+      val ahri = champs.first { it.id == "ahri" }
+      val garen = champs.first { it.id == "garen" }
+      assertEquals(55.1, ahri.winRatePct, 0.01)
+      assertEquals("5s", ahri.abilities.first { it.slot.equals("Q", true) }.cooldownNote)
+      assertEquals("7.4a", ahri.patchVersion)
+      assertEquals("7.4a", garen.patchVersion)
+      val shiv = repo.items.first().first { it.id == "statikk_shiv" }
+      assertEquals(2800, shiv.cost)
+      assertEquals("7.4a", shiv.patchVersion)
+    }
+    db.close()
+  }
 }

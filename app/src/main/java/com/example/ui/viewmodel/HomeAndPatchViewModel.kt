@@ -214,7 +214,7 @@ class HomeAndPatchViewModel(
     val checker = officialPatchChecker ?: return
     viewModelScope.launch {
       val prefs = preferencesRepository.preferencesFlow.first()
-      val appPatch = homeUiState.value.activePatch?.version ?: prefs.activePatchLabel
+      val appPatch = prefs.activePatchLabel.ifBlank { homeUiState.value.activePatch?.version ?: "7.3f" }
       val lang = prefs.language
       _liveVersionState.value = LiveVersionCheckState.Checking(appPatch)
 
@@ -300,8 +300,14 @@ class HomeAndPatchViewModel(
         is OtaCheckStatus.Applied -> {
           _otaStatus.value = outcome
           _validationResult.value = ready.validation
+          val syncedCount = autoSyncServerMetaAfterPatch(outcome.patchVersion, lang)
           val now = System.currentTimeMillis()
           val cmp = OfficialPatchParser.comparePatchVersions(outdated.officialPatch, outcome.patchVersion)
+          val syncedSuffix =
+            if (syncedCount > 0) {
+              if (lang == AppLanguage.TH) " • ซิงค์ Winrate/Tier ${syncedCount} แชมป์"
+              else " • Synced $syncedCount champ stats"
+            } else ""
           _liveVersionState.value =
             if (cmp <= 0) {
               LiveVersionCheckState.Matched(
@@ -317,8 +323,11 @@ class HomeAndPatchViewModel(
                 officialUrl = outdated.officialUrl,
                 otaReady = null,
                 otaMessage =
-                  if (lang == AppLanguage.TH) "อัปเดตเป็น ${outcome.patchVersion} แล้ว (ทางการอยู่ที่ ${outdated.officialPatch})"
-                  else "Updated to ${outcome.patchVersion} (Live game is ${outdated.officialPatch}).",
+                  if (lang == AppLanguage.TH) {
+                    "อัปเดตเป็น ${outcome.patchVersion} แล้ว$syncedSuffix (ทางการอยู่ที่ ${outdated.officialPatch})"
+                  } else {
+                    "Updated to ${outcome.patchVersion}$syncedSuffix (Live game is ${outdated.officialPatch})."
+                  },
                 checkedAtMs = now,
               )
             }
@@ -332,12 +341,86 @@ class HomeAndPatchViewModel(
     }
   }
 
+  private suspend fun autoSyncServerMetaAfterPatch(appliedPatch: String, lang: AppLanguage): Int {
+    val service = serverMetaSyncService ?: return 0
+    return runCatching {
+      val champs = repository.champions.first()
+      val result = service.fetchCnRankedStats(champs)
+      if (result.isSuccess) {
+        val payload = result.getOrThrow()
+        val updated = repository.updateChampionMetaMetrics(payload.updates, patchLabelOverride = appliedPatch)
+        val now = System.currentTimeMillis()
+        preferencesRepository.setMetaSyncTimestamp(now)
+        _metaRefreshState.value =
+          MetaRefreshState.Synced(
+            server = MetaServerRegion.CN_DIAMOND_PLUS,
+            patchVersion = appliedPatch,
+            updatedCount = updated,
+            syncedAtMs = now,
+            note =
+              if (lang == AppLanguage.TH) {
+                "ซิงค์ Winrate & Tier List (${updated} แชมป์) ตามแพทช์ $appliedPatch แล้ว"
+              } else {
+                "Auto-synced Winrate & Tier List ($updated champs) for Patch $appliedPatch"
+              },
+          )
+        updated
+      } else {
+        0
+      }
+    }.getOrDefault(0)
+  }
+
+  private suspend fun syncLiveVersionStateToPatch(appliedPatch: String) {
+    val current = _liveVersionState.value
+    val prefs = preferencesRepository.preferencesFlow.first()
+    val knownOfficial =
+      when (current) {
+        is LiveVersionCheckState.Matched -> current.officialPatch
+        is LiveVersionCheckState.Outdated -> current.officialPatch
+        else -> prefs.lastKnownOfficialPatch.takeIf { it.isNotBlank() }
+      }
+    val officialUrl =
+      when (current) {
+        is LiveVersionCheckState.Matched -> current.officialUrl
+        is LiveVersionCheckState.Outdated -> current.officialUrl
+        else -> com.example.data.remote.OfficialPatchVersionChecker.OFFICIAL_GAME_UPDATES_URL
+      }
+    if (knownOfficial != null && current !is LiveVersionCheckState.Idle) {
+      val cmp = OfficialPatchParser.comparePatchVersions(knownOfficial, appliedPatch)
+      val now = System.currentTimeMillis()
+      _liveVersionState.value =
+        if (cmp <= 0) {
+          LiveVersionCheckState.Matched(
+            appPatch = appliedPatch,
+            officialPatch = knownOfficial,
+            officialUrl = officialUrl,
+            checkedAtMs = now,
+          )
+        } else {
+          LiveVersionCheckState.Outdated(
+            appPatch = appliedPatch,
+            officialPatch = knownOfficial,
+            officialUrl = officialUrl,
+            otaReady = null,
+            checkedAtMs = now,
+          )
+        }
+    } else {
+      _liveVersionState.value =
+        LiveVersionCheckState.Idle(
+          appPatch = appliedPatch,
+          lastKnownOfficialPatch = knownOfficial,
+        )
+    }
+  }
+
   fun refreshServerMetaStats() {
     viewModelScope.launch {
       val prefs = preferencesRepository.preferencesFlow.first()
       val server = MetaServerRegion.fromId(prefs.selectedMetaServerId)
       val lang = prefs.language
-      val appPatch = homeUiState.value.activePatch?.version ?: prefs.activePatchLabel
+      val appPatch = prefs.activePatchLabel.ifBlank { homeUiState.value.activePatch?.version ?: "7.3f" }
       _metaRefreshState.value = MetaRefreshState.Refreshing(server)
 
       when (server) {
@@ -352,7 +435,7 @@ class HomeAndPatchViewModel(
           val result = service.fetchCnRankedStats(champs)
           if (result.isSuccess) {
             val payload = result.getOrThrow()
-            val updated = repository.updateChampionMetaMetrics(payload.updates)
+            val updated = repository.updateChampionMetaMetrics(payload.updates, patchLabelOverride = appPatch)
             val now = System.currentTimeMillis()
             preferencesRepository.setMetaSyncTimestamp(now)
             _metaRefreshState.value =
@@ -464,15 +547,20 @@ class HomeAndPatchViewModel(
 
   fun importPatchJsonUri(uri: Uri) {
     viewModelScope.launch {
+      val lang = preferencesRepository.preferencesFlow.first().language
       _patchActionStatus.value = PatchActionStatus.Working
       when (val result = repository.importPatchFromUri(uri)) {
         is ImportResult.Success -> {
           _validationResult.value = result.validation
+          syncLiveVersionStateToPatch(result.patchVersion)
+          val syncedCount = autoSyncServerMetaAfterPatch(result.patchVersion, lang)
+          val syncSuffix =
+            if (syncedCount > 0) " • Synced $syncedCount champ Winrate/Tier." else ""
           _patchActionStatus.value =
             PatchActionStatus.Message(
               isError = false,
               text =
-                "Imported Patch ${result.patchVersion}: +${result.validation.championsCount} champs, +${result.validation.itemsCount} items, +${result.validation.matchupsCount} matchups.",
+                "Imported Patch ${result.patchVersion}: +${result.validation.championsCount} champs, +${result.validation.itemsCount} items, +${result.validation.matchupsCount} matchups$syncSuffix",
             )
         }
         is ImportResult.Invalid -> {
@@ -586,14 +674,18 @@ class HomeAndPatchViewModel(
       _otaStatus.value = outcome
       if (outcome is OtaCheckStatus.Applied) {
         _validationResult.value = ready.validation
+        syncLiveVersionStateToPatch(outcome.patchVersion)
+        val syncedCount = autoSyncServerMetaAfterPatch(outcome.patchVersion, lang)
+        val syncNoteTh = if (syncedCount > 0) " และซิงค์ Winrate/Tier ($syncedCount แชมป์)" else ""
+        val syncNoteEn = if (syncedCount > 0) " & synced $syncedCount champ stats" else ""
         _patchActionStatus.value =
           PatchActionStatus.Message(
             isError = false,
             text =
               if (lang == AppLanguage.TH) {
-                "อัปเดต OTA Patch ${outcome.patchVersion} สำเร็จ (บันทึกจุด Rollback แล้ว)"
+                "อัปเดต OTA Patch ${outcome.patchVersion} สำเร็จ$syncNoteTh (บันทึกจุด Rollback แล้ว)"
               } else {
-                "Applied signed OTA Patch ${outcome.patchVersion} (Rollback snapshot saved)."
+                "Applied signed OTA Patch ${outcome.patchVersion}$syncNoteEn (Rollback snapshot saved)."
               },
           )
       }
@@ -608,6 +700,7 @@ class HomeAndPatchViewModel(
         is ImportResult.Success -> {
           _validationResult.value = result.validation
           _otaStatus.value = OtaCheckStatus.Idle
+          syncLiveVersionStateToPatch(result.patchVersion)
           _patchActionStatus.value =
             PatchActionStatus.Message(
               isError = false,

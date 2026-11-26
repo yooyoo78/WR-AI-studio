@@ -94,7 +94,8 @@ fun HomeDashboardScreen(
   val strings = LocalUiStrings.current
   val isMiniMode = LocalInGameMiniMode.current
   val lang = state.preferences.language
-  val activePatchVersion = state.activePatch?.version ?: state.preferences.activePatchLabel
+  val activePatchVersion =
+    state.preferences.activePatchLabel.ifBlank { state.activePatch?.version ?: "7.3f" }
 
   Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(

@@ -2,9 +2,11 @@ package com.example.data.remote
 
 import com.example.data.local.PreferencesRepository
 import com.example.data.model.AppLanguage
+import com.example.data.model.LenientPatchChangeTypeAdapter
 import com.example.data.model.PatchPackPayload
 import com.example.data.repository.GameDataRepository
 import com.example.data.repository.ImportResult
+import com.example.data.repository.PatchDeltaMerger
 import com.example.data.validation.PatchDataValidator
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -30,7 +32,11 @@ class OtaPatchRepository(
       .build(),
   private val validator: PatchDataValidator = PatchDataValidator(),
 ) {
-  private val moshi: Moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
+  private val moshi: Moshi =
+    Moshi.Builder()
+      .add(LenientPatchChangeTypeAdapter())
+      .addLast(KotlinJsonAdapterFactory())
+      .build()
   private val releaseAdapter = moshi.adapter(GitHubReleaseDto::class.java)
   private val manifestAdapter = moshi.adapter(OtaReleaseManifest::class.java)
   private val payloadAdapter = moshi.adapter(PatchPackPayload::class.java)
@@ -134,7 +140,7 @@ class OtaPatchRepository(
         }
 
         val rawPackJson = String(packBytes, StandardCharsets.UTF_8)
-        val payload =
+        val rawPayload =
           payloadAdapter.fromJson(rawPackJson)
             ?: return@withContext OtaCheckStatus.Error("Failed to parse OTA PatchPack JSON.")
 
@@ -143,6 +149,26 @@ class OtaPatchRepository(
         val currentRunes = gameDataRepository.runes.first()
         val currentSpells = gameDataRepository.spells.first()
         val currentMatchups = gameDataRepository.matchupRules.first()
+
+        val merged =
+          PatchDeltaMerger.merge(
+            payload = rawPayload,
+            existingChampions = currentChamps,
+            existingItems = currentItems,
+            existingRunes = currentRunes,
+            existingSpells = currentSpells,
+            existingMatchups = currentMatchups,
+          )
+        if (merged.unknownDeltaErrors.isNotEmpty()) {
+          return@withContext OtaCheckStatus.Error(
+            if (language == AppLanguage.TH) {
+              "ข้อมูล OTA ระบุ ID ไม่ถูกต้อง:\n${merged.unknownDeltaErrors.joinToString("\n")}"
+            } else {
+              "OTA pack references unknown IDs:\n${merged.unknownDeltaErrors.joinToString("\n")}"
+            }
+          )
+        }
+        val payload = merged.payload
 
         val validation =
           validator.validate(

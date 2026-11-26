@@ -69,6 +69,7 @@ data class ChampionsUiState(
   val matchJournal: List<MatchJournalEntryData> = emptyList(),
   val journalSummary: MatchJournalSummary = MatchJournalSummary(),
   val language: AppLanguage = AppLanguage.TH,
+  val activePatchVersion: String = "7.3f",
 )
 
 class ChampionsViewModel(
@@ -181,6 +182,8 @@ class ChampionsViewModel(
           matchJournal = journalEntries,
           journalSummary = journalSummary,
           language = prefs.language,
+          activePatchVersion =
+            prefs.activePatchLabel.ifBlank { champions.firstOrNull()?.patchVersion ?: "7.3f" },
         )
       }
       .stateIn(

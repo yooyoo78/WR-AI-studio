@@ -11,17 +11,24 @@ import com.example.data.local.SavedMatchupEntity
 import com.example.data.local.toDomain
 import com.example.data.local.toEntity
 import com.example.data.local.toSummary
+import com.example.data.model.AbilityPatchDelta
 import com.example.data.model.ChampionData
+import com.example.data.model.ChampionPatchDelta
 import com.example.data.model.CustomBuildData
 import com.example.data.model.ItemData
+import com.example.data.model.ItemPatchDelta
 import com.example.data.model.Lane
+import com.example.data.model.LenientPatchChangeTypeAdapter
 import com.example.data.model.MatchJournalEntryData
 import com.example.data.model.MatchupRuleData
+import com.example.data.model.PatchChangeEntry
+import com.example.data.model.PatchChangeType
 import com.example.data.model.PatchNoteData
 import com.example.data.model.PatchPackPayload
 import com.example.data.model.PatchSnapshotSummary
 import com.example.data.model.RuneData
 import com.example.data.model.SpellData
+import com.example.data.model.TierRank
 import com.example.data.remote.ChampionMetaStatPatch
 import com.example.data.validation.PatchDataValidator
 import com.example.data.validation.ValidationResult
@@ -49,7 +56,11 @@ class GameDataRepository(
   private val preferencesRepository: PreferencesRepository,
   private val validator: PatchDataValidator = PatchDataValidator(),
 ) {
-  private val moshi: Moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
+  private val moshi: Moshi =
+    Moshi.Builder()
+      .add(LenientPatchChangeTypeAdapter())
+      .addLast(KotlinJsonAdapterFactory())
+      .build()
   private val payloadAdapter = moshi.adapter(PatchPackPayload::class.java).indent("  ")
 
   val champions: Flow<List<ChampionData>> =
@@ -120,6 +131,9 @@ class GameDataRepository(
         val json =
           context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
             ?: return@withContext ImportResult.Invalid("Unable to open selected file.")
+        if (dao.getChampionCount() > 0) {
+          capturePatchRollbackSnapshot()
+        }
         importPatchJson(json, replaceExisting = false)
       } catch (e: Exception) {
         Log.e(TAG, "Failed to import JSON from URI", e)
@@ -129,7 +143,7 @@ class GameDataRepository(
 
   suspend fun importPatchJson(json: String, replaceExisting: Boolean = false): ImportResult =
     withContext(Dispatchers.IO) {
-      val payload =
+      val rawPayload =
         try {
           payloadAdapter.fromJson(json)
         } catch (e: Exception) {
@@ -147,6 +161,24 @@ class GameDataRepository(
         if (replaceExisting) emptyList() else dao.getAllSpellsOnce().map { it.toDomain() }
       val existingMatchups =
         if (replaceExisting) emptyList() else dao.getAllMatchupRulesOnce().map { it.toDomain() }
+
+      val merged =
+        PatchDeltaMerger.merge(
+          payload = rawPayload,
+          existingChampions = existingChampions,
+          existingItems = existingItems,
+          existingRunes = existingRunes,
+          existingSpells = existingSpells,
+          existingMatchups = existingMatchups,
+        )
+
+      if (merged.unknownDeltaErrors.isNotEmpty()) {
+        return@withContext ImportResult.Invalid(
+          message = merged.unknownDeltaErrors.joinToString("\n")
+        )
+      }
+
+      val payload = merged.payload
 
       val validation =
         validator.validate(
@@ -177,6 +209,8 @@ class GameDataRepository(
         matchupRules = payload.matchupRules.map { it.toEntity() },
         patchNotes = payload.patchNotes.map { it.toEntity() },
         deactivateOlderNotes = !replaceExisting,
+        syncPatchVersion = if (!replaceExisting) payload.patchVersion else null,
+        syncLastUpdated = if (!replaceExisting) payload.lastUpdated else null,
       )
 
       preferencesRepository.setPatchMetadata(
@@ -214,15 +248,57 @@ class GameDataRepository(
     val sample =
       PatchPackPayload(
         packVersion = 1,
-        patchVersion = "7.4a",
-        lastUpdated = "2026-12-01",
-        sourceLabel = "Custom Patch Extension Pack",
-        champions = emptyList(),
-        items = emptyList(),
-        runes = emptyList(),
-        spells = emptyList(),
-        matchupRules = emptyList(),
-        patchNotes = emptyList(),
+        patchVersion = "7.3g",
+        lastUpdated = "2026-11-26",
+        sourceLabel = "Compact OTA Delta Pack",
+        championUpdates =
+          listOf(
+            ChampionPatchDelta(
+              id = "ahri",
+              tierRank = TierRank.S_PLUS,
+              winRatePct = 52.8,
+              abilityUpdates =
+                listOf(
+                  AbilityPatchDelta(
+                    slot = "Q",
+                    cooldownNote = "6s",
+                    summaryEn = "Orb of Deception base damage +10 at all ranks.",
+                    summaryTh = "เพิ่มความเสียหายพื้นฐานสกิล Q +10 ทุกระดับ",
+                  )
+                ),
+            )
+          ),
+        itemUpdates =
+          listOf(
+            ItemPatchDelta(
+              id = "statikk_shiv",
+              cost = 2900,
+              statsSummaryEn = "+35 AD • +30 AP • +25% Attack Speed",
+              statsSummaryTh = "+35 AD • +30 AP • +25% ความเร็วโจมตี",
+            )
+          ),
+        patchNotes =
+          listOf(
+            PatchNoteData(
+              version = "7.3g",
+              releaseDate = "2026-11-26",
+              headlineEn = "Patch 7.3g Balance Update",
+              headlineTh = "แพทช์ 7.3g ปรับสมดุล",
+              summaryEn = "Compact delta update for champions and items.",
+              summaryTh = "อัปเดตค่าสถานะ สกิล และไอเทมเฉพาะจุดที่ปรับสมดุล",
+              sourceLabel = "OTA",
+              isActive = true,
+              changes =
+                listOf(
+                  PatchChangeEntry(
+                    targetName = "Ahri",
+                    changeType = PatchChangeType.BUFF,
+                    detailEn = "Q cooldown reduced and base damage increased.",
+                    detailTh = "ลดคูลดาวน์และเพิ่มดาเมจสกิล Q",
+                  )
+                ),
+            )
+          ),
       )
     return payloadAdapter.toJson(sample)
   }
@@ -336,6 +412,9 @@ class GameDataRepository(
   ): Int =
     withContext(Dispatchers.IO) {
       if (updates.isEmpty()) return@withContext 0
+      val resolvedPatch =
+        patchLabelOverride?.takeIf { it.isNotBlank() }
+          ?: preferencesRepository.preferencesFlow.first().activePatchLabel
       val byId = updates.associateBy { it.championId }
       val current = dao.getAllChampionsOnce().map { it.toDomain() }
       val updatedEntities =
@@ -347,7 +426,7 @@ class GameDataRepository(
               pickRatePct = stat.pickRatePct,
               banRatePct = stat.banRatePct,
               tierRank = stat.tierRank,
-              patchVersion = patchLabelOverride?.takeIf { it.isNotBlank() } ?: champ.patchVersion,
+              patchVersion = resolvedPatch.ifBlank { champ.patchVersion },
             )
             .toEntity()
         }

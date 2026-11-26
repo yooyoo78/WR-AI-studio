@@ -18,8 +18,10 @@ import com.example.data.model.ItemCounterTag
 import com.example.data.model.ItemData
 import com.example.data.model.Lane
 import com.example.data.model.LaneDifficulty
+import com.example.data.model.LenientPatchChangeTypeAdapter
 import com.example.data.model.MatchJournalEntryData
 import com.example.data.model.MatchupRuleData
+import com.example.data.model.PatchChangeType
 import com.example.data.model.PatchPackPayload
 import com.example.data.model.RuneData
 import com.example.data.model.SpellData
@@ -32,6 +34,7 @@ import com.example.data.remote.EcdsaSignatureVerifier
 import com.example.data.remote.OfficialPatchParser
 import com.example.data.remote.PatchDiffBuilder
 import com.example.data.remote.ServerMetaSyncParser
+import com.example.data.repository.PatchDeltaMerger
 import com.example.data.validation.PatchDataValidator
 import com.example.domain.engine.BuildAccuracyEngine
 import com.example.domain.engine.DraftAssistantEngine
@@ -1029,5 +1032,119 @@ class EngineModuleUnitTests {
     assertEquals(TierRank.S_PLUS, byId.getValue("ahri").tierRank)
     assertTrue("MonkeyKing should map to local 'wukong'", "wukong" in byId)
     assertTrue("DrMundo should map to local 'dr_mundo'", "dr_mundo" in byId)
+  }
+
+  @Test
+  fun `LenientPatchChangeTypeAdapter accepts CHANGE and lowercase labels`() {
+    val moshi =
+      Moshi.Builder()
+        .add(LenientPatchChangeTypeAdapter())
+        .addLast(KotlinJsonAdapterFactory())
+        .build()
+    val adapter = moshi.adapter(PatchPackPayload::class.java)
+    val json =
+      """
+      {
+        "packVersion": 1,
+        "patchVersion": "7.3g",
+        "lastUpdated": "2026-11-26",
+        "sourceLabel": "OTA",
+        "patchNotes": [
+          {
+            "version": "7.3g",
+            "releaseDate": "2026-11-26",
+            "headlineEn": "Update",
+            "headlineTh": "อัปเดต",
+            "summaryEn": "Summary",
+            "summaryTh": "สรุป",
+            "sourceLabel": "OTA",
+            "isActive": true,
+            "changes": [
+              {"targetName": "Ahri", "changeType": "CHANGE", "detailEn": "Adjusted", "detailTh": "ปรับ"},
+              {"targetName": "Lux", "changeType": "buff", "detailEn": "Buffed", "detailTh": "บัฟ"}
+            ]
+          }
+        ]
+      }
+      """.trimIndent()
+    val payload = adapter.fromJson(json)!!
+    assertEquals(PatchChangeType.ADJUST, payload.patchNotes.first().changes[0].changeType)
+    assertEquals(PatchChangeType.BUFF, payload.patchNotes.first().changes[1].changeType)
+  }
+
+  @Test
+  fun `PatchDeltaMerger merges partial champion ability and item updates onto seed records`() {
+    val seed = loadSeedPayload()
+    val moshi =
+      Moshi.Builder()
+        .add(LenientPatchChangeTypeAdapter())
+        .addLast(KotlinJsonAdapterFactory())
+        .build()
+    val adapter = moshi.adapter(PatchPackPayload::class.java)
+    val deltaJson =
+      """
+      {
+        "packVersion": 2,
+        "patchVersion": "7.3g",
+        "lastUpdated": "2026-11-26",
+        "sourceLabel": "OTA Delta",
+        "championUpdates": [
+          {
+            "id": "ahri",
+            "tierRank": "S_PLUS",
+            "winRatePct": 54.2,
+            "abilityUpdates": [
+              {
+                "slot": "Q",
+                "cooldownNote": "5.5s",
+                "summaryTh": "ลดคูลดาวน์ Q ลง 1 วินาที"
+              }
+            ]
+          }
+        ],
+        "itemUpdates": [
+          {
+            "id": "statikk_shiv",
+            "cost": 2850
+          }
+        ]
+      }
+      """.trimIndent()
+
+    val raw = adapter.fromJson(deltaJson)!!
+    val merged =
+      PatchDeltaMerger.merge(
+        payload = raw,
+        existingChampions = seed.champions,
+        existingItems = seed.items,
+        existingRunes = seed.runes,
+        existingSpells = seed.spells,
+        existingMatchups = seed.matchupRules,
+      )
+    assertTrue(merged.unknownDeltaErrors.isEmpty())
+    val updatedAhri = merged.payload.champions.single { it.id == "ahri" }
+    assertEquals(TierRank.S_PLUS, updatedAhri.tierRank)
+    assertEquals(54.2, updatedAhri.winRatePct, 0.01)
+    assertEquals("7.3g", updatedAhri.patchVersion)
+    val qSkill = updatedAhri.abilities.first { it.slot.equals("Q", ignoreCase = true) }
+    assertEquals("5.5s", qSkill.cooldownNote)
+    assertEquals("ลดคูลดาวน์ Q ลง 1 วินาที", qSkill.summaryTh)
+    assertEquals(5, updatedAhri.abilities.size)
+
+    val updatedItem = merged.payload.items.single { it.id == "statikk_shiv" }
+    assertEquals(2850, updatedItem.cost)
+    assertEquals("7.3g", updatedItem.patchVersion)
+
+    val validation =
+      PatchDataValidator()
+        .validate(
+          payload = merged.payload,
+          existingChampions = seed.champions,
+          existingItems = seed.items,
+          existingRunes = seed.runes,
+          existingSpells = seed.spells,
+          existingMatchups = seed.matchupRules,
+        )
+    assertTrue("Merged delta payload should pass validation: ${validation.errors}", validation.isValid)
   }
 }

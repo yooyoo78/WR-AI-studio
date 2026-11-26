@@ -611,6 +611,11 @@ data class PatchPackPayload(
   val spells: List<SpellData> = emptyList(),
   val matchupRules: List<MatchupRuleData> = emptyList(),
   val patchNotes: List<PatchNoteData> = emptyList(),
+  val championUpdates: List<ChampionPatchDelta> = emptyList(),
+  val itemUpdates: List<ItemPatchDelta> = emptyList(),
+  val runeUpdates: List<RunePatchDelta> = emptyList(),
+  val spellUpdates: List<SpellPatchDelta> = emptyList(),
+  val matchupUpdates: List<MatchupPatchDelta> = emptyList(),
 )
 
 data class CustomBuildData(
