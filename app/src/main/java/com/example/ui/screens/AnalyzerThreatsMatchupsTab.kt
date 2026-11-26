@@ -12,17 +12,24 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.model.AppLanguage
 import com.example.data.model.LaneDifficulty
@@ -35,6 +42,7 @@ import com.example.ui.theme.AdvantageEmerald
 import com.example.ui.theme.ArcaneCyan
 import com.example.ui.theme.HextechGold
 import com.example.ui.theme.HextechGoldBright
+import com.example.ui.theme.HextechSurface
 import com.example.ui.theme.LocalUiStrings
 import com.example.ui.theme.SkillViolet
 import com.example.ui.theme.ThreatCrimson
@@ -68,7 +76,7 @@ fun TopThreatSpotlightCard(
     Row(verticalAlignment = Alignment.CenterVertically) {
       ChampionCrestAvatar(
         champion = top.enemy,
-        size = 48.dp,
+        size = 46.dp,
         onClick = { onOpenChampionProfile(top.enemy.id) },
         modifier = Modifier.testTag("top_threat_avatar"),
       )
@@ -83,6 +91,8 @@ fun TopThreatSpotlightCard(
           text = top.dangerAbilities(lang),
           style = MaterialTheme.typography.bodySmall,
           color = WarningAmber,
+          maxLines = 2,
+          overflow = TextOverflow.Ellipsis,
         )
       }
       Surface(
@@ -99,7 +109,12 @@ fun TopThreatSpotlightCard(
       }
     }
     Spacer(modifier = Modifier.height(6.dp))
-    Text(text = top.tacticalTip(lang), style = MaterialTheme.typography.bodyMedium)
+    Text(
+      text = top.tacticalTip(lang),
+      style = MaterialTheme.typography.bodyMedium,
+      maxLines = 2,
+      overflow = TextOverflow.Ellipsis,
+    )
   }
 }
 
@@ -161,6 +176,7 @@ fun EnemyMatchupCard(
   analysis: EnemyMatchupAnalysis,
   lang: AppLanguage,
   onOpenChampionProfile: (String) -> Unit,
+  onOpenDetails: () -> Unit = {},
 ) {
   val (verdictColor, verdictLabel) =
     when (analysis.verdict) {
@@ -174,11 +190,15 @@ fun EnemyMatchupCard(
         ArcaneCyan to (if (lang == AppLanguage.TH) "สูสี" else "Even")
     }
 
-  HextechCard(accentColor = verdictColor) {
+  HextechCard(
+    accentColor = verdictColor,
+    onClick = onOpenDetails,
+    modifier = Modifier.fillMaxWidth().testTag("matchup_card_${analysis.enemy.id}"),
+  ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
       ChampionCrestAvatar(
         champion = analysis.enemy,
-        size = 40.dp,
+        size = 38.dp,
         onClick = { onOpenChampionProfile(analysis.enemy.id) },
         modifier = Modifier.testTag("matchup_enemy_avatar_${analysis.enemy.id}"),
       )
@@ -191,6 +211,8 @@ fun EnemyMatchupCard(
           Text(
             text = analysis.enemy.displayName(lang),
             style = MaterialTheme.typography.titleMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
           )
           if (analysis.isLikelyLaneOpponent) {
             Surface(
@@ -213,11 +235,14 @@ fun EnemyMatchupCard(
         }
         Text(
           text =
-            "${if (lang == AppLanguage.TH) "จุดพีค:" else "Spike:"} ${analysis.keySpike(lang)}",
+            "${if (lang == AppLanguage.TH) "พีค:" else "Spike:"} ${analysis.keySpike(lang)}",
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
         )
       }
+      Spacer(modifier = Modifier.width(6.dp))
       Surface(
         color = verdictColor.copy(alpha = 0.16f),
         shape = RoundedCornerShape(8.dp),
@@ -228,18 +253,89 @@ fun EnemyMatchupCard(
           style = MaterialTheme.typography.labelMedium,
           fontWeight = FontWeight.Bold,
           color = verdictColor,
-          modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+          modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
         )
       }
     }
-    Spacer(modifier = Modifier.height(6.dp))
-    Text(
-      text = analysis.dangerAbilities(lang),
-      style = MaterialTheme.typography.bodySmall,
-      color = WarningAmber,
-    )
-    Spacer(modifier = Modifier.height(3.dp))
-    Text(text = analysis.tacticalTip(lang), style = MaterialTheme.typography.bodyMedium)
+  }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MatchupDetailBottomSheet(
+  analysis: EnemyMatchupAnalysis,
+  lang: AppLanguage,
+  onOpenChampionProfile: (String) -> Unit,
+  onDismiss: () -> Unit,
+) {
+  val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+  ModalBottomSheet(
+    onDismissRequest = onDismiss,
+    sheetState = sheetState,
+    containerColor = HextechSurface,
+  ) {
+    Column(
+      modifier =
+        Modifier.fillMaxWidth()
+          .padding(horizontal = 18.dp, vertical = 10.dp)
+          .testTag("analyzer_matchup_detail_sheet"),
+      verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+      ) {
+        ChampionCrestAvatar(champion = analysis.enemy, size = 46.dp)
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = analysis.enemy.displayName(lang),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = HextechGoldBright,
+          )
+          Text(
+            text = "${if (lang == AppLanguage.TH) "จุดพีค:" else "Key Spike:"} ${analysis.keySpike(lang)}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        MatchupConfidenceBadge(isVerified = analysis.isVerifiedRule, lang = lang)
+      }
+
+      Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = WarningAmber.copy(alpha = 0.1f),
+        border = BorderStroke(1.dp, WarningAmber.copy(alpha = 0.45f)),
+        modifier = Modifier.fillMaxWidth(),
+      ) {
+        Text(
+          text = analysis.dangerAbilities(lang),
+          style = MaterialTheme.typography.bodyMedium,
+          color = WarningAmber,
+          modifier = Modifier.padding(12.dp),
+        )
+      }
+
+      Text(
+        text = analysis.tacticalTip(lang),
+        style = MaterialTheme.typography.bodyMedium,
+      )
+
+      OutlinedButton(
+        onClick = {
+          onDismiss()
+          onOpenChampionProfile(analysis.enemy.id)
+        },
+        modifier = Modifier.fillMaxWidth().minimumInteractiveComponentSize(),
+      ) {
+        Text(if (lang == AppLanguage.TH) "ดูโปรไฟล์และสกิลทั้งหมด" else "Open Champion Profile")
+        Spacer(modifier = Modifier.width(6.dp))
+        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+      }
+
+      Spacer(modifier = Modifier.height(10.dp))
+    }
   }
 }
 

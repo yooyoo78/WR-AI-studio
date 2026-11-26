@@ -15,8 +15,14 @@ import com.example.data.model.Lane
 import com.example.data.model.MatchJournalEntryData
 import com.example.data.model.PatchNoteData
 import com.example.data.model.PatchSnapshotSummary
+import com.example.data.remote.LiveVersionCheckState
+import com.example.data.remote.MetaRefreshState
+import com.example.data.remote.MetaServerRegion
+import com.example.data.remote.OfficialPatchParser
+import com.example.data.remote.OfficialPatchVersionChecker
 import com.example.data.remote.OtaCheckStatus
 import com.example.data.remote.OtaPatchRepository
+import com.example.data.remote.ServerMetaSyncService
 import com.example.data.repository.GameDataRepository
 import com.example.data.repository.ImportResult
 import com.example.data.validation.ValidationResult
@@ -46,6 +52,8 @@ data class HomeUiState(
   val topMetaAvgWinRatePct: Double = 0.0,
   val topMetaAvgPickRatePct: Double = 0.0,
   val selectedTierLane: Lane? = null,
+  val selectedMetaServer: MetaServerRegion = MetaServerRegion.CN_DIAMOND_PLUS,
+  val lastMetaSyncMs: Long = 0L,
   val preferences: UserPreferences = UserPreferences(),
 )
 
@@ -63,6 +71,8 @@ class HomeAndPatchViewModel(
   private val gameDao: GameDao? = null,
   private val geminiCoachService: GeminiCoachService? = null,
   private val otaPatchRepository: OtaPatchRepository? = null,
+  private val officialPatchChecker: OfficialPatchVersionChecker? = null,
+  private val serverMetaSyncService: ServerMetaSyncService? = null,
 ) : ViewModel() {
 
   private val _selectedTierLane = MutableStateFlow<Lane?>(null)
@@ -75,6 +85,13 @@ class HomeAndPatchViewModel(
 
   private val _otaStatus = MutableStateFlow<OtaCheckStatus>(OtaCheckStatus.Idle)
   val otaStatus: StateFlow<OtaCheckStatus> = _otaStatus.asStateFlow()
+
+  private val _liveVersionState =
+    MutableStateFlow<LiveVersionCheckState>(LiveVersionCheckState.Idle(appPatch = "7.3f"))
+  val liveVersionState: StateFlow<LiveVersionCheckState> = _liveVersionState.asStateFlow()
+
+  private val _metaRefreshState = MutableStateFlow<MetaRefreshState>(MetaRefreshState.Idle)
+  val metaRefreshState: StateFlow<MetaRefreshState> = _metaRefreshState.asStateFlow()
 
   private var startupOtaChecked = false
 
@@ -153,6 +170,8 @@ class HomeAndPatchViewModel(
           topMetaAvgWinRatePct = topPlayedSlice.avgWinRatePct,
           topMetaAvgPickRatePct = topPlayedSlice.avgPickRatePct,
           selectedTierLane = tierLane,
+          selectedMetaServer = MetaServerRegion.fromId(prefs.selectedMetaServerId),
+          lastMetaSyncMs = prefs.lastMetaSyncMs,
           preferences = prefs,
         )
       }
@@ -163,7 +182,17 @@ class HomeAndPatchViewModel(
       )
 
   init {
-    viewModelScope.launch { repository.ensureSeeded() }
+    viewModelScope.launch {
+      repository.ensureSeeded()
+      val prefs = preferencesRepository.preferencesFlow.first()
+      if (_liveVersionState.value is LiveVersionCheckState.Idle) {
+        _liveVersionState.value =
+          LiveVersionCheckState.Idle(
+            appPatch = prefs.activePatchLabel,
+            lastKnownOfficialPatch = prefs.lastKnownOfficialPatch.takeIf { it.isNotBlank() },
+          )
+      }
+    }
   }
 
   fun selectTierLane(lane: Lane?) {
@@ -172,6 +201,243 @@ class HomeAndPatchViewModel(
 
   fun selectMetaSortMode(mode: TopMetaSortMode) {
     _selectedMetaSortMode.value = mode
+  }
+
+  fun selectMetaServer(server: MetaServerRegion) {
+    viewModelScope.launch {
+      preferencesRepository.setSelectedMetaServerId(server.id)
+      _metaRefreshState.value = MetaRefreshState.Idle
+    }
+  }
+
+  fun checkLiveGameVersion() {
+    val checker = officialPatchChecker ?: return
+    viewModelScope.launch {
+      val prefs = preferencesRepository.preferencesFlow.first()
+      val appPatch = homeUiState.value.activePatch?.version ?: prefs.activePatchLabel
+      val lang = prefs.language
+      _liveVersionState.value = LiveVersionCheckState.Checking(appPatch)
+
+      val officialResult = checker.fetchLatestOfficialPatch()
+      if (officialResult.isFailure) {
+        val msg = officialResult.exceptionOrNull()?.localizedMessage ?: "Network unavailable"
+        _liveVersionState.value =
+          LiveVersionCheckState.Error(
+            appPatch = appPatch,
+            reason =
+              if (lang == AppLanguage.TH) "ตรวจสอบเวอร์ชั่นทางการไม่สำเร็จ: $msg"
+              else "Failed to check official patch notes: $msg",
+          )
+        return@launch
+      }
+
+      val official = officialResult.getOrThrow()
+      val now = System.currentTimeMillis()
+      preferencesRepository.setOfficialPatchCheck(official.patchVersion, now)
+
+      val cmp = OfficialPatchParser.comparePatchVersions(official.patchVersion, appPatch)
+      if (cmp <= 0) {
+        _liveVersionState.value =
+          LiveVersionCheckState.Matched(
+            appPatch = appPatch,
+            officialPatch = official.patchVersion,
+            officialUrl = official.articleUrl,
+            checkedAtMs = now,
+          )
+      } else {
+        var otaReady: com.example.data.remote.VerifiedOtaDownload? = null
+        var otaHint: String? = null
+        val otaRepo = otaPatchRepository
+        if (otaRepo != null && otaRepo.isValidRepoSlug(prefs.otaRepoSlug) && prefs.otaPublicKeyBase64.isNotBlank()) {
+          when (val otaRes = otaRepo.checkAndVerifyLatestRelease(language = lang)) {
+            is OtaCheckStatus.UpdateReady -> {
+              otaReady = otaRes.download
+              _otaStatus.value = otaRes
+            }
+            is OtaCheckStatus.UpToDate -> {
+              otaHint =
+                if (lang == AppLanguage.TH) {
+                  "OTA Repo (${otaRes.remoteTag}) ยังไม่อัปเดตเป็น Patch ${official.patchVersion}"
+                } else {
+                  "OTA Repo (${otaRes.remoteTag}) has not published Patch ${official.patchVersion} yet."
+                }
+            }
+            is OtaCheckStatus.Error -> {
+              otaHint = otaRes.message
+            }
+            else -> Unit
+          }
+        } else {
+          otaHint =
+            if (lang == AppLanguage.TH) {
+              "ตั้งค่า OTA Repo ใน Patch Center หรือนำเข้าไฟล์ .json เพื่ออัปเดตเป็น ${official.patchVersion}"
+            } else {
+              "Configure OTA Repo in Patch Center or import a .json pack to update to ${official.patchVersion}."
+            }
+        }
+
+        _liveVersionState.value =
+          LiveVersionCheckState.Outdated(
+            appPatch = appPatch,
+            officialPatch = official.patchVersion,
+            officialUrl = official.articleUrl,
+            otaReady = otaReady,
+            otaMessage = otaHint,
+            checkedAtMs = now,
+          )
+      }
+    }
+  }
+
+  fun applyUpdateFromLiveVersionCheck() {
+    val repo = otaPatchRepository ?: return
+    val outdated = _liveVersionState.value as? LiveVersionCheckState.Outdated ?: return
+    val ready = outdated.otaReady ?: return
+    viewModelScope.launch {
+      val lang = preferencesRepository.preferencesFlow.first().language
+      _liveVersionState.value = LiveVersionCheckState.Checking(outdated.appPatch)
+      when (val outcome = repo.applyVerifiedOtaPack(ready, lang)) {
+        is OtaCheckStatus.Applied -> {
+          _otaStatus.value = outcome
+          _validationResult.value = ready.validation
+          val now = System.currentTimeMillis()
+          val cmp = OfficialPatchParser.comparePatchVersions(outdated.officialPatch, outcome.patchVersion)
+          _liveVersionState.value =
+            if (cmp <= 0) {
+              LiveVersionCheckState.Matched(
+                appPatch = outcome.patchVersion,
+                officialPatch = outdated.officialPatch,
+                officialUrl = outdated.officialUrl,
+                checkedAtMs = now,
+              )
+            } else {
+              LiveVersionCheckState.Outdated(
+                appPatch = outcome.patchVersion,
+                officialPatch = outdated.officialPatch,
+                officialUrl = outdated.officialUrl,
+                otaReady = null,
+                otaMessage =
+                  if (lang == AppLanguage.TH) "อัปเดตเป็น ${outcome.patchVersion} แล้ว (ทางการอยู่ที่ ${outdated.officialPatch})"
+                  else "Updated to ${outcome.patchVersion} (Live game is ${outdated.officialPatch}).",
+                checkedAtMs = now,
+              )
+            }
+        }
+        is OtaCheckStatus.Error -> {
+          _liveVersionState.value =
+            LiveVersionCheckState.Error(appPatch = outdated.appPatch, reason = outcome.message)
+        }
+        else -> Unit
+      }
+    }
+  }
+
+  fun refreshServerMetaStats() {
+    viewModelScope.launch {
+      val prefs = preferencesRepository.preferencesFlow.first()
+      val server = MetaServerRegion.fromId(prefs.selectedMetaServerId)
+      val lang = prefs.language
+      val appPatch = homeUiState.value.activePatch?.version ?: prefs.activePatchLabel
+      _metaRefreshState.value = MetaRefreshState.Refreshing(server)
+
+      when (server) {
+        MetaServerRegion.CN_DIAMOND_PLUS -> {
+          val service = serverMetaSyncService
+          if (service == null) {
+            _metaRefreshState.value =
+              MetaRefreshState.Failed(server, "Server sync service unavailable.")
+            return@launch
+          }
+          val champs = repository.champions.first()
+          val result = service.fetchCnRankedStats(champs)
+          if (result.isSuccess) {
+            val payload = result.getOrThrow()
+            val updated = repository.updateChampionMetaMetrics(payload.updates)
+            val now = System.currentTimeMillis()
+            preferencesRepository.setMetaSyncTimestamp(now)
+            _metaRefreshState.value =
+              MetaRefreshState.Synced(
+                server = server,
+                patchVersion = appPatch,
+                updatedCount = updated,
+                syncedAtMs = now,
+                note =
+                  if (lang == AppLanguage.TH) {
+                    "อัปเดตสถิติแรงก์ Diamond+ (${updated} แชมป์) แล้ว"
+                  } else {
+                    "Synced CN Diamond+ stats ($updated champions)"
+                  },
+              )
+          } else {
+            val err = result.exceptionOrNull()?.localizedMessage ?: "Connection failed"
+            _metaRefreshState.value =
+              MetaRefreshState.Failed(
+                server = server,
+                message =
+                  if (lang == AppLanguage.TH) "ดึงสถิติเซิร์ฟ CN ไม่สำเร็จ: $err"
+                  else "CN server sync failed: $err",
+              )
+          }
+        }
+
+        MetaServerRegion.GLOBAL_SEA -> {
+          val otaRepo = otaPatchRepository
+          if (otaRepo != null && otaRepo.isValidRepoSlug(prefs.otaRepoSlug) && prefs.otaPublicKeyBase64.isNotBlank()) {
+            when (val otaRes = otaRepo.checkAndVerifyLatestRelease(language = lang)) {
+              is OtaCheckStatus.UpdateReady -> {
+                _otaStatus.value = otaRes
+                val applied = otaRepo.applyVerifiedOtaPack(otaRes.download, lang)
+                if (applied is OtaCheckStatus.Applied) {
+                  val now = System.currentTimeMillis()
+                  preferencesRepository.setMetaSyncTimestamp(now)
+                  _metaRefreshState.value =
+                    MetaRefreshState.Synced(
+                      server = server,
+                      patchVersion = applied.patchVersion,
+                      updatedCount = otaRes.download.validation.championsCount,
+                      syncedAtMs = now,
+                      note =
+                        if (lang == AppLanguage.TH) "อัปเดต Global/SEA OTA Patch ${applied.patchVersion} แล้ว"
+                        else "Applied Global/SEA OTA Patch ${applied.patchVersion}",
+                    )
+                } else if (applied is OtaCheckStatus.Error) {
+                  _metaRefreshState.value = MetaRefreshState.Failed(server, applied.message)
+                }
+              }
+              is OtaCheckStatus.UpToDate -> {
+                val now = System.currentTimeMillis()
+                preferencesRepository.setMetaSyncTimestamp(now)
+                _metaRefreshState.value =
+                  MetaRefreshState.Synced(
+                    server = server,
+                    patchVersion = otaRes.currentPatch,
+                    updatedCount = repository.champions.first().size,
+                    syncedAtMs = now,
+                    note =
+                      if (lang == AppLanguage.TH) "Global/SEA Meta ตรงกับ Patch ${otaRes.currentPatch} แล้ว"
+                      else "Global/SEA Meta already on Patch ${otaRes.currentPatch}",
+                  )
+              }
+              is OtaCheckStatus.Error -> {
+                _metaRefreshState.value = MetaRefreshState.Failed(server, otaRes.message)
+              }
+              else -> Unit
+            }
+          } else {
+            _metaRefreshState.value =
+              MetaRefreshState.Failed(
+                server = server,
+                message =
+                  if (lang == AppLanguage.TH) {
+                    "กรุณาตั้งค่า OTA Repo ใน Patch Center หรือสลับเป็นเซิร์ฟจีน (CN) เพื่อดึงสถิติสด"
+                  } else {
+                    "Configure OTA Repo in Patch Center or switch to CN Official for live stats."
+                  },
+              )
+          }
+        }
+      }
+    }
   }
 
   fun setLanguage(language: AppLanguage) {
@@ -369,6 +635,8 @@ class HomeAndPatchViewModel(
     private val gameDao: GameDao? = null,
     private val geminiCoachService: GeminiCoachService? = null,
     private val otaPatchRepository: OtaPatchRepository? = null,
+    private val officialPatchChecker: OfficialPatchVersionChecker? = null,
+    private val serverMetaSyncService: ServerMetaSyncService? = null,
   ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T =
@@ -378,6 +646,8 @@ class HomeAndPatchViewModel(
         gameDao = gameDao,
         geminiCoachService = geminiCoachService,
         otaPatchRepository = otaPatchRepository,
+        officialPatchChecker = officialPatchChecker,
+        serverMetaSyncService = serverMetaSyncService,
       ) as T
   }
 }

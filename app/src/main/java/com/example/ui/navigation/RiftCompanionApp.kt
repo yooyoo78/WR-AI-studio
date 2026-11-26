@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.Update
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,6 +35,9 @@ import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -50,8 +52,11 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.core.AppContainer
+import com.example.data.remote.LiveVersionCheckState
+import com.example.ui.components.LiveVersionCheckSheet
 import com.example.ui.components.PostGameReviewSheet
 import com.example.ui.components.QuickScanBottomSheet
+import com.example.ui.components.TopBarVersionCheckPill
 import com.example.ui.screens.AnalyzerScreen
 import com.example.ui.screens.ChampionDetailScreen
 import com.example.ui.screens.ChampionsScreen
@@ -103,6 +108,8 @@ fun RiftCompanionApp(appContainer: AppContainer) {
           appContainer.gameDao,
           appContainer.geminiCoachService,
           appContainer.otaPatchRepository,
+          appContainer.officialPatchVersionChecker,
+          appContainer.serverMetaSyncService,
         )
     )
   val analyzerVm: AnalyzerViewModel =
@@ -154,7 +161,10 @@ fun RiftCompanionApp(appContainer: AppContainer) {
   val patchActionStatus by homePatchVm.patchActionStatus.collectAsStateWithLifecycle()
   val validationResult by homePatchVm.validationResult.collectAsStateWithLifecycle()
   val otaStatus by homePatchVm.otaStatus.collectAsStateWithLifecycle()
+  val liveVersionState by homePatchVm.liveVersionState.collectAsStateWithLifecycle()
+  val metaRefreshState by homePatchVm.metaRefreshState.collectAsStateWithLifecycle()
   val patchSnapshots by homePatchVm.patchSnapshots.collectAsStateWithLifecycle()
+  var showVersionCheckSheet by remember { mutableStateOf(false) }
   val analyzerState by analyzerVm.uiState.collectAsStateWithLifecycle()
   val championsState by championsVm.uiState.collectAsStateWithLifecycle()
   val postGameState by championsVm.postGameState.collectAsStateWithLifecycle()
@@ -252,6 +262,16 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                   titleContentColor = HextechGold,
                 ),
               actions = {
+                TopBarVersionCheckPill(
+                  state = liveVersionState,
+                  language = prefs.language,
+                  onClick = {
+                    if (liveVersionState !is LiveVersionCheckState.Outdated) {
+                      homePatchVm.checkLiveGameVersion()
+                    }
+                    showVersionCheckSheet = true
+                  },
+                )
                 IconButton(
                   onClick = { appContainer.quickScanCoordinator.openSheet() },
                   modifier =
@@ -277,17 +297,6 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                     tint =
                       if (effectiveMiniMode) HextechGold
                       else MaterialTheme.colorScheme.onSurfaceVariant,
-                  )
-                }
-                IconButton(
-                  onClick = { navController.navigate(NavRoutes.PATCH_CENTER) },
-                  modifier =
-                    Modifier.minimumInteractiveComponentSize().testTag("topbar_patch_button"),
-                ) {
-                  Icon(
-                    Icons.Default.Update,
-                    contentDescription = strings.patchCenterTitle,
-                    tint = ArcaneCyan,
                   )
                 }
                 IconButton(
@@ -356,8 +365,11 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                 HomeDashboardScreen(
                   state = homeState,
                   otaStatus = otaStatus,
+                  metaRefreshState = metaRefreshState,
                   onSelectTierLane = homePatchVm::selectTierLane,
                   onSelectMetaSortMode = homePatchVm::selectMetaSortMode,
+                  onSelectMetaServer = homePatchVm::selectMetaServer,
+                  onRefreshMeta = homePatchVm::refreshServerMetaStats,
                   onOpenAnalyzer = { champId ->
                     if (champId != null) {
                       analyzerVm.selectMyChampionById(champId)
@@ -367,6 +379,7 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                   onOpenChampionDetail = { champId ->
                     navController.navigate(NavRoutes.championDetail(champId))
                   },
+                  onOpenChampions = { navigateTopLevel(NavRoutes.CHAMPIONS) },
                   onOpenDraft = { navigateTopLevel(NavRoutes.DRAFT) },
                   onOpenCoach = { navigateTopLevel(NavRoutes.COACH) },
                   onOpenQuickScan = { appContainer.quickScanCoordinator.openSheet() },
@@ -514,7 +527,10 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                   validationResult = validationResult,
                   sampleSchemaJson = homePatchVm.getSampleSchemaJson(),
                   otaStatus = otaStatus,
+                  liveVersionState = liveVersionState,
                   patchSnapshots = patchSnapshots,
+                  onCheckLiveVersion = homePatchVm::checkLiveGameVersion,
+                  onApplyLiveVersionUpdate = homePatchVm::applyUpdateFromLiveVersionCheck,
                   onSaveOtaConfig = homePatchVm::saveOtaConfig,
                   onCheckOtaUpdates = homePatchVm::checkOtaUpdates,
                   onApplyVerifiedOta = homePatchVm::applyVerifiedOtaPack,
@@ -588,6 +604,16 @@ fun RiftCompanionApp(appContainer: AppContainer) {
             navigateTopLevel(NavRoutes.COACH)
           },
           onDismiss = championsVm::dismissPostGameSheet,
+        )
+      }
+      if (showVersionCheckSheet) {
+        LiveVersionCheckSheet(
+          state = liveVersionState,
+          language = prefs.language,
+          onRecheck = homePatchVm::checkLiveGameVersion,
+          onApplyOtaUpdate = homePatchVm::applyUpdateFromLiveVersionCheck,
+          onOpenPatchCenter = { navController.navigate(NavRoutes.PATCH_CENTER) },
+          onDismiss = { showVersionCheckSheet = false },
         )
       }
     }

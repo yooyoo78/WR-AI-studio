@@ -32,6 +32,10 @@ data class UserPreferences(
   val autoCheckOtaOnLaunch: Boolean = true,
   val lastOtaCheckMs: Long = 0L,
   val lastKnownOtaTag: String = "",
+  val selectedMetaServerId: String = "cn_diamond",
+  val lastMetaSyncMs: Long = 0L,
+  val lastKnownOfficialPatch: String = "",
+  val lastOfficialCheckMs: Long = 0L,
 )
 
 class PreferencesRepository(private val context: Context) {
@@ -50,6 +54,10 @@ class PreferencesRepository(private val context: Context) {
     val AUTO_CHECK_OTA = booleanPreferencesKey("auto_check_ota_on_launch")
     val LAST_OTA_CHECK_MS = longPreferencesKey("last_ota_check_ms")
     val LAST_KNOWN_OTA_TAG = stringPreferencesKey("last_known_ota_tag")
+    val SELECTED_META_SERVER = stringPreferencesKey("selected_meta_server_id")
+    val LAST_META_SYNC_MS = longPreferencesKey("last_meta_sync_ms")
+    val LAST_KNOWN_OFFICIAL_PATCH = stringPreferencesKey("last_known_official_patch")
+    val LAST_OFFICIAL_CHECK_MS = longPreferencesKey("last_official_check_ms")
   }
 
   val preferencesFlow: Flow<UserPreferences> =
@@ -71,6 +79,10 @@ class PreferencesRepository(private val context: Context) {
         autoCheckOtaOnLaunch = prefs[Keys.AUTO_CHECK_OTA] ?: true,
         lastOtaCheckMs = prefs[Keys.LAST_OTA_CHECK_MS] ?: 0L,
         lastKnownOtaTag = prefs[Keys.LAST_KNOWN_OTA_TAG] ?: "",
+        selectedMetaServerId = prefs[Keys.SELECTED_META_SERVER] ?: "cn_diamond",
+        lastMetaSyncMs = prefs[Keys.LAST_META_SYNC_MS] ?: 0L,
+        lastKnownOfficialPatch = prefs[Keys.LAST_KNOWN_OFFICIAL_PATCH] ?: "",
+        lastOfficialCheckMs = prefs[Keys.LAST_OFFICIAL_CHECK_MS] ?: 0L,
       )
     }
 
@@ -121,6 +133,21 @@ class PreferencesRepository(private val context: Context) {
     context.dataStore.edit {
       it[Keys.LAST_OTA_CHECK_MS] = timestampMs
       if (latestTag.isNotBlank()) it[Keys.LAST_KNOWN_OTA_TAG] = latestTag
+    }
+  }
+
+  suspend fun setSelectedMetaServerId(serverId: String) {
+    context.dataStore.edit { it[Keys.SELECTED_META_SERVER] = serverId }
+  }
+
+  suspend fun setMetaSyncTimestamp(timestampMs: Long) {
+    context.dataStore.edit { it[Keys.LAST_META_SYNC_MS] = timestampMs }
+  }
+
+  suspend fun setOfficialPatchCheck(officialPatch: String, timestampMs: Long) {
+    context.dataStore.edit {
+      it[Keys.LAST_KNOWN_OFFICIAL_PATCH] = officialPatch
+      it[Keys.LAST_OFFICIAL_CHECK_MS] = timestampMs
     }
   }
 }

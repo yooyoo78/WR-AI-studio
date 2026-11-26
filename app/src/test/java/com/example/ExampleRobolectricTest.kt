@@ -1092,25 +1092,83 @@ class ExampleRobolectricTest {
 
     composeTestRule
       .onNodeWithTag("analyzer_lazy_column")
-      .performScrollToNode(hasTestTag("matchup_badge_soraka"))
-    composeTestRule.onNodeWithTag("matchup_badge_soraka").assertIsDisplayed()
+      .performScrollToNode(hasTestTag("matchup_card_soraka"))
+    composeTestRule.onNodeWithTag("matchup_badge_soraka", useUnmergedTree = true).assertIsDisplayed()
   }
 
   @Test
   fun `cuj patch center displays signed ota config and check controls`() {
     composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("topbar_patch_button").assertIsDisplayed().performClick()
+    composeTestRule.onNodeWithTag("home_patch_card").performScrollTo().assertIsDisplayed().performClick()
     composeTestRule.waitForIdle()
 
-    composeTestRule
-      .onNodeWithTag("patch_lazy_column")
-      .performScrollToNode(hasTestTag("ota_config_card"))
+    composeTestRule.onNodeWithTag("patch_overview_card").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("patch_open_notes_sheet_button").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("patch_open_ota_sheet_button").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("patch_ota_config_sheet").assertIsDisplayed()
     composeTestRule.onNodeWithTag("ota_config_card").assertIsDisplayed()
     composeTestRule.onNodeWithTag("ota_repo_input").assertIsDisplayed()
     composeTestRule.onNodeWithTag("ota_pubkey_input").assertIsDisplayed()
     composeTestRule.onNodeWithTag("ota_check_button").assertIsDisplayed()
-    composeTestRule.onNodeWithTag("patch_back_button").performClick()
+  }
+
+  @Test
+  fun `cuj topbar version check pill displays red green led and opens version sheet`() {
     composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("topbar_version_check_button").assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("topbar_version_led", useUnmergedTree = true)
+      .assertIsDisplayed()
+
+    composeTestRule.onNodeWithTag("topbar_version_check_button").performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("live_version_check_sheet").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("version_sheet_recheck_button").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("version_sheet_open_patch_button").assertIsDisplayed()
+  }
+
+  @Test
+  fun `cuj home server selector switches server and triggers refresh cleanly`() {
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("home_lazy_column")
+      .performScrollToNode(hasTestTag("top_played_meta_widget"))
+    composeTestRule.onNodeWithTag("meta_server_selector_chip").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("meta_server_option_GLOBAL_SEA").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("meta_refresh_button").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("meta_refresh_status").assertIsDisplayed()
+  }
+
+  @Test
+  fun `cuj decluttered champions filter sheet and analyzer matchup detail sheet`() {
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("nav_champions").performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("champions_filter_button").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("champions_filter_sheet").assertIsDisplayed()
+
+    composeTestRule.onNodeWithTag("nav_analyzer").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("analyzer_lazy_column").performScrollToIndex(1)
+    composeTestRule.onNodeWithTag("preset_heal_burst").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule
+      .onNodeWithTag("analyzer_lazy_column")
+      .performScrollToNode(hasTestTag("matchup_card_soraka"))
+    composeTestRule.onNodeWithTag("matchup_card_soraka").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("analyzer_matchup_detail_sheet").assertIsDisplayed()
   }
 
   @Test

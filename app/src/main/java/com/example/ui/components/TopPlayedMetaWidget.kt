@@ -28,11 +28,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -59,6 +66,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.model.AppLanguage
 import com.example.data.model.Lane
+import com.example.data.remote.MetaRefreshState
+import com.example.data.remote.MetaServerRegion
 import com.example.domain.engine.TopMetaChampionEntry
 import com.example.domain.engine.TopMetaSortMode
 import com.example.ui.theme.AdvantageEmerald
@@ -75,6 +84,9 @@ import com.example.ui.theme.SkillViolet
 import com.example.ui.theme.TextMutedLight
 import com.example.ui.theme.ThreatCrimson
 import com.example.ui.theme.WarningAmber
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -86,6 +98,11 @@ fun TopPlayedMetaWidget(
   avgPickRatePct: Double,
   patchVersion: String,
   language: AppLanguage,
+  selectedServer: MetaServerRegion = MetaServerRegion.CN_DIAMOND_PLUS,
+  metaRefreshState: MetaRefreshState = MetaRefreshState.Idle,
+  lastSyncedMs: Long = 0L,
+  onSelectServer: (MetaServerRegion) -> Unit = {},
+  onRefreshMeta: () -> Unit = {},
   onSelectLane: (Lane?) -> Unit,
   onSelectSortMode: (TopMetaSortMode) -> Unit,
   onOpenChampionDetail: (String) -> Unit,
@@ -94,6 +111,7 @@ fun TopPlayedMetaWidget(
 ) {
   val isMiniMode = LocalInGameMiniMode.current
   var expandedChampionId by remember { mutableStateOf<String?>(null) }
+  var serverMenuExpanded by remember { mutableStateOf(false) }
 
   Surface(
     shape = MaterialTheme.shapes.large,
@@ -115,7 +133,7 @@ fun TopPlayedMetaWidget(
       modifier = Modifier.padding(if (isMiniMode) 10.dp else 14.dp),
       verticalArrangement = Arrangement.spacedBy(if (isMiniMode) 8.dp else 10.dp),
     ) {
-      // Widget Header + Patch Badge + Aggregate Snapshot
+      // Widget Header + Patch Badge
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -144,8 +162,8 @@ fun TopPlayedMetaWidget(
           Column(modifier = Modifier.weight(1f)) {
             Text(
               text =
-                if (language == AppLanguage.TH) "Top 5 เมต้าแรงก์ที่ถูกเล่นมากสุด"
-                else "Top 5 Ranked Played Meta",
+                if (language == AppLanguage.TH) "Top 5 เมต้า & Tier List"
+                else "Top 5 Ranked Meta",
               style =
                 if (isMiniMode) MaterialTheme.typography.titleSmall
                 else MaterialTheme.typography.titleMedium,
@@ -156,11 +174,8 @@ fun TopPlayedMetaWidget(
             )
             Text(
               text =
-                if (language == AppLanguage.TH) {
-                  "อ้างอิงสถิติแรงก์ (Win Rate • Tier • Pick/Ban Rate)"
-                } else {
-                  "Wild Rift Ranked History & Live Patch Meta"
-                },
+                if (language == AppLanguage.TH) "สถิติ Win Rate • Pick • Ban แรงก์"
+                else "Win Rate • Tier • Pick/Ban",
               style = MaterialTheme.typography.labelSmall,
               color = TextMutedLight,
               maxLines = 1,
@@ -171,7 +186,159 @@ fun TopPlayedMetaWidget(
         Spacer(modifier = Modifier.width(6.dp))
         PatchBadgePill(
           patchVersion = patchVersion,
-          sourceLabel = "Ranked",
+          sourceLabel = selectedServer.shortLabel,
+        )
+      }
+
+      // Per-Server Live Data Selector + Refresh Control
+      Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          Box(modifier = Modifier.weight(1f)) {
+            Surface(
+              onClick = { serverMenuExpanded = true },
+              shape = RoundedCornerShape(10.dp),
+              color = HextechSurfaceHigh,
+              border = BorderStroke(1.dp, ArcaneCyan.copy(alpha = 0.45f)),
+              modifier = Modifier.fillMaxWidth().minimumInteractiveComponentSize().testTag("meta_server_selector_chip"),
+            ) {
+              Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+              ) {
+                Icon(
+                  imageVector = Icons.Default.Public,
+                  contentDescription = null,
+                  tint = ArcaneCyan,
+                  modifier = Modifier.size(15.dp),
+                )
+                Text(
+                  text =
+                    if (language == AppLanguage.TH) selectedServer.labelTh
+                    else selectedServer.labelEn,
+                  style = MaterialTheme.typography.labelMedium,
+                  color = ArcaneCyan,
+                  fontWeight = FontWeight.SemiBold,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                  modifier = Modifier.weight(1f),
+                )
+                Icon(
+                  imageVector = Icons.Default.ArrowDropDown,
+                  contentDescription = "Select Server",
+                  tint = ArcaneCyan,
+                  modifier = Modifier.size(16.dp),
+                )
+              }
+            }
+            DropdownMenu(
+              expanded = serverMenuExpanded,
+              onDismissRequest = { serverMenuExpanded = false },
+            ) {
+              MetaServerRegion.entries.forEach { server ->
+                val isSelected = server == selectedServer
+                DropdownMenuItem(
+                  text = {
+                    Text(
+                      text = if (language == AppLanguage.TH) server.labelTh else server.labelEn,
+                      fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                      color = if (isSelected) ArcaneCyan else MaterialTheme.colorScheme.onSurface,
+                    )
+                  },
+                  trailingIcon =
+                    if (isSelected) {
+                      {
+                        Icon(
+                          Icons.Default.Check,
+                          contentDescription = null,
+                          tint = ArcaneCyan,
+                          modifier = Modifier.size(16.dp),
+                        )
+                      }
+                    } else null,
+                  onClick = {
+                    onSelectServer(server)
+                    serverMenuExpanded = false
+                  },
+                  modifier = Modifier.testTag("meta_server_option_${server.name}"),
+                )
+              }
+            }
+          }
+
+          val isRefreshing = metaRefreshState is MetaRefreshState.Refreshing
+          OutlinedButton(
+            onClick = onRefreshMeta,
+            enabled = !isRefreshing,
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+            modifier = Modifier.minimumInteractiveComponentSize().testTag("meta_refresh_button"),
+          ) {
+            if (isRefreshing) {
+              CircularProgressIndicator(
+                modifier = Modifier.size(14.dp),
+                strokeWidth = 2.dp,
+                color = AdvantageEmerald,
+              )
+            } else {
+              Icon(
+                imageVector = Icons.Default.Refresh,
+                contentDescription = if (language == AppLanguage.TH) "รีเฟรชข้อมูลเมต้า" else "Refresh Meta Stats",
+                tint = AdvantageEmerald,
+                modifier = Modifier.size(16.dp),
+              )
+            }
+            Spacer(modifier = Modifier.width(5.dp))
+            Text(
+              text =
+                when {
+                  isRefreshing && language == AppLanguage.TH -> "กำลังซิงค์"
+                  isRefreshing -> "Syncing"
+                  language == AppLanguage.TH -> "รีเฟรช"
+                  else -> "Refresh"
+                },
+              style = MaterialTheme.typography.labelMedium,
+              fontWeight = FontWeight.Bold,
+              color = AdvantageEmerald,
+              maxLines = 1,
+            )
+          }
+        }
+
+        val statusInfo: Pair<String, Color> =
+          when (metaRefreshState) {
+            is MetaRefreshState.Refreshing ->
+              (if (language == AppLanguage.TH) "กำลังดึงสถิติ ${metaRefreshState.server.shortLabel} (Patch $patchVersion)..."
+              else "Syncing ${metaRefreshState.server.shortLabel} ranked stats (Patch $patchVersion)...") to ArcaneCyan
+            is MetaRefreshState.Synced -> {
+              val timeStr =
+                SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(metaRefreshState.syncedAtMs))
+              "${metaRefreshState.note} • Patch ${metaRefreshState.patchVersion} ($timeStr)" to AdvantageEmerald
+            }
+            is MetaRefreshState.Failed ->
+              metaRefreshState.message to ThreatCrimson
+            MetaRefreshState.Idle -> {
+              if (lastSyncedMs > 0L) {
+                val timeStr =
+                  SimpleDateFormat("dd MMM HH:mm", Locale.getDefault()).format(Date(lastSyncedMs))
+                (if (language == AppLanguage.TH) "ซิงค์ล่าสุด $timeStr • ${selectedServer.shortLabel} • Patch $patchVersion"
+                else "Synced $timeStr • ${selectedServer.shortLabel} • Patch $patchVersion") to TextMutedLight
+              } else {
+                (if (language == AppLanguage.TH) "ฐานข้อมูล Patch $patchVersion • กดรีเฟรชเพื่อซิงค์สถิติ ${selectedServer.shortLabel}"
+                else "Patch $patchVersion matrix • Tap Refresh to sync ${selectedServer.shortLabel}") to TextMutedLight
+              }
+            }
+          }
+        Text(
+          text = statusInfo.first,
+          style = MaterialTheme.typography.labelSmall,
+          color = statusInfo.second,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+          modifier = Modifier.padding(horizontal = 2.dp).testTag("meta_refresh_status"),
         )
       }
 

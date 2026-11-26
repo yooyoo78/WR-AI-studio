@@ -13,7 +13,9 @@ import com.example.data.local.PreferencesRepository
 import com.example.data.local.SecureApiKeyStore
 import com.example.data.model.ChampionRole
 import com.example.data.model.Lane
+import com.example.data.remote.OfficialPatchVersionChecker
 import com.example.data.remote.OtaPatchRepository
+import com.example.data.remote.ServerMetaSyncService
 import com.example.data.repository.GameDataRepository
 import com.example.domain.engine.BuildAccuracyEngine
 import com.example.domain.engine.ChampionScanMatcher
@@ -99,6 +101,10 @@ class AppContainer(context: Context) {
       preferencesRepository = preferencesRepository,
     )
   }
+  val officialPatchVersionChecker: OfficialPatchVersionChecker by lazy {
+    OfficialPatchVersionChecker()
+  }
+  val serverMetaSyncService: ServerMetaSyncService by lazy { ServerMetaSyncService() }
   val quickScanCoordinator: QuickScanCoordinator by lazy {
     QuickScanCoordinator(
       context = appContext,

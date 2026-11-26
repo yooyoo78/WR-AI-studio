@@ -29,7 +29,9 @@ import com.example.data.model.TierRank
 import com.example.data.model.tier2BootBaseId
 import com.example.data.model.tier3BootUpgradeId
 import com.example.data.remote.EcdsaSignatureVerifier
+import com.example.data.remote.OfficialPatchParser
 import com.example.data.remote.PatchDiffBuilder
+import com.example.data.remote.ServerMetaSyncParser
 import com.example.data.validation.PatchDataValidator
 import com.example.domain.engine.BuildAccuracyEngine
 import com.example.domain.engine.DraftAssistantEngine
@@ -969,5 +971,63 @@ class EngineModuleUnitTests {
     assertEquals(targetMidChamp.id, firstEntry.champion.id)
     assertEquals(2, firstEntry.personalGames)
     assertEquals(50, firstEntry.personalWinRatePct)
+  }
+
+  @Test
+  fun `OfficialPatchParser extracts latest live patch and compares patch versions semantically`() {
+    assertTrue(OfficialPatchParser.comparePatchVersions("7.3f", "7.3g") < 0)
+    assertTrue(OfficialPatchParser.comparePatchVersions("7.3g", "7.4") < 0)
+    assertTrue(OfficialPatchParser.comparePatchVersions("7.4", "7.4a") < 0)
+    assertEquals(0, OfficialPatchParser.comparePatchVersions("Patch 7.3f", "v7.3f"))
+
+    val sampleHtml =
+      """
+      <html><body>
+        <a href="/en-us/news/game-updates/wild-rift-patch-notes-7-3f/">Wild Rift Patch Notes 7.3f</a>
+        <a href="/en-us/news/game-updates/wild-rift-patch-notes-7-3g/">Wild Rift Patch Notes 7.3g</a>
+      </body></html>
+      """.trimIndent()
+    val extracted = OfficialPatchParser.extractLatestPatchFromHtml(sampleHtml)
+    assertEquals("7.3g", extracted?.patchVersion)
+    assertTrue(extracted?.articleUrl?.contains("7-3g") == true)
+  }
+
+  @Test
+  fun `ServerMetaSyncParser maps CN hero list and ranked stats JSON to local champions`() {
+    val seed = loadSeedPayload()
+    val heroListJs =
+      """
+      var hero_list = {
+        "version": "7.3g",
+        "heroList": {
+          "103": {"heroId": "103", "alias": "Ahri"},
+          "62": {"heroId": "62", "alias": "MonkeyKing"},
+          "36": {"heroId": "36", "alias": "DrMundo"}
+        }
+      };
+      """.trimIndent()
+    val rankListJson =
+      """
+      {
+        "result": 0,
+        "data": {
+          "3": [
+            {"hero_id": "103", "win_rate": 0.534, "appear_rate": 0.142, "forbid_rate": 0.125},
+            {"hero_id": "62", "win_rate": 51.8, "appear_rate": 9.4, "forbid_rate": 4.2},
+            {"hero_id": "36", "win_rate": "50.6%", "appear_rate": "6.5%", "forbid_rate": "8.1%"}
+          ]
+        }
+      }
+      """.trimIndent()
+
+    val parsed = ServerMetaSyncParser.parseCnFeed(heroListJs, rankListJson, seed.champions)
+    assertEquals("7.3g", parsed.patchVersionHint)
+    assertEquals(3, parsed.updates.size)
+    val byId = parsed.updates.associateBy { it.championId }
+    assertEquals(53.4, byId.getValue("ahri").winRatePct, 0.01)
+    assertEquals(14.2, byId.getValue("ahri").pickRatePct, 0.01)
+    assertEquals(TierRank.S_PLUS, byId.getValue("ahri").tierRank)
+    assertTrue("MonkeyKing should map to local 'wukong'", "wukong" in byId)
+    assertTrue("DrMundo should map to local 'dr_mundo'", "dr_mundo" in byId)
   }
 }

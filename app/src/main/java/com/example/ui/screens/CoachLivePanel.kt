@@ -350,8 +350,8 @@ fun CoachLivePanel(
           ) {
             Text(
               text =
-                if (language == AppLanguage.TH) "โหมด Live Coach (ประหยัดโควตา • กดวิเคราะห์เมื่อต้องการ)"
-                else "Live Coach Mode (On-Demand Screen Analysis)",
+                if (language == AppLanguage.TH) "โหมด Live Coach (ประหยัดโควตา)"
+                else "Live Coach (On-Demand)",
               style = MaterialTheme.typography.titleSmall,
               fontWeight = FontWeight.Bold,
               color = ArcaneCyan,
@@ -359,13 +359,11 @@ fun CoachLivePanel(
             Text(
               text =
                 if (language == AppLanguage.TH) {
-                  "• หน้าดราฟต์ (Champ Select): กด 'เปิดดูหน้าจอสด' หรือดึงแถบแจ้งเตือนกด 'แคป & สแกน' เพื่อรับคำแนะนำตัวที่ควรหยิบและไอเทมแก้ทางแบบกระชับ\n" +
-                    "• หน้าโหลดก่อนเริ่มเกม: แนะนำไอเทมแรก, Enchant และแผนยืนเลนต้นเกมกับคู่ต่อสู้ที่เจอทันที (เปิด 'พูดสด' เพื่อฟังเสียงอ่านอัตโนมัติได้)"
+                  "กด 'เปิดดูหน้าจอสด' หรือ 'รูปภาพ' เพื่อสแกนหน้าดราฟต์/โหลดเกมและรับคำแนะนำทันที"
                 } else {
-                  "• Champ Select: Tap Live Screen or notification 'Capture & Scan' for concise pick suggestions and counter items.\n" +
-                    "• Loading Screen: Get instant starter/first-item advice and Lv 1–5 laning tips against detected opponents (enable Voice for auto read-aloud)."
+                  "Tap 'Enable Live Screen' or 'Image' to scan Draft or Loading Screen on demand."
                 },
-              style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 21.sp),
+              style = MaterialTheme.typography.bodySmall,
               color = TextPrimaryLight,
             )
           }

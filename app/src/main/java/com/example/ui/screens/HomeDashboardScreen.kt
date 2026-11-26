@@ -1,8 +1,6 @@
 package com.example.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,32 +23,27 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Update
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -58,13 +51,13 @@ import androidx.compose.ui.unit.dp
 import com.example.data.model.AppLanguage
 import com.example.data.model.ChampionData
 import com.example.data.model.Lane
-import com.example.data.model.PatchChangeType
+import com.example.data.remote.MetaRefreshState
+import com.example.data.remote.MetaServerRegion
 import com.example.data.remote.OtaCheckStatus
 import com.example.domain.engine.TopMetaSortMode
 import com.example.ui.components.ChampionCrestAvatar
 import com.example.ui.components.DamageTypeBadge
 import com.example.ui.components.HextechCard
-import com.example.ui.components.PatchBadgePill
 import com.example.ui.components.TierBadge
 import com.example.ui.components.TopPlayedMetaWidget
 import com.example.ui.components.WinRatePillsRow
@@ -72,21 +65,26 @@ import com.example.ui.theme.AdvantageEmerald
 import com.example.ui.theme.ArcaneCyan
 import com.example.ui.theme.HextechGold
 import com.example.ui.theme.HextechGoldBright
+import com.example.ui.theme.HextechOutline
+import com.example.ui.theme.HextechSurface
 import com.example.ui.theme.HextechSurfaceHigh
 import com.example.ui.theme.LocalInGameMiniMode
 import com.example.ui.theme.LocalUiStrings
-import com.example.ui.theme.ThreatCrimson
-import com.example.ui.theme.WarningAmber
+import com.example.ui.theme.TextMutedLight
 import com.example.ui.viewmodel.HomeUiState
 
 @Composable
 fun HomeDashboardScreen(
   state: HomeUiState,
   otaStatus: OtaCheckStatus = OtaCheckStatus.Idle,
+  metaRefreshState: MetaRefreshState = MetaRefreshState.Idle,
   onSelectTierLane: (Lane?) -> Unit,
   onSelectMetaSortMode: (TopMetaSortMode) -> Unit = {},
+  onSelectMetaServer: (MetaServerRegion) -> Unit = {},
+  onRefreshMeta: () -> Unit = {},
   onOpenAnalyzer: (String?) -> Unit,
   onOpenChampionDetail: (String) -> Unit,
+  onOpenChampions: () -> Unit = {},
   onOpenDraft: () -> Unit,
   onOpenCoach: () -> Unit,
   onOpenQuickScan: () -> Unit = {},
@@ -96,7 +94,7 @@ fun HomeDashboardScreen(
   val strings = LocalUiStrings.current
   val isMiniMode = LocalInGameMiniMode.current
   val lang = state.preferences.language
-  var patchExpanded by remember { mutableStateOf(false) }
+  val activePatchVersion = state.activePatch?.version ?: state.preferences.activePatchLabel
 
   Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
@@ -104,333 +102,154 @@ fun HomeDashboardScreen(
       contentPadding = PaddingValues(if (isMiniMode) 8.dp else 12.dp),
       verticalArrangement = Arrangement.spacedBy(if (isMiniMode) 8.dp else 10.dp),
     ) {
-      // Hero Tactical Command Banner (slim quick-bar in Mini-Window Mode)
+      // 1. Top Quick Shortcuts Row (1-tap navigation to core tools without crowding screen)
       item {
-        if (isMiniMode) {
-          HextechCard(accentColor = HextechGold) {
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.spacedBy(8.dp),
-              verticalAlignment = Alignment.CenterVertically,
-            ) {
-              Button(
-                onClick = { onOpenAnalyzer(null) },
-                modifier =
-                  Modifier.weight(1f)
-                    .minimumInteractiveComponentSize()
-                    .testTag("home_launch_analyzer_button"),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                colors =
-                  ButtonDefaults.buttonColors(
-                    containerColor = HextechGold,
-                    contentColor = Color(0xFF0A0F1A),
-                  ),
-              ) {
-                Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                  text = strings.navAnalyzer,
-                  style = MaterialTheme.typography.labelLarge,
-                  fontWeight = FontWeight.Bold,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis,
-                )
-              }
-              OutlinedButton(
-                onClick = onOpenDraft,
-                modifier = Modifier.minimumInteractiveComponentSize().testTag("home_open_draft_button"),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-              ) {
-                Icon(Icons.Default.Groups, contentDescription = strings.openDraftCta, modifier = Modifier.size(16.dp))
-              }
-              OutlinedButton(
-                onClick = onOpenCoach,
-                modifier = Modifier.minimumInteractiveComponentSize().testTag("home_open_coach_button"),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-              ) {
-                Icon(
-                  Icons.Default.AutoAwesome,
-                  contentDescription = strings.openCoachCta,
-                  tint = ArcaneCyan,
-                  modifier = Modifier.size(16.dp),
-                )
-              }
-              OutlinedButton(
-                onClick = onOpenQuickScan,
-                modifier = Modifier.minimumInteractiveComponentSize().testTag("home_quick_scan_button"),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-              ) {
-                Icon(
-                  Icons.Default.CameraAlt,
-                  contentDescription = strings.quickScanCta,
-                  tint = AdvantageEmerald,
-                  modifier = Modifier.size(16.dp),
-                )
-              }
-            }
+        LazyRow(
+          modifier = Modifier.fillMaxWidth().testTag("home_shortcuts_row"),
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          item {
+            QuickShortcutTile(
+              icon = Icons.Default.Security,
+              label = if (lang == AppLanguage.TH) "วิเคราะห์ 1v5" else "1v5 Build",
+              accent = HextechGoldBright,
+              filled = true,
+              onClick = { onOpenAnalyzer(null) },
+              modifier = Modifier.testTag("home_launch_analyzer_button"),
+            )
           }
-        } else {
-          Surface(
-            shape = MaterialTheme.shapes.large,
-            color = Color.Transparent,
-            border = BorderStroke(0.75.dp, HextechGold.copy(alpha = 0.25f)),
-            modifier =
-              Modifier.fillMaxWidth()
-                .clip(MaterialTheme.shapes.large)
-                .background(
-                  Brush.linearGradient(
-                    listOf(Color(0xFF101B30), HextechSurfaceHigh, Color(0xFF142138))
-                  )
-                ),
-          ) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-              Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-              ) {
-                Column(modifier = Modifier.weight(1f)) {
-                  Text(
-                    text = strings.appTitle,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = HextechGoldBright,
-                    fontWeight = FontWeight.Bold,
-                  )
-                  Text(
-                    text = strings.heroTagline,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                  )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                PatchBadgePill(
-                  patchVersion = state.activePatch?.version ?: state.preferences.activePatchLabel,
-                  sourceLabel = state.activePatch?.releaseDate ?: "Meta",
-                )
-              }
-
-              Button(
-                onClick = { onOpenAnalyzer(null) },
-                modifier =
-                  Modifier.fillMaxWidth()
-                    .minimumInteractiveComponentSize()
-                    .testTag("home_launch_analyzer_button"),
-                colors =
-                  ButtonDefaults.buttonColors(
-                    containerColor = HextechGold,
-                    contentColor = Color(0xFF0A0F1A),
-                  ),
-              ) {
-                Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                  text = strings.quickAnalyzeCta,
-                  style = MaterialTheme.typography.labelLarge,
-                  fontWeight = FontWeight.Bold,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
-              }
-
-              Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-              ) {
-                OutlinedButton(
-                  onClick = onOpenDraft,
-                  contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
-                  modifier =
-                    Modifier.weight(1f)
-                      .minimumInteractiveComponentSize()
-                      .testTag("home_open_draft_button"),
-                ) {
-                  Icon(Icons.Default.Groups, contentDescription = null, modifier = Modifier.size(16.dp))
-                  Spacer(modifier = Modifier.width(4.dp))
-                  Text(
-                    text = strings.openDraftCta,
-                    style = MaterialTheme.typography.labelMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                  )
-                }
-                OutlinedButton(
-                  onClick = onOpenCoach,
-                  contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
-                  modifier =
-                    Modifier.weight(1f)
-                      .minimumInteractiveComponentSize()
-                      .testTag("home_open_coach_button"),
-                ) {
-                  Icon(
-                    Icons.Default.AutoAwesome,
-                    contentDescription = null,
-                    tint = ArcaneCyan,
-                    modifier = Modifier.size(16.dp),
-                  )
-                  Spacer(modifier = Modifier.width(4.dp))
-                  Text(
-                    text = strings.openCoachCta,
-                    style = MaterialTheme.typography.labelMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                  )
-                }
-                OutlinedButton(
-                  onClick = onOpenQuickScan,
-                  contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
-                  modifier =
-                    Modifier.weight(1f)
-                      .minimumInteractiveComponentSize()
-                      .testTag("home_quick_scan_button"),
-                ) {
-                  Icon(
-                    Icons.Default.CameraAlt,
-                    contentDescription = null,
-                    tint = AdvantageEmerald,
-                    modifier = Modifier.size(16.dp),
-                  )
-                  Spacer(modifier = Modifier.width(4.dp))
-                  Text(
-                    text = if (lang == AppLanguage.TH) "สแกนจอ" else "Scan",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = AdvantageEmerald,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                  )
-                }
-              }
-            }
+          item {
+            QuickShortcutTile(
+              icon = Icons.Default.Groups,
+              label = if (lang == AppLanguage.TH) "ดราฟต์" else "Draft",
+              accent = ArcaneCyan,
+              onClick = onOpenDraft,
+              modifier = Modifier.testTag("home_open_draft_button"),
+            )
           }
-        }
-      }
-
-      if (otaStatus is OtaCheckStatus.UpdateReady) {
-        item {
-          val diff = otaStatus.download.diff
-          HextechCard(
-            accentColor = AdvantageEmerald,
-            onClick = onOpenPatchCenter,
-            modifier = Modifier.fillMaxWidth().testTag("home_ota_update_banner"),
-          ) {
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-              Column(modifier = Modifier.weight(1f)) {
-                Text(
-                  text =
-                    if (lang == AppLanguage.TH) {
-                      "พบ OTA Patch ${diff.incomingPatchVersion} (ยืนยันลายเซ็นแล้ว ✓)"
-                    } else {
-                      "Signed OTA Patch ${diff.incomingPatchVersion} Ready ✓"
-                    },
-                  style = MaterialTheme.typography.titleSmall,
-                  fontWeight = FontWeight.Bold,
-                  color = AdvantageEmerald,
-                )
-                Text(
-                  text =
-                    if (lang == AppLanguage.TH) "แตะเพื่อดู Diff และอัปเดตใน Patch Center"
-                    else "Tap to inspect diff & apply in Patch Center",
-                  style = MaterialTheme.typography.bodySmall,
-                  color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-              }
-              Icon(
-                Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = "Open Patch Center",
-                tint = AdvantageEmerald,
-              )
-            }
+          item {
+            QuickShortcutTile(
+              icon = Icons.Default.AutoAwesome,
+              label = if (lang == AppLanguage.TH) "AI โค้ช" else "Coach",
+              accent = ArcaneCyan,
+              onClick = onOpenCoach,
+              modifier = Modifier.testTag("home_open_coach_button"),
+            )
           }
-        }
-      }
-
-      // Quick Utility Shortcuts (hidden in Mini-Window Mode)
-      if (!isMiniMode) {
-        item {
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-          ) {
-            HextechCard(
-              modifier = Modifier.weight(1f).testTag("home_patch_card"),
-              accentColor = ArcaneCyan,
+          item {
+            QuickShortcutTile(
+              icon = Icons.Default.CameraAlt,
+              label = if (lang == AppLanguage.TH) "สแกนจอ" else "Scan",
+              accent = AdvantageEmerald,
+              onClick = onOpenQuickScan,
+              modifier = Modifier.testTag("home_quick_scan_button"),
+            )
+          }
+          item {
+            QuickShortcutTile(
+              icon = Icons.Default.Shield,
+              label = if (lang == AppLanguage.TH) "แชมเปี้ยน" else "Champs",
+              accent = HextechGold,
+              onClick = onOpenChampions,
+              modifier = Modifier.testTag("home_open_champions_shortcut"),
+            )
+          }
+          item {
+            QuickShortcutTile(
+              icon = Icons.Default.Update,
+              label = if (lang == AppLanguage.TH) "แพตช์" else "Patch",
+              accent = ArcaneCyan,
               onClick = onOpenPatchCenter,
-            ) {
-              Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Update, contentDescription = null, tint = ArcaneCyan, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                  text = strings.patchCenterTitle,
-                  style = MaterialTheme.typography.titleSmall,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis,
-                )
-              }
-              Spacer(modifier = Modifier.height(4.dp))
-              Text(
-                text = "${state.totalChampions} Champs • ${state.totalItems} Items",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-              )
-            }
-            HextechCard(
-              modifier = Modifier.weight(1f).testTag("home_settings_card"),
-              accentColor = HextechGold,
+              modifier = Modifier.testTag("home_patch_card"),
+            )
+          }
+          item {
+            QuickShortcutTile(
+              icon = Icons.Default.Settings,
+              label = if (lang == AppLanguage.TH) "ตั้งค่า" else "Settings",
+              accent = HextechGold,
               onClick = onOpenSettings,
+              modifier = Modifier.testTag("home_settings_card"),
+            )
+          }
+        }
+      }
+
+      // 2. Slim Single-Line Active Patch Version Pill (Tap to view patch details in Patch Center)
+      item {
+        val hasOtaUpdate = otaStatus is OtaCheckStatus.UpdateReady
+        val pillAccent = if (hasOtaUpdate) AdvantageEmerald else ArcaneCyan
+        Surface(
+          onClick = onOpenPatchCenter,
+          shape = MaterialTheme.shapes.medium,
+          color = HextechSurfaceHigh,
+          border = BorderStroke(1.dp, pillAccent.copy(alpha = 0.45f)),
+          modifier = Modifier.fillMaxWidth().minimumInteractiveComponentSize().testTag("home_active_patch_pill"),
+        ) {
+          Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+          ) {
+            Row(
+              modifier = Modifier.weight(1f),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-              Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Settings, contentDescription = null, tint = HextechGold, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(6.dp))
+              Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = HextechGold.copy(alpha = 0.16f),
+                border = BorderStroke(0.75.dp, HextechGold.copy(alpha = 0.55f)),
+              ) {
                 Text(
-                  text = strings.settingsTitle,
-                  style = MaterialTheme.typography.titleSmall,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis,
+                  text = "Patch $activePatchVersion",
+                  style = MaterialTheme.typography.labelMedium,
+                  fontWeight = FontWeight.Bold,
+                  color = HextechGoldBright,
+                  modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                 )
               }
-              Spacer(modifier = Modifier.height(4.dp))
               Text(
                 text =
-                  "${state.preferences.language.displayLabel} • ${(state.preferences.fontScaleMultiplier * 100).toInt()}%",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  when {
+                    hasOtaUpdate && lang == AppLanguage.TH ->
+                      "พบ OTA Patch ${(otaStatus as OtaCheckStatus.UpdateReady).download.diff.incomingPatchVersion} • แตะดูรายละเอียด"
+                    hasOtaUpdate ->
+                      "OTA Patch ${(otaStatus as OtaCheckStatus.UpdateReady).download.diff.incomingPatchVersion} Ready • Tap to view"
+                    lang == AppLanguage.TH -> "แตะเพื่อดูรายละเอียดแพตช์ & อัปเดต"
+                    else -> "Tap for Patch Notes & OTA Details"
+                  },
+                style = MaterialTheme.typography.labelMedium,
+                color = if (hasOtaUpdate) AdvantageEmerald else TextMutedLight,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
               )
             }
+            Icon(
+              imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+              contentDescription = strings.patchCenterTitle,
+              tint = pillAccent,
+              modifier = Modifier.size(16.dp),
+            )
           }
         }
       }
 
-      // Favorites Quick Launch Strip (tapping portrait/card opens Champion Profile)
-      item {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-          Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-          ) {
-            Icon(Icons.Default.Star, contentDescription = null, tint = HextechGold, modifier = Modifier.size(18.dp))
-            Text(text = strings.favoritesTitle, style = MaterialTheme.typography.titleMedium)
-          }
-
-          if (state.favoriteChampions.isEmpty()) {
-            HextechCard {
-              Text(
-                text = strings.noFavoritesHint,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-              )
+      // 3. Compact Favorites Quick Strip (only bulky if populated; single-line pill when empty)
+      if (state.favoriteChampions.isNotEmpty()) {
+        item {
+          Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+              Icon(Icons.Default.Star, contentDescription = null, tint = HextechGold, modifier = Modifier.size(16.dp))
+              Text(text = strings.favoritesTitle, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             }
-          } else {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
               items(state.favoriteChampions, key = { it.id }) { fav ->
                 HextechCard(
-                  modifier = Modifier.width(172.dp).testTag("home_fav_${fav.id}"),
+                  modifier = Modifier.width(166.dp).testTag("home_fav_${fav.id}"),
                   accentColor = HextechGold,
                   onClick = { onOpenChampionDetail(fav.id) },
                 ) {
@@ -438,11 +257,12 @@ fun HomeDashboardScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                   ) {
-                    ChampionCrestAvatar(champion = fav, size = 36.dp)
+                    ChampionCrestAvatar(champion = fav, size = 34.dp)
                     Column(modifier = Modifier.weight(1f)) {
                       Text(
                         text = fav.displayName(lang),
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                       )
@@ -474,7 +294,7 @@ fun HomeDashboardScreen(
         }
       }
 
-      // Top 5 Ranked Played Meta & Win Rate Widget
+      // 4. Top 5 Ranked Meta & Win Rate Widget (with Per-Server Selector + Refresh)
       item {
         TopPlayedMetaWidget(
           entries = state.topPlayedMeta,
@@ -482,8 +302,13 @@ fun HomeDashboardScreen(
           selectedSortMode = state.selectedMetaSortMode,
           avgWinRatePct = state.topMetaAvgWinRatePct,
           avgPickRatePct = state.topMetaAvgPickRatePct,
-          patchVersion = state.activePatch?.version ?: state.preferences.activePatchLabel,
+          patchVersion = activePatchVersion,
           language = lang,
+          selectedServer = state.selectedMetaServer,
+          metaRefreshState = metaRefreshState,
+          lastSyncedMs = state.lastMetaSyncMs,
+          onSelectServer = onSelectMetaServer,
+          onRefreshMeta = onRefreshMeta,
           onSelectLane = onSelectTierLane,
           onSelectSortMode = onSelectMetaSortMode,
           onOpenChampionDetail = onOpenChampionDetail,
@@ -491,75 +316,33 @@ fun HomeDashboardScreen(
         )
       }
 
-      // Active Patch Highlights (collapsible for compact breathing room)
-      state.activePatch?.let { patch ->
-        item {
-          HextechCard(
-            accentColor = ArcaneCyan,
-            onClick = { patchExpanded = !patchExpanded },
-            modifier = Modifier.testTag("home_patch_highlights_card"),
-          ) {
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.SpaceBetween,
-              verticalAlignment = Alignment.CenterVertically,
-            ) {
-              Text(
-                text = if (lang == AppLanguage.TH) patch.headlineTh else patch.headlineEn,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-              )
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-              ) {
-                Text(
-                  text = patch.version,
-                  style = MaterialTheme.typography.labelMedium,
-                  color = ArcaneCyan,
-                  fontWeight = FontWeight.Bold,
-                )
-                Icon(
-                  imageVector = if (patchExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                  contentDescription = if (patchExpanded) "Collapse patch" else "Expand patch",
-                  tint = ArcaneCyan,
-                  modifier = Modifier.size(18.dp),
-                )
-              }
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-              text = if (lang == AppLanguage.TH) patch.summaryTh else patch.summaryEn,
-              style = MaterialTheme.typography.bodySmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-              maxLines = if (patchExpanded) 4 else 2,
-              overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            patch.changes.take(2).forEach { change ->
-              PatchChangeMiniRow(targetName = change.targetName, change = change, lang = lang)
-            }
-            AnimatedVisibility(visible = patchExpanded && patch.changes.size > 2) {
-              Column {
-                patch.changes.drop(2).take(4).forEach { change ->
-                  PatchChangeMiniRow(targetName = change.targetName, change = change, lang = lang)
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // Meta Tier Snapshot by Lane (clean single-line horizontal chip rail)
+      // 5. Tier List & Win Rate Snapshot by Lane
       item {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-          Text(
-            text = strings.metaHighlightsTitle,
-            style = MaterialTheme.typography.titleMedium,
-          )
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+          ) {
+            Text(
+              text = strings.metaHighlightsTitle,
+              style = MaterialTheme.typography.titleMedium,
+              fontWeight = FontWeight.Bold,
+              modifier = Modifier.weight(1f),
+            )
+            IconButton(
+              onClick = onRefreshMeta,
+              enabled = metaRefreshState !is MetaRefreshState.Refreshing,
+              modifier = Modifier.minimumInteractiveComponentSize().testTag("tierlist_refresh_button"),
+            ) {
+              Icon(
+                imageVector = Icons.Default.Refresh,
+                contentDescription = if (lang == AppLanguage.TH) "รีเฟรช Tier List" else "Refresh Tier List",
+                tint = AdvantageEmerald,
+                modifier = Modifier.size(18.dp),
+              )
+            }
+          }
           LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             item {
               FilterChip(
@@ -594,41 +377,44 @@ fun HomeDashboardScreen(
 }
 
 @Composable
-private fun PatchChangeMiniRow(
-  targetName: String,
-  change: com.example.data.model.PatchChangeEntry,
-  lang: AppLanguage,
+private fun QuickShortcutTile(
+  icon: ImageVector,
+  label: String,
+  accent: Color,
+  filled: Boolean = false,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
 ) {
-  val badgeColor =
-    when (change.changeType) {
-      PatchChangeType.NEW -> HextechGold
-      PatchChangeType.BUFF -> AdvantageEmerald
-      PatchChangeType.NERF -> ThreatCrimson
-      PatchChangeType.ADJUST -> WarningAmber
-    }
-  Row(
-    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-    verticalAlignment = Alignment.Top,
+  Surface(
+    onClick = onClick,
+    shape = RoundedCornerShape(12.dp),
+    color = if (filled) HextechGold.copy(alpha = 0.18f) else HextechSurface,
+    border =
+      BorderStroke(
+        width = if (filled) 1.2.dp else 0.9.dp,
+        color = if (filled) HextechGold else HextechOutline,
+      ),
+    modifier = modifier.minimumInteractiveComponentSize(),
   ) {
-    Surface(
-      color = badgeColor.copy(alpha = 0.16f),
-      shape = MaterialTheme.shapes.small,
+    Row(
+      modifier = Modifier.padding(horizontal = 11.dp, vertical = 9.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
+      Icon(
+        imageVector = icon,
+        contentDescription = label,
+        tint = accent,
+        modifier = Modifier.size(16.dp),
+      )
       Text(
-        text = if (lang == AppLanguage.TH) change.changeType.labelTh else change.changeType.labelEn,
-        style = MaterialTheme.typography.labelSmall,
-        color = badgeColor,
-        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+        text = label,
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Bold,
+        color = if (filled) HextechGoldBright else MaterialTheme.colorScheme.onSurface,
+        maxLines = 1,
       )
     }
-    Spacer(modifier = Modifier.width(8.dp))
-    Text(
-      text = "$targetName: ${if (lang == AppLanguage.TH) change.detailTh else change.detailEn}",
-      style = MaterialTheme.typography.bodySmall,
-      maxLines = 2,
-      overflow = TextOverflow.Ellipsis,
-      modifier = Modifier.weight(1f),
-    )
   }
 }
 
@@ -647,7 +433,7 @@ private fun MetaChampionRowCard(
       modifier = Modifier.fillMaxWidth(),
       verticalAlignment = Alignment.CenterVertically,
     ) {
-      ChampionCrestAvatar(champion = champion, size = 40.dp)
+      ChampionCrestAvatar(champion = champion, size = 38.dp)
       Spacer(modifier = Modifier.width(10.dp))
       Column(modifier = Modifier.weight(1f)) {
         Row(
@@ -688,7 +474,7 @@ private fun MetaChampionRowCard(
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
       ) {
         Text(
-          text = if (language == AppLanguage.TH) "1v5" else "1v5",
+          text = "1v5",
           style = MaterialTheme.typography.labelMedium,
           fontWeight = FontWeight.Bold,
         )

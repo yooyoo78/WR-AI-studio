@@ -25,17 +25,19 @@ import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -62,6 +64,7 @@ import com.example.ui.theme.AdvantageEmerald
 import com.example.ui.theme.ArcaneCyan
 import com.example.ui.theme.HextechGold
 import com.example.ui.theme.HextechGoldBright
+import com.example.ui.theme.HextechSurface
 import com.example.ui.theme.LocalInGameMiniMode
 import com.example.ui.theme.ThreatCrimson
 import com.example.ui.theme.WarningAmber
@@ -69,7 +72,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun MatchJournalTab(
   entries: List<MatchJournalEntryData>,
@@ -84,35 +87,22 @@ fun MatchJournalTab(
   onDeleteEntry: (Long) -> Unit,
 ) {
   val isMiniMode = LocalInGameMiniMode.current
-  var expandedEntryId by remember { mutableStateOf<Long?>(null) }
+  var selectedEntry by remember { mutableStateOf<MatchJournalEntryData?>(null) }
 
   LazyColumn(
     modifier = Modifier.fillMaxSize().testTag("match_journal_lazy_column"),
     contentPadding = PaddingValues(if (isMiniMode) 8.dp else 12.dp),
     verticalArrangement = Arrangement.spacedBy(if (isMiniMode) 8.dp else 10.dp),
   ) {
-    // Primary Scan CTA
+    // Primary Scan CTA (compact header)
     item {
       HextechCard(accentColor = HextechGold) {
         Text(
-          text =
-            if (language == AppLanguage.TH) "Match Journal & Post-Game Review"
-            else "Match Journal & Post-Game Review",
+          text = "Match Journal & Post-Game Review",
           style = MaterialTheme.typography.titleMedium,
           color = HextechGoldBright,
         )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-          text =
-            if (language == AppLanguage.TH) {
-              "สแกนสกอร์บอร์ดหลังจบเกม วัดความแม่นยำบิลด์เทียบ Smart Item และให้ AI โค้ชจำจุดพลาดของคุณ"
-            } else {
-              "Scan post-game scoreboards, grade Build Accuracy vs Smart Item, and feed your patterns into AI Coach."
-            },
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         Button(
           onClick = onOpenPostGameScanner,
           modifier =
@@ -143,9 +133,9 @@ fun MatchJournalTab(
           Text(
             text =
               if (language == AppLanguage.TH) {
-                "ยังไม่มีประวัติแมตช์ที่บันทึก กด '+ สแกน / บันทึกผลหลังจบเกม' หรือแชร์ภาพสกอร์บอร์ดเข้า WR-AI ได้เลย"
+                "ยังไม่มีประวัติแมตช์ที่บันทึก กด '+ สแกน / บันทึกผลหลังจบเกม' ด้านบน"
               } else {
-                "No matches logged yet. Tap '+ Scan / Log Post-Game Match' or share a scoreboard screenshot to WR-AI."
+                "No matches logged yet. Tap '+ Scan / Log Post-Game Match' above."
               },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -189,13 +179,7 @@ fun MatchJournalTab(
           }
 
           if (summary.perChampionStats.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(10.dp))
-            Text(
-              text = if (language == AppLanguage.TH) "สถิติรายแชมเปี้ยน:" else "By Champion:",
-              style = MaterialTheme.typography.labelMedium,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
               items(summary.perChampionStats.take(6), key = { it.championId }) { cStat ->
                 Surface(
@@ -220,34 +204,9 @@ fun MatchJournalTab(
               }
             }
           }
-
-          if (summary.perLaneStats.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(8.dp))
-            FlowRow(
-              horizontalArrangement = Arrangement.spacedBy(6.dp),
-              verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-              summary.perLaneStats.forEach { lStat ->
-                Surface(
-                  shape = RoundedCornerShape(999.dp),
-                  color = ArcaneCyan.copy(alpha = 0.12f),
-                  border = BorderStroke(0.75.dp, ArcaneCyan.copy(alpha = 0.4f)),
-                ) {
-                  Text(
-                    text =
-                      "${if (language == AppLanguage.TH) lStat.lane.labelTh else lStat.lane.labelEn}: ${lStat.winRatePct}% WR (${lStat.games})",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = ArcaneCyan,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                  )
-                }
-              }
-            }
-          }
         }
       }
 
-      // Recurring Mistakes Card
       if (summary.recurringMistakes.isNotEmpty()) {
         item {
           HextechCard(accentColor = WarningAmber, modifier = Modifier.testTag("journal_mistakes_card")) {
@@ -258,16 +217,16 @@ fun MatchJournalTab(
               Icon(Icons.Default.WarningAmber, contentDescription = null, tint = WarningAmber)
               Text(
                 text =
-                  if (language == AppLanguage.TH) "จุดพลาดที่พบบ่อย (AI Coach จำค่านี้ไว้แล้ว)"
-                  else "Recurring Mistakes (Synced to AI Coach)",
+                  if (language == AppLanguage.TH) "จุดพลาดที่พบบ่อย"
+                  else "Recurring Mistakes",
                 style = MaterialTheme.typography.titleSmall,
                 color = WarningAmber,
               )
             }
             Spacer(modifier = Modifier.height(6.dp))
-            summary.recurringMistakes.take(3).forEach { m ->
+            summary.recurringMistakes.take(2).forEach { m ->
               Text(
-                text = "• ${m.label(language)} (${m.count}x) — ${m.fixTip(language)}",
+                text = "• ${m.label(language)} (${m.count}x)",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(vertical = 2.dp),
@@ -277,10 +236,9 @@ fun MatchJournalTab(
         }
       }
 
-      // Match Entries
+      // Concise Match Summary Cards (tap to open full Review Detail Sheet)
       items(entries, key = { it.id }) { entry ->
         val champ = championsById[entry.championId]
-        val isExpanded = expandedEntryId == entry.id
         val statusColor = if (entry.isWin) AdvantageEmerald else ThreatCrimson
         val dateText =
           remember(entry.playedAt) {
@@ -290,7 +248,7 @@ fun MatchJournalTab(
         HextechCard(
           accentColor = statusColor,
           modifier = Modifier.fillMaxWidth().testTag("journal_entry_card_${entry.id}"),
-          onClick = { expandedEntryId = if (isExpanded) null else entry.id },
+          onClick = { selectedEntry = entry },
         ) {
           Row(
             modifier = Modifier.fillMaxWidth(),
@@ -348,95 +306,136 @@ fun MatchJournalTab(
               )
             }
           }
+        }
+      }
+    }
+  }
 
-          if (entry.boughtItemIds.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(8.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-              items(entry.boughtItemIds.mapNotNull { itemsById[it] }, key = { "jb_${entry.id}_${it.id}" }) { item ->
-                ItemIconSlot(
-                  item = item,
-                  language = language,
-                  onClick = { expandedEntryId = if (isExpanded) null else entry.id },
-                  size = 32.dp,
-                )
-              }
+  selectedEntry?.let { entry ->
+    val champ = championsById[entry.championId]
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+      onDismissRequest = { selectedEntry = null },
+      sheetState = sheetState,
+      containerColor = HextechSurface,
+    ) {
+      Column(
+        modifier =
+          Modifier.fillMaxWidth()
+            .padding(horizontal = 18.dp, vertical = 10.dp)
+            .testTag("journal_entry_detail_sheet"),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+      ) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+          if (champ != null) {
+            ChampionCrestAvatar(champion = champ, size = 44.dp)
+          }
+          Column(modifier = Modifier.weight(1f)) {
+            Text(
+              text =
+                "${champ?.displayName(language) ?: entry.championId} (${if (entry.isWin) "WIN" else "LOSS"})",
+              style = MaterialTheme.typography.titleMedium,
+              fontWeight = FontWeight.Bold,
+              color = if (entry.isWin) AdvantageEmerald else ThreatCrimson,
+            )
+            Text(
+              text = "${entry.kills}/${entry.deaths}/${entry.assists} • Build ${entry.buildAccuracyPct}%",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
+        }
+
+        if (entry.boughtItemIds.isNotEmpty()) {
+          LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(entry.boughtItemIds.mapNotNull { itemsById[it] }, key = { "jb_${entry.id}_${it.id}" }) { item ->
+              ItemIconSlot(
+                item = item,
+                language = language,
+                onClick = {},
+                size = 34.dp,
+              )
             }
           }
+        }
 
-          if (isExpanded) {
-            Spacer(modifier = Modifier.height(10.dp))
-            if (entry.mistakeTags.isNotEmpty()) {
-              FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+        if (entry.mistakeTags.isNotEmpty()) {
+          FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+          ) {
+            entry.mistakeTags.forEach { tag ->
+              val stat = MatchJournalAggregator.mapMistakeStat(tag, 1)
+              Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = WarningAmber.copy(alpha = 0.16f),
               ) {
-                entry.mistakeTags.forEach { tag ->
-                  val stat = MatchJournalAggregator.mapMistakeStat(tag, 1)
-                  Surface(
-                    shape = RoundedCornerShape(999.dp),
-                    color = WarningAmber.copy(alpha = 0.16f),
-                  ) {
-                    Text(
-                      text = stat.label(language),
-                      style = MaterialTheme.typography.labelSmall,
-                      color = WarningAmber,
-                      modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
-                    )
-                  }
-                }
-              }
-              Spacer(modifier = Modifier.height(8.dp))
-            }
-            if (entry.lessons.isNotEmpty()) {
-              entry.lessons.forEachIndexed { idx, lesson ->
                 Text(
-                  text = "${idx + 1}. $lesson",
-                  style = MaterialTheme.typography.bodySmall,
-                  modifier = Modifier.padding(vertical = 2.dp),
-                )
-              }
-              Spacer(modifier = Modifier.height(8.dp))
-            }
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-              val ttsKey = "journal_entry_${entry.id}"
-              val isSpeaking = speechState.isSpeaking && speechState.activeMessageId == ttsKey
-              OutlinedButton(
-                onClick = { onToggleSpeak(ttsKey, entry.lessons.joinToString(". ")) },
-                modifier = Modifier.weight(1f).minimumInteractiveComponentSize().testTag("journal_tts_${entry.id}"),
-              ) {
-                Icon(
-                  imageVector = if (isSpeaking) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
-                  contentDescription = null,
-                  modifier = Modifier.size(16.dp),
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(if (isSpeaking) "Stop" else if (language == AppLanguage.TH) "ฟังสรุป" else "Speak")
-              }
-              Button(
-                onClick = { onAskCoachAboutMatch(entry) },
-                modifier =
-                  Modifier.weight(1f)
-                    .minimumInteractiveComponentSize()
-                    .testTag("journal_ask_coach_${entry.id}"),
-                colors =
-                  ButtonDefaults.buttonColors(
-                    containerColor = ArcaneCyan,
-                    contentColor = Color(0xFF031520),
-                  ),
-              ) {
-                Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                  text = if (language == AppLanguage.TH) "ถาม AI โค้ช" else "Ask Coach",
-                  fontWeight = FontWeight.Bold,
+                  text = stat.label(language),
+                  style = MaterialTheme.typography.labelSmall,
+                  color = WarningAmber,
+                  modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
                 )
               }
             }
           }
         }
+
+        if (entry.lessons.isNotEmpty()) {
+          entry.lessons.forEachIndexed { idx, lesson ->
+            Text(
+              text = "${idx + 1}. $lesson",
+              style = MaterialTheme.typography.bodySmall,
+              modifier = Modifier.padding(vertical = 2.dp),
+            )
+          }
+        }
+
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          val ttsKey = "journal_entry_${entry.id}"
+          val isSpeaking = speechState.isSpeaking && speechState.activeMessageId == ttsKey
+          OutlinedButton(
+            onClick = { onToggleSpeak(ttsKey, entry.lessons.joinToString(". ")) },
+            modifier = Modifier.weight(1f).minimumInteractiveComponentSize().testTag("journal_tts_${entry.id}"),
+          ) {
+            Icon(
+              imageVector = if (isSpeaking) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+              contentDescription = null,
+              modifier = Modifier.size(16.dp),
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(if (isSpeaking) "Stop" else if (language == AppLanguage.TH) "ฟังสรุป" else "Speak")
+          }
+          Button(
+            onClick = {
+              selectedEntry = null
+              onAskCoachAboutMatch(entry)
+            },
+            modifier =
+              Modifier.weight(1f)
+                .minimumInteractiveComponentSize()
+                .testTag("journal_ask_coach_${entry.id}"),
+            colors =
+              ButtonDefaults.buttonColors(
+                containerColor = ArcaneCyan,
+                contentColor = Color(0xFF031520),
+              ),
+          ) {
+            Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+              text = if (language == AppLanguage.TH) "ถาม AI โค้ช" else "Ask Coach",
+              fontWeight = FontWeight.Bold,
+            )
+          }
+        }
+        Spacer(modifier = Modifier.height(10.dp))
       }
     }
   }

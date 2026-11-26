@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,6 +25,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -37,6 +40,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -180,6 +187,9 @@ fun AnalyzerEnemyTeamSetupCard(
 ) {
   val strings = LocalUiStrings.current
   val isMiniMode = LocalInGameMiniMode.current
+  var presetsExpanded by remember(state.selectedEnemies.isEmpty()) {
+    mutableStateOf(state.selectedEnemies.isEmpty())
+  }
 
   HextechCard(accentColor = ThreatCrimson) {
     Row(
@@ -193,6 +203,17 @@ fun AnalyzerEnemyTeamSetupCard(
         modifier = Modifier.weight(1f),
       )
       if (state.selectedEnemies.isNotEmpty()) {
+        TextButton(
+          onClick = { presetsExpanded = !presetsExpanded },
+          modifier = Modifier.testTag("analyzer_presets_toggle"),
+        ) {
+          Text(if (lang == AppLanguage.TH) "ทีมสำเร็จรูป" else "Presets")
+          Icon(
+            imageVector = if (presetsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+          )
+        }
         TextButton(
           onClick = onClearEnemies,
           modifier = Modifier.testTag("clear_enemies_button"),
@@ -309,35 +330,39 @@ fun AnalyzerEnemyTeamSetupCard(
       )
     }
 
-    Spacer(modifier = Modifier.height(6.dp))
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-      item {
-        FilterChip(
-          selected = false,
-          onClick = { onApplyPresetEnemies(listOf("aatrox", "sylas", "zed", "jinx", "soraka")) },
-          modifier = Modifier.testTag("preset_heal_burst"),
-          label = { Text(if (lang == AppLanguage.TH) "ฮีลหนัก + เบิร์ส" else "Heal + Burst") },
-        )
-      }
-      item {
-        FilterChip(
-          selected = false,
-          onClick = {
-            onApplyPresetEnemies(listOf("dr_mundo", "rammus", "yasuo", "kalista", "leona"))
-          },
-          modifier = Modifier.testTag("preset_tank_cc"),
-          label = { Text(if (lang == AppLanguage.TH) "แทงค์ + CC + ตีไว" else "Tank + CC + AS") },
-        )
-      }
-      item {
-        FilterChip(
-          selected = false,
-          onClick = {
-            onApplyPresetEnemies(listOf("malphite", "evelynn", "syndra", "kaisa", "lux"))
-          },
-          modifier = Modifier.testTag("preset_ap_burst"),
-          label = { Text(if (lang == AppLanguage.TH) "เบิร์สเวทหนัก" else "Heavy AP") },
-        )
+    AnimatedVisibility(visible = presetsExpanded) {
+      LazyRow(
+        modifier = Modifier.padding(top = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
+        item {
+          FilterChip(
+            selected = false,
+            onClick = { onApplyPresetEnemies(listOf("aatrox", "sylas", "zed", "jinx", "soraka")) },
+            modifier = Modifier.testTag("preset_heal_burst"),
+            label = { Text(if (lang == AppLanguage.TH) "ฮีลหนัก + เบิร์ส" else "Heal + Burst") },
+          )
+        }
+        item {
+          FilterChip(
+            selected = false,
+            onClick = {
+              onApplyPresetEnemies(listOf("dr_mundo", "rammus", "yasuo", "kalista", "leona"))
+            },
+            modifier = Modifier.testTag("preset_tank_cc"),
+            label = { Text(if (lang == AppLanguage.TH) "แทงค์ + CC + ตีไว" else "Tank + CC + AS") },
+          )
+        }
+        item {
+          FilterChip(
+            selected = false,
+            onClick = {
+              onApplyPresetEnemies(listOf("malphite", "evelynn", "syndra", "kaisa", "lux"))
+            },
+            modifier = Modifier.testTag("preset_ap_burst"),
+            label = { Text(if (lang == AppLanguage.TH) "เบิร์สเวทหนัก" else "Heavy AP") },
+          )
+        }
       }
     }
   }

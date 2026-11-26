@@ -22,6 +22,7 @@ import com.example.data.model.PatchPackPayload
 import com.example.data.model.PatchSnapshotSummary
 import com.example.data.model.RuneData
 import com.example.data.model.SpellData
+import com.example.data.remote.ChampionMetaStatPatch
 import com.example.data.validation.PatchDataValidator
 import com.example.data.validation.ValidationResult
 import com.squareup.moshi.Moshi
@@ -327,6 +328,33 @@ class GameDataRepository(
         dao.markSnapshotRolledBack(snap.id)
       }
       res
+    }
+
+  suspend fun updateChampionMetaMetrics(
+    updates: List<ChampionMetaStatPatch>,
+    patchLabelOverride: String? = null,
+  ): Int =
+    withContext(Dispatchers.IO) {
+      if (updates.isEmpty()) return@withContext 0
+      val byId = updates.associateBy { it.championId }
+      val current = dao.getAllChampionsOnce().map { it.toDomain() }
+      val updatedEntities =
+        current.mapNotNull { champ ->
+          val stat = byId[champ.id] ?: return@mapNotNull null
+          champ
+            .copy(
+              winRatePct = stat.winRatePct,
+              pickRatePct = stat.pickRatePct,
+              banRatePct = stat.banRatePct,
+              tierRank = stat.tierRank,
+              patchVersion = patchLabelOverride?.takeIf { it.isNotBlank() } ?: champ.patchVersion,
+            )
+            .toEntity()
+        }
+      if (updatedEntities.isNotEmpty()) {
+        dao.upsertChampions(updatedEntities)
+      }
+      updatedEntities.size
     }
 }
 

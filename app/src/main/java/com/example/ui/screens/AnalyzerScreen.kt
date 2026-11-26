@@ -75,6 +75,9 @@ fun AnalyzerScreen(
   var showEnemyPicker by remember { mutableStateOf(false) }
   var selectedReportTab by remember { mutableIntStateOf(0) }
   var miniInspectTarget by remember { mutableStateOf<MiniInspectTarget?>(null) }
+  var selectedMatchupDetail by remember {
+    mutableStateOf<com.example.domain.engine.EnemyMatchupAnalysis?>(null)
+  }
 
   val myChamp = state.selectedChampion
 
@@ -186,6 +189,7 @@ fun AnalyzerScreen(
                 analysis = analysis,
                 lang = lang,
                 onOpenChampionProfile = onOpenChampionDetail,
+                onOpenDetails = { selectedMatchupDetail = analysis },
               )
             }
           }
@@ -298,6 +302,15 @@ fun AnalyzerScreen(
       language = lang,
       onSelectChampion = { onToggleEnemy(it.id) },
       onDismiss = { showEnemyPicker = false },
+    )
+  }
+
+  selectedMatchupDetail?.let { detail ->
+    MatchupDetailBottomSheet(
+      analysis = detail,
+      lang = lang,
+      onOpenChampionProfile = onOpenChampionDetail,
+      onDismiss = { selectedMatchupDetail = null },
     )
   }
 
