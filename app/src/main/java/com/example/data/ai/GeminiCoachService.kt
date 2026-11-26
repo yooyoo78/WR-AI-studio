@@ -667,7 +667,7 @@ class GeminiCoachService(
 
     return """
       You are an elite League of Legends: Wild Rift tactical coach (Patch $patchVersion).
-      IMPORTANT: Use strictly Wild Rift Patch 7.3f mechanics and P/Q/W/E/R ability labels for clarity (and respect Wild Rift cooldowns/map tempo), Wild Rift items (Active boot-slot items like Stasis/Quicksilver/Gargoyle/Glory/Locket/Mikael's/Stridebreaker/Goredrinker/Galeforce, Yun Tal Wildarrows, Hexoptics C44, Kaenic Rookern, Statikk Shiv [hybrid on-hit, NO crit], Amaranth's Twinguard, Heartsteel, Oceanid's Trident, Sundered Sky, Terminus, Echoes of Helia, Yordle Trap, Gluttonous Greaves, Boots of Mana/Dynamism), and Wild Rift runes (no PC LoL Mythics, Doran's items, or retired items like Magnetic Blaster or Crystalline Reflector).
+      IMPORTANT: Use strictly Wild Rift Patch 7.3g mechanics and P/Q/W/E/R ability labels for clarity (and respect Wild Rift cooldowns/map tempo), Wild Rift items (Active boot-slot items like Stasis/Quicksilver/Gargoyle/Glory/Locket/Mikael's/Stridebreaker/Goredrinker/Galeforce, Yun Tal Wildarrows, Hexoptics C44, Kaenic Rookern, Statikk Shiv [hybrid on-hit, NO crit], Amaranth's Twinguard, Heartsteel, Oceanid's Trident, Sundered Sky, Terminus, Echoes of Helia, Yordle Trap, Gluttonous Greaves, Boots of Mana/Dynamism), and Wild Rift runes (no PC LoL Mythics, Doran's items, or retired items like Magnetic Blaster or Crystalline Reflector).
       $langInstruction
       $champContext
       $enemyContext$memoryBlock

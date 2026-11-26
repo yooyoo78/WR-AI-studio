@@ -310,7 +310,7 @@ class ChampionsViewModel(
             matchupRules = _allRules.value.ifEmpty { repository.matchupRules.first() },
             fallbackChampion = fallbackChamp,
             fallbackLane = fallbackLane,
-            patchVersion = prefs?.activePatchLabel ?: "7.3f",
+            patchVersion = prefs?.activePatchLabel ?: "7.3g",
             language = lang,
             preferredModelId = modelId,
           )
@@ -354,7 +354,7 @@ class ChampionsViewModel(
             matchupRules = _allRules.value.ifEmpty { repository.matchupRules.first() },
             fallbackChampion = fallbackChamp,
             fallbackLane = fallbackLane,
-            patchVersion = prefs?.activePatchLabel ?: "7.3f",
+            patchVersion = prefs?.activePatchLabel ?: "7.3g",
             language = lang,
             preferredModelId = modelId,
           )
@@ -433,7 +433,7 @@ class ChampionsViewModel(
           report?.feedback(state.language).orEmpty().take(3)
         },
         mistakeTags = report?.mistakeTags.orEmpty(),
-        patchVersion = preferencesRepository?.preferencesFlow?.let { "7.3f" } ?: "7.3f",
+        patchVersion = preferencesRepository?.preferencesFlow?.let { "7.3g" } ?: "7.3g",
       )
 
     viewModelScope.launch {

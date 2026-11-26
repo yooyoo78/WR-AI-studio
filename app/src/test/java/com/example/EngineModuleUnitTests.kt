@@ -57,8 +57,8 @@ class EngineModuleUnitTests {
   private fun loadSeedPayload(): PatchPackPayload {
     val paths =
       listOf(
-        "src/main/assets/patch_7_3f_seed.json",
-        "app/src/main/assets/patch_7_3f_seed.json",
+        "src/main/assets/patch_7_3g_seed.json",
+        "app/src/main/assets/patch_7_3g_seed.json",
       )
     val file = paths.map { File(it) }.first { it.exists() }
     val moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
@@ -67,7 +67,32 @@ class EngineModuleUnitTests {
   }
 
   @Test
-  fun `bundled Patch 7_3f seed passes strict referential integrity validation`() {
+  fun `bundled seed carries official Patch 7_3g balance values`() {
+    val seed = loadSeedPayload()
+    assertEquals("7.3g", seed.patchVersion)
+    assertEquals(listOf("7.3g"), seed.patchNotes.filter { it.isActive }.map { it.version })
+
+    val itemById = seed.items.associateBy { it.id }
+    assertTrue(itemById.getValue("berserkers_greaves").statsSummaryEn.contains("+30% Attack Speed"))
+    assertTrue(itemById.getValue("gunmetal_greaves").statsSummaryEn.contains("+45% AS"))
+    assertTrue(itemById.getValue("guinsoos_rageblade").statsSummaryEn.contains("+25% AS"))
+    assertTrue(itemById.getValue("harmonic_echo").statsSummaryEn.contains("+25 AP"))
+    assertTrue(itemById.getValue("ardent_censer").passiveDescEn.contains("25%"))
+    assertTrue(itemById.getValue("immortal_shieldbow").passiveDescEn.contains("380-700"))
+
+    val champById = seed.champions.associateBy { it.id }
+    listOf("vayne", "irelia", "garen", "sylas", "smolder", "aurora").forEach {
+      assertEquals("$it should be marked 7.3g", "7.3g", champById.getValue(it).patchVersion)
+    }
+    val smolder = champById.getValue("smolder").abilities.associateBy { it.slot }
+    assertEquals("13/12/11/10s", smolder.getValue("W").cooldownNote)
+    assertEquals("22/19/16/13s", smolder.getValue("E").cooldownNote)
+    val irelia = champById.getValue("irelia").abilities.associateBy { it.slot }
+    assertEquals("8/7/6/5s", irelia.getValue("Q").cooldownNote)
+  }
+
+  @Test
+  fun `bundled Patch 7_3g seed passes strict referential integrity validation`() {
     val seed = loadSeedPayload()
     val validator = PatchDataValidator()
     val result = validator.validate(seed)
@@ -267,7 +292,7 @@ class EngineModuleUnitTests {
     assertTrue(itemById.getValue("plated_steelcaps").statsSummaryEn.contains("+150 HP, +25 Armor"))
     assertTrue(itemById.getValue("mercurys_treads").statsSummaryEn.contains("+30% Tenacity"))
     assertFalse(itemById.getValue("berserkers_greaves").statsSummaryEn.contains("AD"))
-    assertTrue(itemById.getValue("berserkers_greaves").statsSummaryEn.contains("+35% Attack Speed"))
+    assertTrue(itemById.getValue("berserkers_greaves").statsSummaryEn.contains("+30% Attack Speed"))
     assertTrue(itemById.getValue("ionian_boots").statsSummaryEn.contains("+15 Ability Haste"))
 
     val champIds = seed.champions.map { it.id }.toSet()

@@ -647,7 +647,7 @@ data class MatchJournalEntryData(
   val mistakeTags: List<String> = emptyList(),
   val lessons: List<String> = emptyList(),
   val coachSummaryText: String = "",
-  val patchVersion: String = "7.3f",
+  val patchVersion: String = "7.3g",
   val notes: String = "",
 )
 

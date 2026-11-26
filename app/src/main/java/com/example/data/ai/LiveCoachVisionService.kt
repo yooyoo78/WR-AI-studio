@@ -514,7 +514,7 @@ class LiveCoachVisionService(
       3. Tailored Live Coaching:
          - If `CHAMP_SELECT`: Give 2–3 top counter/synergy `recommendedPicks` for the player's lane/team with 1-sentence `reason`, plus 2–3 core/counter `recommendedItems` to prepare, and a crisp early game plan.
          - If `LOADING_SCREEN` or `IN_GAME`: Leave `recommendedPicks` empty, give 3–4 exact Wild Rift items & boot enchants (`recommendedItems` e.g. Plated Steelcaps + Stasis, Oblivion Orb early, Serpent's Fang), give a punchy `earlyLanePlan` (Lv 1–5 wave control, trading, level-up spikes against the visible enemy laner/jungler), and `threatAlert`.
-      4. Use strictly Wild Rift Patch 7.3f items/mechanics (no PC LoL Mythics or Doran's items; use P/Q/W/E/R ability labels and Wild Rift Active slot items like Stasis/Quicksilver/Gargoyle/Mikael's/Stridebreaker).
+      4. Use strictly Wild Rift Patch 7.3g items/mechanics (no PC LoL Mythics or Doran's items; use P/Q/W/E/R ability labels and Wild Rift Active slot items like Stasis/Quicksilver/Gargoyle/Mikael's/Stridebreaker).
       5. Keep `spokenBriefing` to 2–3 natural spoken sentences suitable for reading aloud before the match starts.
       6. $langRule
       7. $contextHint

@@ -33,8 +33,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
 private const val TAG = "GameDataRepository"
-private const val SEED_ASSET_FILE = "patch_7_3f_seed.json"
-private const val CURRENT_SEED_REVISION = 11
+private const val SEED_ASSET_FILE = "patch_7_3g_seed.json"
+private const val CURRENT_SEED_REVISION = 12
 
 sealed interface ImportResult {
   data class Success(val patchVersion: String, val validation: ValidationResult) : ImportResult
@@ -197,7 +197,7 @@ class GameDataRepository(
         payload =
           PatchPackPayload(
             packVersion = 1,
-            patchVersion = champions.firstOrNull()?.patchVersion ?: "7.3f",
+            patchVersion = champions.firstOrNull()?.patchVersion ?: "7.3g",
             lastUpdated = champions.firstOrNull()?.lastUpdated ?: "2026-11-15",
             sourceLabel = "Database Integrity Check",
             champions = champions,

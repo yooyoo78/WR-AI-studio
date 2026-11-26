@@ -102,7 +102,7 @@ data class CoachUiState(
   val enemyContext: List<ChampionData> = emptyList(),
   val offlinePlaybook: List<CoachPlaybookSection> = emptyList(),
   val quickPrompts: List<CoachQuickPrompt> = emptyList(),
-  val activePatchVersion: String = "7.3f",
+  val activePatchVersion: String = "7.3g",
   val language: AppLanguage = AppLanguage.TH,
   val selectedCoachModelId: String = AiModelCatalog.AUTO_MODEL_ID,
   val selectedLiveModelId: String = AiModelCatalog.AUTO_MODEL_ID,

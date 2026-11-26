@@ -74,7 +74,7 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `room repository seeds Patch 7_3f and validates integrity`() = runBlocking {
+  fun `room repository seeds Patch 7_3g and validates integrity`() = runBlocking {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
     try {

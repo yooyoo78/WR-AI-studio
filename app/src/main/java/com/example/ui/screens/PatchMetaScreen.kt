@@ -150,7 +150,7 @@ fun PatchMetaScreen(
             Text(
               text =
                 homeState.preferences.lastImportedPackInfo.ifBlank {
-                  "Official Patch 7.3f + Curated Tactical Matrix (${homeState.activePatch?.releaseDate ?: "2026-11-15"})"
+                  "Official Patch ${homeState.activePatch?.version ?: "7.3g"} + Curated Tactical Matrix (${homeState.activePatch?.releaseDate ?: "2026-11-15"})"
                 },
               style = MaterialTheme.typography.bodyMedium,
             )

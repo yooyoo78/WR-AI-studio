@@ -1,8 +1,8 @@
 {
-  "packVersion": 11,
-  "patchVersion": "7.3f",
-  "lastUpdated": "2026-11-22",
-  "sourceLabel": "Wild Rift Patch 7.3f Synced Pack",
+  "packVersion": 12,
+  "patchVersion": "7.3g",
+  "lastUpdated": "2026-11-25",
+  "sourceLabel": "Wild Rift Patch 7.3g Synced Pack",
   "items": [
     {
       "id": "long_sword",
@@ -556,15 +556,15 @@
       "nameTh": "Harmonic Echo",
       "category": "CORE",
       "cost": 2500,
-      "statsSummaryEn": "+65 AP, +20 AH, +200 Mana, +6% Heal/Shield Power",
-      "statsSummaryTh": "+65 AP, +20 เร่งสกิล, +200 มานา, +6% พลังฮีลและโล่",
+      "statsSummaryEn": "+25 AP, +20 AH, +200 Mana, +6% Heal/Shield Power",
+      "statsSummaryTh": "+25 AP, +20 เร่งสกิล, +200 มานา, +6% พลังฮีลและโล่",
       "passiveNameEn": "Team Heal Echo",
       "passiveNameTh": "ฮีลหมู่เมื่อใช้สกิลบัฟเพื่อน",
       "passiveDescEn": "Restores AoE health to nearby allies when casting healing/shielding spells.",
       "passiveDescTh": "ฮีลเพื่อนรอบข้างอัตโนมัติเมื่อกดฮีลหรือกางโล่ให้เพื่อน",
       "counterTags": [],
       "damageAffinity": "SUPPORT",
-      "patchVersion": "7.3f",
+      "patchVersion": "7.3g",
       "sourceType": "OFFICIAL_PATCH_NOTES",
       "iconUrl": "https://www.wildriftguides.com/assets/items/harmonic-echo.png"
     },
@@ -578,11 +578,11 @@
       "statsSummaryTh": "+65 AP, +250 HP, +10 เร่งสกิล",
       "passiveNameEn": "Attack Speed Buff",
       "passiveNameTh": "บัฟความเร็วโจมตีให้แครี่",
-      "passiveDescEn": "Grants your healed/shielded ally bonus Attack Speed and on-hit magic damage.",
-      "passiveDescTh": "มอบความเร็วโจมตีและโบนัสดาเมจให้แครี่ทุกครั้งที่ฮีลหรือใส่โล่",
+      "passiveDescEn": "Healing/shielding an ally grants them 25% bonus Attack Speed and on-hit magic damage (7.3g).",
+      "passiveDescTh": "ฮีลหรือใส่โล่ให้เพื่อน จะมอบความเร็วโจมตี 25% และดาเมจเวท On-Hit (7.3g)",
       "counterTags": [],
       "damageAffinity": "SUPPORT",
-      "patchVersion": "7.3f",
+      "patchVersion": "7.3g",
       "sourceType": "OFFICIAL_PATCH_NOTES",
       "iconUrl": "https://www.wildriftguides.com/assets/items/ardent-censer.png"
     },
@@ -634,15 +634,15 @@
       "nameTh": "Berserker's Greaves",
       "category": "BOOTS",
       "cost": 1200,
-      "statsSummaryEn": "+45 Move Speed, +35% Attack Speed • Tier 2 (10:00+ → Gunmetal Greaves)",
-      "statsSummaryTh": "+45 ความเร็วเคลื่อนที่, +35% ความเร็วโจมตี • ขั้น 2 (10:00+ → Gunmetal Greaves)",
-      "passiveNameEn": "Blessed Blade (+10 HP On-Hit)",
-      "passiveNameTh": "Blessed Blade: ตีปกติฟื้นเลือด +10 HP",
-      "passiveDescEn": "Basic attacks restore 10 Health on hit for early lane sustain alongside +35% Attack Speed. Upgrades at 10:00+ to Gunmetal Greaves (+1000g).",
-      "passiveDescTh": "การโจมตีปกติฟื้นฟูเลือด +10 หน่วยต่อฮิต พร้อม +35% ความเร็วโจมตี (อัปเกรดขั้น 3 เป็น Gunmetal Greaves นาที 10:00+ ด้วย 1000g)",
+      "statsSummaryEn": "+45 Move Speed, +30% Attack Speed • Tier 2 (10:00+ → Gunmetal Greaves)",
+      "statsSummaryTh": "+45 ความเร็วเคลื่อนที่, +30% ความเร็วโจมตี • ขั้น 2 (10:00+ → Gunmetal Greaves)",
+      "passiveNameEn": "Blessed Blade (+5 HP On-Hit)",
+      "passiveNameTh": "Blessed Blade: ตีปกติฟื้นเลือด +5 HP",
+      "passiveDescEn": "Basic attacks restore 5 Health on hit for early lane sustain alongside +30% Attack Speed. Upgrades at 10:00+ to Gunmetal Greaves (+1000g).",
+      "passiveDescTh": "การโจมตีปกติฟื้นฟูเลือด +5 หน่วยต่อฮิต พร้อม +30% ความเร็วโจมตี (อัปเกรดขั้น 3 เป็น Gunmetal Greaves นาที 10:00+ ด้วย 1000g)",
       "counterTags": [],
       "damageAffinity": "AD",
-      "patchVersion": "7.3f",
+      "patchVersion": "7.3g",
       "sourceType": "OFFICIAL_PATCH_NOTES",
       "iconUrl": "https://www.wildriftguides.com/assets/items/berserkers-greaves.png"
     },
@@ -1460,17 +1460,17 @@
       "nameTh": "Gunmetal Greaves (ตีไวขั้น 3)",
       "category": "BOOTS",
       "cost": 2200,
-      "statsSummaryEn": "+45 Move Speed, +50% AS, +5% Lifesteal • Tier 3 (10:00+ Upgrade)",
-      "statsSummaryTh": "+45 ความเร็วเคลื่อนที่, +50% ตีไว, +5% ดูดเลือด • ขั้น 3 (ปลดล็อก 10:00+)",
+      "statsSummaryEn": "+45 Move Speed, +45% AS, +5% Lifesteal • Tier 3 (10:00+ Upgrade)",
+      "statsSummaryTh": "+45 ความเร็วเคลื่อนที่, +45% ตีไว, +5% ดูดเลือด • ขั้น 3 (ปลดล็อก 10:00+)",
       "passiveNameEn": "Blessed Blade + Noxian Gait",
-      "passiveNameTh": "ฮีล +12 HP ต่อฮิต + วิ่งไวหลังตี",
-      "passiveDescEn": "Tier 3 (unlocks 10:00+, +1000g from Berserker's Greaves): Basic attacks restore 12 HP on hit. Noxian Gait: Basic attacking enemy champions grants burst Move Speed for 2s (10% melee / 7% ranged).",
-      "passiveDescTh": "รองเท้าขั้น 3 (ปลดล็อก 10:00+ อัปจาก Berserker's Greaves +1000g): ตีปกติฮีล +12 HP ต่อฮิต และตีแชมเปี้ยนแล้วได้วิ่งไว 2 วิ (ใกล้ +10% / ไกล +7%) ช่วยไคท์และไล่ยิง",
+      "passiveNameTh": "ฮีล +5 HP ต่อฮิต + วิ่งไวหลังตี",
+      "passiveDescEn": "Tier 3 (unlocks 10:00+, +1000g from Berserker's Greaves): Basic attacks restore 5 HP on hit. Noxian Gait: Basic attacking enemy champions grants burst Move Speed for 2s (10% melee / 7% ranged).",
+      "passiveDescTh": "รองเท้าขั้น 3 (ปลดล็อก 10:00+ อัปจาก Berserker's Greaves +1000g): ตีปกติฮีล +5 HP ต่อฮิต และตีแชมเปี้ยนแล้วได้วิ่งไว 2 วิ (ใกล้ +10% / ไกล +7%) ช่วยไคท์และไล่ยิง",
       "counterTags": [
         "ENGAGE_MOBILITY"
       ],
       "damageAffinity": "AD",
-      "patchVersion": "7.3f",
+      "patchVersion": "7.3g",
       "sourceType": "OFFICIAL_PATCH_NOTES",
       "iconUrl": "https://www.wildriftguides.com/assets/items/gunmetal-greaves.png"
     },
@@ -1581,13 +1581,13 @@
       "statsSummaryTh": "+40 AD, +15% AS, +25% คริ, +5% ดูดเลือด",
       "passiveNameEn": "Lifeline Crit Shield",
       "passiveNameTh": "โล่ป้องกันเบิร์สเมื่อเลือดต่ำกว่า 35%",
-      "passiveDescEn": "Grants a scaling Lifeline shield and bonus Physical Vamp when dropping below 35% HP.",
-      "passiveDescTh": "กางโล่กันเบิร์สและเพิ่มดูดเลือดเมื่อ HP ต่ำกว่า 35% ช่วยให้แครี่และไฟต์เตอร์คริรอดจากการล้วง",
+      "passiveDescEn": "Lifeline: below 35% HP, gain a shield of 380-700 (melee) / 320-550 (ranged) and bonus Physical Vamp (7.3g).",
+      "passiveDescTh": "Lifeline: เมื่อ HP ต่ำกว่า 35% ได้โล่ 380-700 (ระยะประชิด) / 320-550 (ระยะไกล) และดูดเลือดเพิ่ม (7.3g)",
       "counterTags": [
         "BURST_SHIELD"
       ],
       "damageAffinity": "AD",
-      "patchVersion": "7.3f",
+      "patchVersion": "7.3g",
       "sourceType": "OFFICIAL_PATCH_NOTES",
       "iconUrl": "https://www.wildriftguides.com/assets/items/immortal-shieldbow.png"
     },
@@ -1956,8 +1956,8 @@
       "nameTh": "Guinsoo's Rageblade (ตีสองฮิต)",
       "category": "CORE",
       "cost": 3000,
-      "statsSummaryEn": "+35 AD, +30 AP, +30% AS",
-      "statsSummaryTh": "+35 AD, +30 AP, +30% ความเร็วโจมตี",
+      "statsSummaryEn": "+35 AD, +30 AP, +25% AS",
+      "statsSummaryTh": "+35 AD, +30 AP, +25% ความเร็วโจมตี",
       "passiveNameEn": "Wrath / Seething Strike",
       "passiveNameTh": "สะสมตีไว + เบิ้ลเอฟเฟกต์ On-Hit",
       "passiveDescEn": "Attacks grant stacking Attack Speed; at max stacks every 3rd attack triggers On-Hit effects twice to shred tanks.",
@@ -1966,7 +1966,7 @@
         "ANTI_TANK_PCT_HP"
       ],
       "damageAffinity": "HYBRID",
-      "patchVersion": "7.3f",
+      "patchVersion": "7.3g",
       "sourceType": "OFFICIAL_PATCH_NOTES",
       "iconUrl": "https://www.wildriftguides.com/assets/items/guinsoos-rageblade.png"
     },
@@ -2679,9 +2679,9 @@
       "nameEn": "Absolute Focus",
       "nameTh": "Absolute Focus (สมาธิสมบูรณ์)",
       "slotType": "MINOR_2",
-      "descEn": "While above 70% health, gain bonus adaptive force.",
-      "descTh": "เมื่อมีพลังชีวิตเกิน 70% จะได้รับโบนัส Adaptive Force เพิ่มพลังโจมตี/เวท",
-      "patchVersion": "7.3f",
+      "descEn": "While above 70% health, gain 2-18 bonus AD or 3.3-30 AP (adaptive, based on level) (7.3g).",
+      "descTh": "เมื่อเลือดเกิน 70% ได้ AD 2-18 หรือ AP 3.3-30 (ปรับตามเลเวล) (7.3g)",
+      "patchVersion": "7.3g",
       "sourceType": "OFFICIAL_PATCH_NOTES",
       "iconUrl": "https://www.wildriftguides.com/assets/Runes/absolute_focus.png",
       "tree": "SORCERY"
@@ -3044,8 +3044,8 @@
           "slot": "E",
           "nameEn": "Judgment",
           "nameTh": "Judgment",
-          "summaryEn": "Spins sword rapidly dealing AoE crit damage on outer edge.",
-          "summaryTh": "หมุนดาบทำดาเมจหมู่ต่อเนื่อง ขอบนอกติดคริแรงขึ้น",
+          "summaryEn": "Spins for 10/13/16/19 + 30/36/42/48% AD per spin; outer edge crits; shreds 15% Armor (7.3g).",
+          "summaryTh": "หมุนดาบทำดาเมจ 10/13/16/19 + 30/36/42/48% AD ต่อรอบ ขอบนอกติดคริ และลดเกราะ 15% (7.3g)",
           "cooldownNote": "9s",
           "costNote": "0"
         },
@@ -3119,9 +3119,9 @@
       "midPlanTh": "ดันเวฟข้างให้ไวแล้ววิ่ง 1 มาช่วยไฟต์มังกร/Herald",
       "latePlanEn": "Soak enemy engage with 2 and execute priority dive threats with 4.",
       "latePlanTh": "ยืนแนวหน้ารับสกิลด้วย 2 แล้วใช้ 4 ปิดตัวล้วงที่เลือดต่ำ",
-      "patchVersion": "7.3f",
-      "lastUpdated": "2026-11-22",
-      "sourceType": "CURATED_META_ESTIMATE",
+      "patchVersion": "7.3g",
+      "lastUpdated": "2026-11-25",
+      "sourceType": "OFFICIAL_PATCH_NOTES",
       "laneOverrides": []
     },
     {
@@ -4178,8 +4178,8 @@
           "slot": "Q",
           "nameEn": "Chain Lash",
           "nameTh": "Chain Lash",
-          "summaryEn": "Lashes chains that slow and detonate for AoE magic damage.",
-          "summaryTh": "ฟาดโซ่เป็นเส้นสโลว์แล้วระเบิดจุดตัดแรงมาก",
+          "summaryEn": "Lashes chains that slow and detonate for AoE magic damage. Explosion deals 35% damage to minions (7.3g).",
+          "summaryTh": "ฟาดโซ่เป็นเส้นสโลว์แล้วระเบิดจุดตัดแรงมาก (ระเบิดทำดาเมจมินเนียน 35%, 7.3g)",
           "cooldownNote": "10-6s",
           "costNote": "50-70 Mana"
         },
@@ -4187,8 +4187,8 @@
           "slot": "W",
           "nameEn": "Kingslayer",
           "nameTh": "Kingslayer",
-          "summaryEn": "Dashes, executes AP burst, and heals heavily on low HP.",
-          "summaryTh": "พุ่งกัดทำดาเมจเวท + ฮีลแรงขึ้นเมื่อเลือดตัวเองต่ำ",
+          "summaryEn": "Dashes, executes AP burst, and heals heavily on low HP. Healing ratio 6.5% bonus HP (7.3g).",
+          "summaryTh": "พุ่งกัดทำดาเมจเวท + ฮีลแรงขึ้นเมื่อเลือดตัวเองต่ำ (ฮีลตาม 6.5% เลือดโบนัส, 7.3g)",
           "cooldownNote": "11-7s",
           "costNote": "50-90 Mana"
         },
@@ -4272,8 +4272,8 @@
       "midPlanTh": "ขโมยอัลติที่เปลี่ยนเกมในไฟต์มังกร/ริฟท์เฮรัลด์",
       "latePlanEn": "Weave passive autos between spells and use Stasis while waiting for 2 heal.",
       "latePlanTh": "แทรกตีปกติระหว่างสกิลและกด Stasis รอคูลดาวน์ 2 รอบสอง",
-      "patchVersion": "7.3f",
-      "lastUpdated": "2026-11-22",
+      "patchVersion": "7.3g",
+      "lastUpdated": "2026-11-25",
       "sourceType": "OFFICIAL_PATCH_NOTES",
       "laneOverrides": [
         {
@@ -7995,7 +7995,7 @@
           "nameTh": "Achooo!",
           "summaryEn": "Sneezes a fiery glob slowing enemies and exploding on champions.",
           "summaryTh": "จามลูกไฟสโลว์ศัตรูและระเบิดซ้ำเมื่อโดนแชมเปี้ยน",
-          "cooldownNote": "13-9s",
+          "cooldownNote": "13/12/11/10s",
           "costNote": "60 Mana"
         },
         {
@@ -8004,7 +8004,7 @@
           "nameTh": "Flap, Flap, Flap",
           "summaryEn": "Takes flight over walls with high speed while firing bolts.",
           "summaryTh": "บินข้ามกำแพงพร้อมวิ่งไวและยิงอัตโนมัติ",
-          "cooldownNote": "22-14s",
+          "cooldownNote": "22/19/16/13s",
           "costNote": "65 Mana"
         },
         {
@@ -8076,8 +8076,8 @@
       "midPlanTh": "ปั้นให้ถึง 125+ สแต็กก่อนไฟต์มังกร เก็บ 3 ไว้บินข้ามกำแพงหนี",
       "latePlanEn": "At 225 stacks, spam 1 onto enemy frontline—True Damage burn + execute melts tanks.",
       "latePlanTh": "หลัง 225 สแต็กสแปม 1 ใส่แนวหน้า เผาแทงค์และประหารตัวบางอัตโนมัติ",
-      "patchVersion": "7.3f",
-      "lastUpdated": "2026-11-22",
+      "patchVersion": "7.3g",
+      "lastUpdated": "2026-11-25",
       "sourceType": "OFFICIAL_PATCH_NOTES",
       "laneOverrides": []
     },
@@ -12058,9 +12058,9 @@
           "slot": "Q",
           "nameEn": "Bladesurge",
           "nameTh": "Bladesurge",
-          "summaryEn": "Dashes to target dealing damage and healing; resets if target dies or is marked.",
-          "summaryTh": "พุ่งฟันเป้าหมายพร้อมฮีลเลือด รีเซ็ตคูลดาวน์ทันทีหากเป้าหมายตายหรือมีมาร์ก",
-          "cooldownNote": "8-5s",
+          "summaryEn": "Dashes to target dealing damage and healing 11/13/15/17%; resets if target dies or is marked (7.3g).",
+          "summaryTh": "พุ่งฟันเป้าหมายพร้อมฮีล 11/13/15/17% รีเซ็ตคูลดาวน์ทันทีหากเป้าหมายตายหรือติดมาร์ก (7.3g)",
+          "cooldownNote": "8/7/6/5s",
           "costNote": "20 Mana"
         },
         {
@@ -12150,8 +12150,8 @@
       "midPlanTh": "ปา 4 ใส่กลุ่มศัตรูในแม่น้ำ พุ่ง 1 ไล่เก็บตัวที่มีมาร์กทีละตัว",
       "latePlanEn": "Wait for initial CC to land; flank backline and eliminate marksman with Bladesurge.",
       "latePlanTh": "รอให้ทีมเปิดไฟต์ แล้วพุ่ง 1 สับแครี่แนวหลังศัตรูให้หายไปในเสี้ยววินาที",
-      "patchVersion": "7.3f",
-      "lastUpdated": "2026-11-22",
+      "patchVersion": "7.3g",
+      "lastUpdated": "2026-11-25",
       "sourceType": "OFFICIAL_PATCH_NOTES",
       "laneOverrides": []
     },
@@ -19022,8 +19022,8 @@
           "slot": "W",
           "nameEn": "Silver Bolts",
           "nameTh": "Silver Bolts",
-          "summaryEn": "Consecutive hits on a target tip bolts with rare metal, dealing % max HP true damage on every 3rd strike.",
-          "summaryTh": "ยิงศัตรูครบทุกๆ 3 ครั้งจะสร้างทรูดาเมจทะลุเกราะตาม % เลือดสูงสุดอย่างรุนแรง",
+          "summaryEn": "Every 3rd consecutive hit on a target deals 5.5/7/8.5/10% max HP true damage (7.3g).",
+          "summaryTh": "ยิงโดนเป้าหมายเดิมครบทุก 3 ครั้ง สร้างทรูดาเมจ 5.5/7/8.5/10% ของเลือดสูงสุด (7.3g)",
           "cooldownNote": "Passive",
           "costNote": "0"
         },
@@ -19040,8 +19040,8 @@
           "slot": "R",
           "nameEn": "Final Hour",
           "nameTh": "Final Hour",
-          "summaryEn": "Gains massive bonus AD, triples Night Hunter passive speed, and adds 1s invisibility to Tumble.",
-          "summaryTh": "เพิ่มพลังโจมตีมหาศาล วิ่งไวขึ้น 3 เท่า และทำให้การกลิ้ง 1 ล่องหนหายตัวได้ 1 วินาที",
+          "summaryEn": "Gains 40/50/60 bonus AD, triples Night Hunter speed, and adds 1s invisibility to Tumble (7.3g).",
+          "summaryTh": "เพิ่มพลังโจมตี 40/50/60 วิ่งไวขึ้น 3 เท่า และการกลิ้ง (Q) ล่องหน 1 วินาที (7.3g)",
           "cooldownNote": "80-60s",
           "costNote": "100 Mana"
         }
@@ -19105,8 +19105,8 @@
       "midPlanTh": "เมื่อได้ BotRK เปิดอัลติ 4 กลิ้ง 1 ล่องหนสลับยิงไคท์เก็บคิลในทีมไฟต์",
       "latePlanEn": "Melt frontline tanks with Silver Bolts % true damage, then chase down remaining backline.",
       "latePlanTh": "ยิงทรูดาเมจ 2 ละลายแทงค์แนวหน้า แล้วเปิด Ghost กลิ้งไล่ล่าแครี่ศัตรูจนหมดทีม",
-      "patchVersion": "7.3f",
-      "lastUpdated": "2026-11-22",
+      "patchVersion": "7.3g",
+      "lastUpdated": "2026-11-25",
       "sourceType": "OFFICIAL_PATCH_NOTES",
       "laneOverrides": [
         {
@@ -22487,8 +22487,8 @@
           "slot": "Q",
           "nameEn": "Twofold Hex",
           "nameTh": "Twofold Hex",
-          "summaryEn": "Fires curse bolts; recast pulls them back dealing missing-HP execute damage.",
-          "summaryTh": "ยิงพลังสาปแล้วกดซ้ำดึงกลับทำดาเมจตามเลือดที่หายไปของศัตรู",
+          "summaryEn": "Fires curse bolts; recast pulls them back dealing missing-HP execute damage. 7.3g: narrower initial projectile, wider return projectile.",
+          "summaryTh": "ยิงพลังสาปแล้วกดซ้ำดึงกลับทำดาเมจตามเลือดที่หายไปของศัตรู (7.3g: ลูกแรกแคบลง ลูกดึงกลับกว้างขึ้น)",
           "cooldownNote": "8-6s",
           "costNote": "60 Mana"
         },
@@ -22577,8 +22577,8 @@
       "midPlanTh": "ใช้ 2 ล่องหนอ้อมเปิดอัลติ 4 ขังกลุ่มศัตรูรอบบ่อมังกร",
       "latePlanEn": "Dash across 4 edges to dodge skillshots while recasting 1 to execute low carries.",
       "latePlanTh": "วาร์ปสลับขอบวงอัลติ 4 หลบสกิลศัตรูและดึง 1 ปิดคิลแครี่",
-      "patchVersion": "7.3f",
-      "lastUpdated": "2026-11-22",
+      "patchVersion": "7.3g",
+      "lastUpdated": "2026-11-25",
       "sourceType": "OFFICIAL_PATCH_NOTES",
       "laneOverrides": [
         {
@@ -24973,6 +24973,78 @@
   ],
   "patchNotes": [
     {
+      "version": "7.3g",
+      "releaseDate": "2026-11-25",
+      "headlineEn": "Patch 7.3g: Vayne, Irelia, Garen & Sylas buffs, Smolder nerf, late-game marksman tuning",
+      "headlineTh": "แพตช์ 7.3g: บัฟ Vayne, Irelia, Garen, Sylas • เนิร์ฟ Smolder • ลดพลังสายยิงช่วงท้ายเกม",
+      "summaryEn": "Vayne and Irelia regain dueling power, Garen scales better with AD, Smolder's W/E cooldowns rise, and attack-speed boots, Guinsoo's, Ardent Censer and Harmonic Echo are toned down. Absolute Focus is weaker.",
+      "summaryTh": "Vayne และ Irelia แรงขึ้นในไฟต์ตัวต่อตัว Garen สเกลกับ AD ดีขึ้น Smolder คูลดาวน์ W/E นานขึ้น รองเท้าตีไว Guinsoo Ardent Censer และ Harmonic Echo ถูกลดพลัง รูน Absolute Focus อ่อนลง",
+      "sourceLabel": "Official Wild Rift Patch 7.3g Notes (wildrift.leagueoflegends.com, 2026-11-25)",
+      "isActive": true,
+      "changes": [
+        {
+          "targetName": "Vayne",
+          "changeType": "BUFF",
+          "detailEn": "Silver Bolts 6/7/8/9% → 5.5/7/8.5/10% max HP; Final Hour bonus AD 30/40/50 → 40/50/60.",
+          "detailTh": "Silver Bolts 6/7/8/9% → 5.5/7/8.5/10% ของเลือดสูงสุด, Final Hour AD โบนัส 30/40/50 → 40/50/60"
+        },
+        {
+          "targetName": "Irelia",
+          "changeType": "BUFF",
+          "detailEn": "Base AD 58 → 62; Bladesurge cooldown 9/8/7/6s → 8/7/6/5s, healing 9/11/13/15% → 11/13/15/17%.",
+          "detailTh": "AD พื้นฐาน 58 → 62, Bladesurge คูลดาวน์ 9/8/7/6 → 8/7/6/5 วิ, ฮีล 9/11/13/15% → 11/13/15/17%"
+        },
+        {
+          "targetName": "Garen",
+          "changeType": "BUFF",
+          "detailEn": "Judgment per spin 13/17/21/25 + 25/30/35/40% AD → 10/13/16/19 + 30/36/42/48% AD; Armor Shred 10% → 15%.",
+          "detailTh": "Judgment ต่อรอบ 13/17/21/25 + 25/30/35/40% AD → 10/13/16/19 + 30/36/42/48% AD, ลดเกราะ 10% → 15%"
+        },
+        {
+          "targetName": "Sylas",
+          "changeType": "BUFF",
+          "detailEn": "Chain Lash explosion damage to minions 30% → 35%; Kingslayer healing ratio from bonus HP 5% → 6.5%.",
+          "detailTh": "Chain Lash ระเบิดใส่มินเนียน 30% → 35%, Kingslayer ฮีลตามเลือดโบนัส 5% → 6.5%"
+        },
+        {
+          "targetName": "Smolder",
+          "changeType": "NERF",
+          "detailEn": "Achooo! cooldown 12/11/10/9s → 13/12/11/10s; Flap, Flap, Flap cooldown 18/16/14/12s → 22/19/16/13s.",
+          "detailTh": "Achooo! คูลดาวน์ 12/11/10/9 → 13/12/11/10 วิ, Flap, Flap, Flap คูลดาวน์ 18/16/14/12 → 22/19/16/13 วิ"
+        },
+        {
+          "targetName": "Aurora",
+          "changeType": "ADJUST",
+          "detailEn": "Twofold Hex: initial projectile narrower, return projectile wider.",
+          "detailTh": "Twofold Hex: ลูกแรกแคบลง ลูกดึงกลับกว้างขึ้น"
+        },
+        {
+          "targetName": "Immortal Shieldbow",
+          "changeType": "BUFF",
+          "detailEn": "Lifeline shield 350-650 melee / 300-550 ranged → 380-700 melee / 320-550 ranged.",
+          "detailTh": "โล่ Lifeline 350-650 ประชิด / 300-550 ระยะไกล → 380-700 / 320-550"
+        },
+        {
+          "targetName": "Berserker's & Gunmetal Greaves",
+          "changeType": "NERF",
+          "detailEn": "Berserker's AS 35% → 30%, on-hit heal 10 → 5; Gunmetal AS 50% → 45%, on-hit heal 12 → 5.",
+          "detailTh": "Berserker's AS 35% → 30% ฮีลต่อฮิต 10 → 5, Gunmetal AS 50% → 45% ฮีลต่อฮิต 12 → 5"
+        },
+        {
+          "targetName": "Guinsoo's Rageblade / Ardent Censer / Harmonic Echo",
+          "changeType": "NERF",
+          "detailEn": "Guinsoo's AS 30% → 25%; Ardent Censer AS granted 30% → 25%; Harmonic Echo AP 40 → 25.",
+          "detailTh": "Guinsoo AS 30% → 25%, Ardent Censer มอบ AS 30% → 25%, Harmonic Echo AP 40 → 25"
+        },
+        {
+          "targetName": "Absolute Focus",
+          "changeType": "NERF",
+          "detailEn": "Threshold 65% → 70% HP; AD 2-20 → 2-18; AP 4-40 → 3.3-30.",
+          "detailTh": "เงื่อนไขเลือด 65% → 70%, AD 2-20 → 2-18, AP 4-40 → 3.3-30"
+        }
+      ]
+    },
+    {
       "version": "7.3f",
       "releaseDate": "2026-11-22",
       "headlineEn": "Patch 7.3f Full Roster (144 Champions), Statikk Shiv/RoA Sync & Lane Builds",
@@ -24980,7 +25052,7 @@
       "summaryEn": "Synced all 144 Wild Rift Patch 7.3f champions (added Cho'Gath, Norra, K'Sante, Taliyah, Skarner, Yunara, Rek'Sai), updated Statikk Shiv (2900g hybrid on-hit) & Rod of Ages (2600g), standardized P/Q/W/E/R skill labels, and added lane-specific build/rune/spell conditions.",
       "summaryTh": "อัปเดตแชมเปี้ยน Wild Rift แพตช์ 7.3f ครบ 144 ตัว (เพิ่ม Cho'Gath, Norra, K'Sante, Taliyah, Skarner, Yunara, Rek'Sai), ปรับ Statikk Shiv (2900g สายไฮบริดไม่มีคริ) และ Rod of Ages (2600g), ใช้ป้ายสกิล P/Q/W/E/R นอกกรอบไอคอน พร้อมเงื่อนไขปรับไอเทม/รูน/สเปลล์ตามเลนที่เล่น",
       "sourceLabel": "Official Wild Rift Patch 7.3f Notes",
-      "isActive": true,
+      "isActive": false,
       "changes": [
         {
           "targetName": "7 Newly Synced WR Champions (144 Total)",
