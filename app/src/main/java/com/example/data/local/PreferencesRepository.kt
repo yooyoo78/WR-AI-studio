@@ -10,7 +10,10 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.data.model.AppDarkThemePreset
+import com.example.data.model.AppFontPreset
 import com.example.data.model.AppLanguage
+import com.example.data.model.IconSizePreset
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -36,6 +39,9 @@ data class UserPreferences(
   val lastMetaSyncMs: Long = 0L,
   val lastKnownOfficialPatch: String = "",
   val lastOfficialCheckMs: Long = 0L,
+  val darkThemePreset: AppDarkThemePreset = AppDarkThemePreset.HEXTECH_OBSIDIAN,
+  val fontPreset: AppFontPreset = AppFontPreset.NOTO_SANS_THAI,
+  val iconSizePreset: IconSizePreset = IconSizePreset.COMPACT,
 )
 
 class PreferencesRepository(private val context: Context) {
@@ -58,6 +64,9 @@ class PreferencesRepository(private val context: Context) {
     val LAST_META_SYNC_MS = longPreferencesKey("last_meta_sync_ms")
     val LAST_KNOWN_OFFICIAL_PATCH = stringPreferencesKey("last_known_official_patch")
     val LAST_OFFICIAL_CHECK_MS = longPreferencesKey("last_official_check_ms")
+    val DARK_THEME_PRESET = stringPreferencesKey("dark_theme_preset")
+    val FONT_PRESET = stringPreferencesKey("font_preset")
+    val ICON_SIZE_PRESET = stringPreferencesKey("icon_size_preset")
   }
 
   val preferencesFlow: Flow<UserPreferences> =
@@ -83,6 +92,9 @@ class PreferencesRepository(private val context: Context) {
         lastMetaSyncMs = prefs[Keys.LAST_META_SYNC_MS] ?: 0L,
         lastKnownOfficialPatch = prefs[Keys.LAST_KNOWN_OFFICIAL_PATCH] ?: "",
         lastOfficialCheckMs = prefs[Keys.LAST_OFFICIAL_CHECK_MS] ?: 0L,
+        darkThemePreset = AppDarkThemePreset.fromId(prefs[Keys.DARK_THEME_PRESET]),
+        fontPreset = AppFontPreset.fromId(prefs[Keys.FONT_PRESET]),
+        iconSizePreset = IconSizePreset.fromId(prefs[Keys.ICON_SIZE_PRESET]),
       )
     }
 
@@ -149,5 +161,17 @@ class PreferencesRepository(private val context: Context) {
       it[Keys.LAST_KNOWN_OFFICIAL_PATCH] = officialPatch
       it[Keys.LAST_OFFICIAL_CHECK_MS] = timestampMs
     }
+  }
+
+  suspend fun setDarkThemePreset(preset: AppDarkThemePreset) {
+    context.dataStore.edit { it[Keys.DARK_THEME_PRESET] = preset.id }
+  }
+
+  suspend fun setFontPreset(preset: AppFontPreset) {
+    context.dataStore.edit { it[Keys.FONT_PRESET] = preset.id }
+  }
+
+  suspend fun setIconSizePreset(preset: IconSizePreset) {
+    context.dataStore.edit { it[Keys.ICON_SIZE_PRESET] = preset.id }
   }
 }

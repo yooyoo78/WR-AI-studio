@@ -34,8 +34,11 @@ import com.example.data.local.AiCoachCacheEntity
 import com.example.data.local.AppDatabase
 import com.example.data.local.PreferencesRepository
 import com.example.data.local.SecureApiKeyStore
+import com.example.data.model.AppDarkThemePreset
+import com.example.data.model.AppFontPreset
 import com.example.data.model.AppLanguage
 import com.example.data.model.CustomBuildData
+import com.example.data.model.IconSizePreset
 import com.example.data.model.Lane
 import com.example.data.repository.GameDataRepository
 import com.example.data.repository.ImportResult
@@ -1282,5 +1285,57 @@ class ExampleRobolectricTest {
       assertEquals("7.4a", shiv.patchVersion)
     }
     db.close()
+  }
+
+  @Test
+  fun `cuj home theme shortcut and settings theme font and icon size customization persist`() {
+    composeTestRule.waitForIdle()
+
+    // Home quick theme shortcut cycles through the 4 dark themes
+    composeTestRule.onNodeWithTag("home_theme_shortcut").assertIsDisplayed().performClick()
+    composeTestRule.waitUntil(timeoutMillis = 5000) {
+      composeTestRule
+        .onAllNodes(hasText("ธีม: Void", substring = true))
+        .fetchSemanticsNodes()
+        .isNotEmpty()
+    }
+    composeTestRule.onNodeWithText("ธีม: Void", substring = true).assertIsDisplayed()
+
+    // Navigate to Settings and select Shadow Emerald theme, Kanit font, and Standard -> Compact icons
+    composeTestRule.onNodeWithTag("topbar_settings_button").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule
+      .onNodeWithTag("settings_lazy_column")
+      .performScrollToNode(hasTestTag("settings_theme_shadow_emerald"))
+    composeTestRule.onNodeWithTag("settings_theme_shadow_emerald").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule
+      .onNodeWithTag("settings_lazy_column")
+      .performScrollToNode(hasTestTag("settings_font_kanit"))
+    composeTestRule.onNodeWithTag("settings_font_kanit").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule
+      .onNodeWithTag("settings_lazy_column")
+      .performScrollToNode(hasTestTag("settings_icon_size_standard"))
+    composeTestRule.onNodeWithTag("settings_icon_size_standard").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("settings_icon_size_compact").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+
+    val appContext = ApplicationProvider.getApplicationContext<Context>()
+    composeTestRule.waitUntil(timeoutMillis = 5000) {
+      val prefs = runBlocking { PreferencesRepository(appContext).preferencesFlow.first() }
+      prefs.darkThemePreset == AppDarkThemePreset.SHADOW_EMERALD &&
+        prefs.fontPreset == AppFontPreset.KANIT &&
+        prefs.iconSizePreset == IconSizePreset.COMPACT
+    }
+    val saved = runBlocking { PreferencesRepository(appContext).preferencesFlow.first() }
+    assertEquals(AppDarkThemePreset.SHADOW_EMERALD, saved.darkThemePreset)
+    assertEquals(AppFontPreset.KANIT, saved.fontPreset)
+    assertEquals(IconSizePreset.COMPACT, saved.iconSizePreset)
   }
 }

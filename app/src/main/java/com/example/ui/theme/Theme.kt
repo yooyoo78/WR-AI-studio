@@ -10,37 +10,42 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.core.AppStrings
-import com.example.core.UiStrings
 import com.example.data.local.UserPreferences
+import com.example.data.model.AppDarkThemePreset
+import com.example.data.model.AppLanguage
+import com.example.data.model.IconSizePreset
 
 val LocalUserPrefs = staticCompositionLocalOf { UserPreferences() }
-val LocalUiStrings = staticCompositionLocalOf { AppStrings.get(com.example.data.model.AppLanguage.TH) }
+val LocalUiStrings = staticCompositionLocalOf { AppStrings.get(AppLanguage.TH) }
 val LocalInGameMiniMode = staticCompositionLocalOf { false }
+val LocalRiftPalette =
+  staticCompositionLocalOf { riftPaletteFor(AppDarkThemePreset.HEXTECH_OBSIDIAN) }
+val LocalIconSizePreset = staticCompositionLocalOf { IconSizePreset.COMPACT }
 
-private fun buildHextechColorScheme(highContrast: Boolean) =
+private fun buildColorScheme(palette: RiftThemePalette, highContrast: Boolean) =
   darkColorScheme(
-    primary = HextechGold,
-    onPrimary = Color(0xFF140F02),
-    primaryContainer = Color(0xFF332609),
-    onPrimaryContainer = HextechGoldBright,
-    secondary = ArcaneCyan,
-    onSecondary = Color(0xFF031520),
-    secondaryContainer = Color(0xFF0D2B42),
-    onSecondaryContainer = Color(0xFFBAE6FD),
-    tertiary = SkillViolet,
-    onTertiary = Color(0xFF180E33),
-    background = HextechObsidian,
-    onBackground = TextPrimaryLight,
-    surface = HextechNavy,
-    onSurface = TextPrimaryLight,
-    surfaceVariant = HextechSurface,
-    onSurfaceVariant = TextSecondaryLight,
-    surfaceContainerLow = HextechNavy,
-    surfaceContainer = HextechSurface,
-    surfaceContainerHigh = HextechSurfaceHigh,
-    surfaceContainerHighest = HextechSurfaceHighest,
-    outline = if (highContrast) HextechOutlineHighContrast else Color(0xFF23324F),
-    outlineVariant = if (highContrast) HextechGoldMuted else Color(0xFF18243B),
+    primary = palette.primary,
+    onPrimary = palette.onPrimary,
+    primaryContainer = palette.primaryContainer,
+    onPrimaryContainer = palette.primaryBright,
+    secondary = palette.secondary,
+    onSecondary = palette.onSecondary,
+    secondaryContainer = palette.secondaryContainer,
+    onSecondaryContainer = palette.onSecondaryContainer,
+    tertiary = palette.tertiary,
+    onTertiary = palette.onTertiary,
+    background = palette.background,
+    onBackground = palette.textPrimary,
+    surface = palette.surfaceNavy,
+    onSurface = palette.textPrimary,
+    surfaceVariant = palette.surface,
+    onSurfaceVariant = palette.textSecondary,
+    surfaceContainerLow = palette.surfaceNavy,
+    surfaceContainer = palette.surface,
+    surfaceContainerHigh = palette.surfaceHigh,
+    surfaceContainerHighest = palette.surfaceHighest,
+    outline = if (highContrast) palette.outlineHighContrast else palette.outline,
+    outlineVariant = if (highContrast) palette.primaryMuted else palette.outlineVariant,
     error = ThreatCrimson,
     onError = Color.White,
   )
@@ -60,13 +65,16 @@ fun RiftCompanionTheme(
   content: @Composable () -> Unit,
 ) {
   val strings = AppStrings.get(preferences.language)
-  val colorScheme = buildHextechColorScheme(preferences.highContrastCards)
-  val typography = createScaledTypography(preferences.fontScaleMultiplier)
+  val palette = riftPaletteFor(preferences.darkThemePreset)
+  val colorScheme = buildColorScheme(palette, preferences.highContrastCards)
+  val typography = createScaledTypography(preferences.fontScaleMultiplier, preferences.fontPreset)
 
   CompositionLocalProvider(
     LocalUserPrefs provides preferences,
     LocalUiStrings provides strings,
     LocalInGameMiniMode provides inGameMiniMode,
+    LocalRiftPalette provides palette,
+    LocalIconSizePreset provides preferences.iconSizePreset,
   ) {
     MaterialTheme(
       colorScheme = colorScheme,

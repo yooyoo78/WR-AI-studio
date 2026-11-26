@@ -48,6 +48,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Palette
+import com.example.data.model.AppDarkThemePreset
 import com.example.data.model.AppLanguage
 import com.example.data.model.ChampionData
 import com.example.data.model.Lane
@@ -69,8 +74,10 @@ import com.example.ui.theme.HextechOutline
 import com.example.ui.theme.HextechSurface
 import com.example.ui.theme.HextechSurfaceHigh
 import com.example.ui.theme.LocalInGameMiniMode
+import com.example.ui.theme.LocalRiftPalette
 import com.example.ui.theme.LocalUiStrings
 import com.example.ui.theme.TextMutedLight
+import com.example.ui.theme.riftPaletteFor
 import com.example.ui.viewmodel.HomeUiState
 
 @Composable
@@ -90,8 +97,10 @@ fun HomeDashboardScreen(
   onOpenQuickScan: () -> Unit = {},
   onOpenPatchCenter: () -> Unit,
   onOpenSettings: () -> Unit,
+  onCycleDarkTheme: () -> Unit = {},
 ) {
   val strings = LocalUiStrings.current
+  val palette = LocalRiftPalette.current
   val isMiniMode = LocalInGameMiniMode.current
   val lang = state.preferences.language
   val activePatchVersion =
@@ -113,7 +122,7 @@ fun HomeDashboardScreen(
             QuickShortcutTile(
               icon = Icons.Default.Security,
               label = if (lang == AppLanguage.TH) "วิเคราะห์ 1v5" else "1v5 Build",
-              accent = HextechGoldBright,
+              accent = palette.primaryBright,
               filled = true,
               onClick = { onOpenAnalyzer(null) },
               modifier = Modifier.testTag("home_launch_analyzer_button"),
@@ -123,7 +132,7 @@ fun HomeDashboardScreen(
             QuickShortcutTile(
               icon = Icons.Default.Groups,
               label = if (lang == AppLanguage.TH) "ดราฟต์" else "Draft",
-              accent = ArcaneCyan,
+              accent = palette.secondary,
               onClick = onOpenDraft,
               modifier = Modifier.testTag("home_open_draft_button"),
             )
@@ -132,7 +141,7 @@ fun HomeDashboardScreen(
             QuickShortcutTile(
               icon = Icons.Default.AutoAwesome,
               label = if (lang == AppLanguage.TH) "AI โค้ช" else "Coach",
-              accent = ArcaneCyan,
+              accent = palette.secondary,
               onClick = onOpenCoach,
               modifier = Modifier.testTag("home_open_coach_button"),
             )
@@ -150,7 +159,7 @@ fun HomeDashboardScreen(
             QuickShortcutTile(
               icon = Icons.Default.Shield,
               label = if (lang == AppLanguage.TH) "แชมเปี้ยน" else "Champs",
-              accent = HextechGold,
+              accent = palette.primary,
               onClick = onOpenChampions,
               modifier = Modifier.testTag("home_open_champions_shortcut"),
             )
@@ -159,7 +168,7 @@ fun HomeDashboardScreen(
             QuickShortcutTile(
               icon = Icons.Default.Update,
               label = if (lang == AppLanguage.TH) "แพตช์" else "Patch",
-              accent = ArcaneCyan,
+              accent = palette.secondary,
               onClick = onOpenPatchCenter,
               modifier = Modifier.testTag("home_patch_card"),
             )
@@ -168,7 +177,7 @@ fun HomeDashboardScreen(
             QuickShortcutTile(
               icon = Icons.Default.Settings,
               label = if (lang == AppLanguage.TH) "ตั้งค่า" else "Settings",
-              accent = HextechGold,
+              accent = palette.primary,
               onClick = onOpenSettings,
               modifier = Modifier.testTag("home_settings_card"),
             )
@@ -176,63 +185,80 @@ fun HomeDashboardScreen(
         }
       }
 
-      // 2. Slim Single-Line Active Patch Version Pill (Tap to view patch details in Patch Center)
+      // 2. Slim Active Patch Version Pill + 1-Tap Dark Theme Switcher Shortcut
       item {
         val hasOtaUpdate = otaStatus is OtaCheckStatus.UpdateReady
-        val pillAccent = if (hasOtaUpdate) AdvantageEmerald else ArcaneCyan
-        Surface(
-          onClick = onOpenPatchCenter,
-          shape = MaterialTheme.shapes.medium,
-          color = HextechSurfaceHigh,
-          border = BorderStroke(1.dp, pillAccent.copy(alpha = 0.45f)),
-          modifier = Modifier.fillMaxWidth().minimumInteractiveComponentSize().testTag("home_active_patch_pill"),
+        val pillAccent = if (hasOtaUpdate) AdvantageEmerald else palette.secondary
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+          verticalAlignment = Alignment.CenterVertically,
         ) {
-          Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
+          Surface(
+            onClick = onOpenPatchCenter,
+            shape = MaterialTheme.shapes.medium,
+            color = palette.surfaceHigh,
+            border = BorderStroke(1.dp, pillAccent.copy(alpha = 0.45f)),
+            modifier =
+              Modifier.weight(1f)
+                .minimumInteractiveComponentSize()
+                .testTag("home_active_patch_pill"),
           ) {
             Row(
-              modifier = Modifier.weight(1f),
+              modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
               verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(8.dp),
+              horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-              Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = HextechGold.copy(alpha = 0.16f),
-                border = BorderStroke(0.75.dp, HextechGold.copy(alpha = 0.55f)),
+              Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
               ) {
+                Surface(
+                  shape = RoundedCornerShape(6.dp),
+                  color = palette.primary.copy(alpha = 0.16f),
+                  border = BorderStroke(0.75.dp, palette.primary.copy(alpha = 0.55f)),
+                ) {
+                  Text(
+                    text = "Patch $activePatchVersion",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = palette.primaryBright,
+                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                    maxLines = 1,
+                  )
+                }
                 Text(
-                  text = "Patch $activePatchVersion",
-                  style = MaterialTheme.typography.labelMedium,
-                  fontWeight = FontWeight.Bold,
-                  color = HextechGoldBright,
-                  modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                  text =
+                    when {
+                      hasOtaUpdate && lang == AppLanguage.TH ->
+                        "OTA ${(otaStatus as OtaCheckStatus.UpdateReady).download.diff.incomingPatchVersion}"
+                      hasOtaUpdate ->
+                        "OTA ${(otaStatus as OtaCheckStatus.UpdateReady).download.diff.incomingPatchVersion}"
+                      lang == AppLanguage.TH -> "แพตช์"
+                      else -> "Patch"
+                    },
+                  style = MaterialTheme.typography.labelSmall,
+                  color = if (hasOtaUpdate) AdvantageEmerald else TextMutedLight,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
                 )
               }
-              Text(
-                text =
-                  when {
-                    hasOtaUpdate && lang == AppLanguage.TH ->
-                      "พบ OTA Patch ${(otaStatus as OtaCheckStatus.UpdateReady).download.diff.incomingPatchVersion} • แตะดูรายละเอียด"
-                    hasOtaUpdate ->
-                      "OTA Patch ${(otaStatus as OtaCheckStatus.UpdateReady).download.diff.incomingPatchVersion} Ready • Tap to view"
-                    lang == AppLanguage.TH -> "แตะเพื่อดูรายละเอียดแพตช์ & อัปเดต"
-                    else -> "Tap for Patch Notes & OTA Details"
-                  },
-                style = MaterialTheme.typography.labelMedium,
-                color = if (hasOtaUpdate) AdvantageEmerald else TextMutedLight,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+              Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = strings.patchCenterTitle,
+                tint = pillAccent,
+                modifier = Modifier.size(15.dp),
               )
             }
-            Icon(
-              imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-              contentDescription = strings.patchCenterTitle,
-              tint = pillAccent,
-              modifier = Modifier.size(16.dp),
-            )
           }
+
+          QuickThemeCycleShortcutTile(
+            currentPreset = state.preferences.darkThemePreset,
+            language = lang,
+            onClick = onCycleDarkTheme,
+            modifier = Modifier.testTag("home_theme_shortcut"),
+          )
         }
       }
 
@@ -378,6 +404,62 @@ fun HomeDashboardScreen(
 }
 
 @Composable
+private fun QuickThemeCycleShortcutTile(
+  currentPreset: AppDarkThemePreset,
+  language: AppLanguage,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  val palette = LocalRiftPalette.current
+  Surface(
+    onClick = onClick,
+    shape = RoundedCornerShape(12.dp),
+    color = palette.surface,
+    border = BorderStroke(0.95.dp, palette.primary.copy(alpha = 0.55f)),
+    modifier = modifier.minimumInteractiveComponentSize(),
+  ) {
+    Row(
+      modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+      Icon(
+        imageVector = Icons.Default.Palette,
+        contentDescription = if (language == AppLanguage.TH) "สลับธีมมืด" else "Switch dark theme",
+        tint = palette.primaryBright,
+        modifier = Modifier.size(16.dp),
+      )
+      Text(
+        text =
+          if (language == AppLanguage.TH) "ธีม: ${currentPreset.shortLabel(language)}"
+          else "Theme: ${currentPreset.shortLabel(language)}",
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurface,
+        maxLines = 1,
+      )
+      Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        AppDarkThemePreset.entries.forEach { preset ->
+          val dotPalette = riftPaletteFor(preset)
+          val active = preset == currentPreset
+          Box(
+            modifier =
+              Modifier.size(if (active) 8.dp else 6.dp)
+                .clip(CircleShape)
+                .background(if (active) dotPalette.primary else dotPalette.primary.copy(alpha = 0.35f))
+                .border(
+                  width = if (active) 1.dp else 0.dp,
+                  color = if (active) palette.textPrimary else Color.Transparent,
+                  shape = CircleShape,
+                )
+          )
+        }
+      }
+    }
+  }
+}
+
+@Composable
 private fun QuickShortcutTile(
   icon: ImageVector,
   label: String,
@@ -386,14 +468,15 @@ private fun QuickShortcutTile(
   onClick: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
+  val palette = LocalRiftPalette.current
   Surface(
     onClick = onClick,
     shape = RoundedCornerShape(12.dp),
-    color = if (filled) HextechGold.copy(alpha = 0.18f) else HextechSurface,
+    color = if (filled) palette.primary.copy(alpha = 0.18f) else palette.surface,
     border =
       BorderStroke(
         width = if (filled) 1.2.dp else 0.9.dp,
-        color = if (filled) HextechGold else HextechOutline,
+        color = if (filled) palette.primary else palette.outline,
       ),
     modifier = modifier.minimumInteractiveComponentSize(),
   ) {
@@ -412,7 +495,7 @@ private fun QuickShortcutTile(
         text = label,
         style = MaterialTheme.typography.labelMedium,
         fontWeight = FontWeight.Bold,
-        color = if (filled) HextechGoldBright else MaterialTheme.colorScheme.onSurface,
+        color = if (filled) palette.primaryBright else MaterialTheme.colorScheme.onSurface,
         maxLines = 1,
       )
     }

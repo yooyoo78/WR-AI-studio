@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import com.example.data.model.AppLanguage
 import com.example.data.model.ChampionData
 import com.example.data.model.CustomBuildData
+import com.example.data.model.IconSizePreset
 import com.example.data.model.Lane
 import com.example.data.model.tier3BootUpgradeId
 import com.example.data.remote.DDragonIconResolver
@@ -78,6 +79,7 @@ import com.example.ui.theme.AdvantageEmerald
 import com.example.ui.theme.ArcaneCyan
 import com.example.ui.theme.HextechGold
 import com.example.ui.theme.HextechGoldBright
+import com.example.ui.theme.LocalIconSizePreset
 import com.example.ui.theme.LocalInGameMiniMode
 import com.example.ui.theme.LocalUserPrefs
 import com.example.ui.theme.SkillViolet
@@ -267,9 +269,10 @@ fun ChampionDetailScreen(
               items(champion.abilities, key = { it.slot }) { ab ->
                 val iconUrl = ab.iconUrl.ifBlank { resolvedAbilityIcons[ab.slot].orEmpty() }
                 val abilityName = if (lang == AppLanguage.TH) ab.nameTh else ab.nameEn
+                val isCompactIcons = LocalIconSizePreset.current == IconSizePreset.COMPACT
                 Column(
                   modifier =
-                    Modifier.width(76.dp)
+                    Modifier.width(if (isCompactIcons) 66.dp else 76.dp)
                       .minimumInteractiveComponentSize()
                       .clip(RoundedCornerShape(10.dp))
                       .clickable { miniInspectTarget = MiniInspectTarget.Skill(ab, iconUrl) }
@@ -281,7 +284,7 @@ fun ChampionDetailScreen(
                     slot = ab.slot,
                     iconUrl = iconUrl,
                     contentDescription = abilityName,
-                    size = 46.dp,
+                    size = 44.dp,
                   )
                   Spacer(modifier = Modifier.height(4.dp))
                   Text(

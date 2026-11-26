@@ -45,13 +45,28 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.PhotoSizeSelectSmall
+import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.clip
 import com.example.data.ai.AiModelCatalog
 import com.example.data.ai.AiProviderId
 import com.example.data.ai.ExternalApiKeyStatus
 import com.example.data.local.CoachCacheStats
 import com.example.data.local.UserPreferences
+import com.example.data.model.AppDarkThemePreset
+import com.example.data.model.AppFontPreset
 import com.example.data.model.AppLanguage
+import com.example.data.model.IconSizePreset
 import com.example.data.model.TextScalePreset
+import com.example.ui.components.AbilityIconBadge
 import com.example.ui.components.FreeApiKeysBottomSheet
 import com.example.ui.components.HextechCard
 import com.example.ui.components.ModelPickerBottomSheet
@@ -60,8 +75,11 @@ import com.example.ui.theme.ArcaneCyan
 import com.example.ui.theme.HextechGold
 import com.example.ui.theme.HextechGoldBright
 import com.example.ui.theme.LocalInGameMiniMode
+import com.example.ui.theme.LocalRiftPalette
 import com.example.ui.theme.LocalUiStrings
 import com.example.ui.theme.ThreatCrimson
+import com.example.ui.theme.fontFamilyFor
+import com.example.ui.theme.riftPaletteFor
 import com.example.ui.viewmodel.ProviderKeyTestState
 import kotlin.math.abs
 
@@ -75,6 +93,9 @@ fun SettingsScreen(
   cooldownModelIds: Set<String> = emptySet(),
   onSelectLanguage: (AppLanguage) -> Unit,
   onChangeFontScale: (Float) -> Unit,
+  onSelectThemePreset: (AppDarkThemePreset) -> Unit = {},
+  onSelectFontPreset: (AppFontPreset) -> Unit = {},
+  onSelectIconSizePreset: (IconSizePreset) -> Unit = {},
   onToggleHighContrast: (Boolean) -> Unit,
   onToggleMiniMode: (Boolean) -> Unit,
   onSelectCoachModel: (String) -> Unit = {},
@@ -86,6 +107,7 @@ fun SettingsScreen(
   BackHandler(onBack = onBack)
 
   val strings = LocalUiStrings.current
+  val palette = LocalRiftPalette.current
   val isMiniMode = LocalInGameMiniMode.current
   val lang = preferences.language
   var showModelPicker by remember { mutableStateOf(false) }
@@ -117,7 +139,7 @@ fun SettingsScreen(
       ) {
         // Language Selector (Thai default + English)
         item {
-          HextechCard(accentColor = HextechGold) {
+          HextechCard(accentColor = palette.primary) {
             Text(text = strings.languageSectionTitle, style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -130,6 +152,100 @@ fun SettingsScreen(
                       .testTag("settings_lang_${option.code}"),
                   label = { Text(option.displayLabel) },
                 )
+              }
+            }
+          }
+        }
+
+        // 4 Dark GUI Theme Modes
+        item {
+          HextechCard(
+            accentColor = palette.primary,
+            modifier = Modifier.testTag("settings_theme_card"),
+          ) {
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              Icon(
+                imageVector = Icons.Default.Palette,
+                contentDescription = null,
+                tint = palette.primaryBright,
+                modifier = Modifier.size(18.dp),
+              )
+              Text(
+                text = strings.themeSectionTitle,
+                style = MaterialTheme.typography.titleMedium,
+              )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+              text =
+                if (lang == AppLanguage.TH) {
+                  "เลือกโทนมืดได้ 4 รูปแบบตามสภาพแสง และสลับด่วนจากแถบทางลัดบนหน้าหลักได้"
+                } else {
+                  "Pick from 4 dark palettes or cycle quickly via the Home shortcut tile."
+                },
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            FlowRow(
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+              verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              AppDarkThemePreset.entries.forEach { preset ->
+                val p = riftPaletteFor(preset)
+                val selected = preferences.darkThemePreset == preset
+                Surface(
+                  shape = RoundedCornerShape(12.dp),
+                  color = p.surface,
+                  border =
+                    BorderStroke(
+                      width = if (selected) 1.75.dp else 1.dp,
+                      color = if (selected) p.primaryBright else p.outline,
+                    ),
+                  modifier =
+                    Modifier.minimumInteractiveComponentSize()
+                      .clip(RoundedCornerShape(12.dp))
+                      .clickable { onSelectThemePreset(preset) }
+                      .testTag("settings_theme_${preset.id}"),
+                ) {
+                  Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                  ) {
+                    Box(
+                      modifier =
+                        Modifier.size(14.dp)
+                          .clip(CircleShape)
+                          .background(p.primary)
+                          .border(1.dp, p.textPrimary.copy(alpha = 0.5f), CircleShape)
+                    )
+                    Box(
+                      modifier =
+                        Modifier.size(12.dp)
+                          .clip(CircleShape)
+                          .background(p.secondary)
+                    )
+                    Text(
+                      text = preset.displayLabel(lang),
+                      style = MaterialTheme.typography.labelLarge,
+                      fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                      color = if (selected) p.primaryBright else p.textPrimary,
+                    )
+                    if (selected) {
+                      Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        tint = p.primaryBright,
+                        modifier = Modifier.size(15.dp),
+                      )
+                    }
+                  }
+                }
               }
             }
           }
@@ -224,25 +340,68 @@ fun SettingsScreen(
           }
         }
 
-        // Adjustable Text Readability Controls
+        // Font Family & Adjustable Text Readability Controls
         item {
-          HextechCard(accentColor = ArcaneCyan) {
+          HextechCard(
+            accentColor = palette.secondary,
+            modifier = Modifier.testTag("settings_font_card"),
+          ) {
             Row(
               modifier = Modifier.fillMaxWidth(),
               horizontalArrangement = Arrangement.SpaceBetween,
               verticalAlignment = Alignment.CenterVertically,
             ) {
-              Text(
-                text = strings.textSizeSectionTitle,
-                style = MaterialTheme.typography.titleMedium,
-              )
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f),
+              ) {
+                Icon(
+                  imageVector = Icons.Default.TextFields,
+                  contentDescription = null,
+                  tint = palette.secondary,
+                  modifier = Modifier.size(18.dp),
+                )
+                Text(
+                  text = strings.fontFamilySectionTitle,
+                  style = MaterialTheme.typography.titleMedium,
+                )
+              }
               Text(
                 text = "${(preferences.fontScaleMultiplier * 100).toInt()}%",
                 style = MaterialTheme.typography.titleSmall,
-                color = ArcaneCyan,
+                color = palette.secondary,
               )
             }
             Spacer(modifier = Modifier.height(8.dp))
+
+            FlowRow(
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+              verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+              AppFontPreset.entries.forEach { fontOption ->
+                val isSelected = preferences.fontPreset == fontOption
+                FilterChip(
+                  selected = isSelected,
+                  onClick = { onSelectFontPreset(fontOption) },
+                  modifier = Modifier.testTag("settings_font_${fontOption.id}"),
+                  label = {
+                    Text(
+                      text = fontOption.displayLabel(lang),
+                      fontFamily = fontFamilyFor(fontOption),
+                    )
+                  },
+                )
+              }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+              text = strings.textSizeSectionTitle,
+              style = MaterialTheme.typography.labelLarge,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(6.dp))
 
             FlowRow(
               horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -270,16 +429,109 @@ fun SettingsScreen(
             )
 
             Spacer(modifier = Modifier.height(8.dp))
+            Surface(
+              shape = RoundedCornerShape(10.dp),
+              color = palette.surfaceHigh,
+              border = BorderStroke(0.75.dp, palette.outline),
+              modifier = Modifier.fillMaxWidth(),
+            ) {
+              Text(
+                text =
+                  if (lang == AppLanguage.TH) {
+                    "ตัวอย่างข้อความ (${preferences.fontPreset.displayLabel(lang)}): ออก Stasis Enchant ก่อนไฟต์มังกรที่ 2 เพื่อกันอัลติของ Zed และเก็บสกิล E ไว้หนี"
+                  } else {
+                    "Preview (${preferences.fontPreset.displayLabel(lang)}): Prioritize Stasis Enchant before 2nd Dragon to nullify Zed's Death Mark combo."
+                  },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(10.dp),
+              )
+            }
+          }
+        }
+
+        // Icon Size Preset (Compact vs Standard) for Skills, Items, Spells & Runes
+        item {
+          HextechCard(
+            accentColor = palette.primary,
+            modifier = Modifier.testTag("settings_icon_size_card"),
+          ) {
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              Icon(
+                imageVector = Icons.Default.PhotoSizeSelectSmall,
+                contentDescription = null,
+                tint = palette.primaryBright,
+                modifier = Modifier.size(18.dp),
+              )
+              Text(
+                text = strings.iconSizeSectionTitle,
+                style = MaterialTheme.typography.titleMedium,
+              )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
               text =
                 if (lang == AppLanguage.TH) {
-                  "ตัวอย่างข้อความ: ออก Stasis Enchant ก่อนไฟต์มังกรที่ 2 เพื่อกันอัลติของ Zed และเก็บสกิล E ไว้หนี"
+                  "ย่อขนาดไอคอนสกิล ไอเทม สเปล และรูนให้กระชับขึ้น เพื่อเพิ่มพื้นที่อ่านชื่อและค่าพลังชัดเจน"
                 } else {
-                  "Preview: Prioritize Stasis Enchant before 2nd Dragon to nullify Zed's Death Mark combo."
+                  "Reduces skill, item, spell, and rune icon frames so stat descriptions stay clean and readable."
                 },
-              style = MaterialTheme.typography.bodyMedium,
-              color = MaterialTheme.colorScheme.onSurface,
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(modifier = Modifier.height(8.dp))
+            FlowRow(
+              horizontalArrangement = Arrangement.spacedBy(10.dp),
+              verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+              IconSizePreset.entries.forEach { preset ->
+                FilterChip(
+                  selected = preferences.iconSizePreset == preset,
+                  onClick = { onSelectIconSizePreset(preset) },
+                  modifier =
+                    Modifier.minimumInteractiveComponentSize()
+                      .testTag("settings_icon_size_${preset.id}"),
+                  label = { Text(preset.displayLabel(lang)) },
+                )
+              }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+              AbilityIconBadge(
+                slot = "Q",
+                iconUrl = "",
+                contentDescription = "Sample skill",
+                size = 44.dp,
+              )
+              AbilityIconBadge(
+                slot = "R",
+                iconUrl = "",
+                contentDescription = "Sample ultimate",
+                size = 44.dp,
+              )
+              Column(modifier = Modifier.weight(1f)) {
+                Text(
+                  text =
+                    if (lang == AppLanguage.TH) "สัดส่วนไอคอนปัจจุบัน (${preferences.iconSizePreset.displayLabel(lang)})"
+                    else "Live icon preview (${preferences.iconSizePreset.displayLabel(lang)})",
+                  style = MaterialTheme.typography.labelMedium,
+                  color = palette.primaryBright,
+                )
+                Text(
+                  text =
+                    if (lang == AppLanguage.TH) "มีผลทันทีกับหน้าวิเคราะห์ 1v5, สกิลแชมเปี้ยน, ไอเทม, สเปล และรูน"
+                    else "Applies across 1v5 Analyzer, Champion Skills, Items, Spells, and Runes.",
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+              }
+            }
           }
         }
 

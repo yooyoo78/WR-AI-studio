@@ -112,3 +112,114 @@ data class TextScalePreset(
       )
   }
 }
+
+enum class AppDarkThemePreset(
+  val id: String,
+  val labelEn: String,
+  val labelTh: String,
+  val shortLabelEn: String,
+  val shortLabelTh: String,
+) {
+  HEXTECH_OBSIDIAN(
+    id = "hextech_obsidian",
+    labelEn = "Hextech Obsidian",
+    labelTh = "Hextech น้ำเงินทอง",
+    shortLabelEn = "Hextech",
+    shortLabelTh = "Hextech",
+  ),
+  VOID_ABYSS(
+    id = "void_abyss",
+    labelEn = "Void Abyss",
+    labelTh = "Void ม่วงอวกาศ",
+    shortLabelEn = "Void",
+    shortLabelTh = "Void",
+  ),
+  SHADOW_EMERALD(
+    id = "shadow_emerald",
+    labelEn = "Shadow Emerald",
+    labelTh = "Shadow เขียวมรกต",
+    shortLabelEn = "Emerald",
+    shortLabelTh = "มรกต",
+  ),
+  TACTICAL_CARBON(
+    id = "tactical_carbon",
+    labelEn = "Tactical Carbon",
+    labelTh = "Carbon กราไฟต์คม",
+    shortLabelEn = "Carbon",
+    shortLabelTh = "คาร์บอน",
+  );
+
+  fun displayLabel(lang: AppLanguage): String = if (lang == AppLanguage.TH) labelTh else labelEn
+
+  fun shortLabel(lang: AppLanguage): String =
+    if (lang == AppLanguage.TH) shortLabelTh else shortLabelEn
+
+  fun next(): AppDarkThemePreset = entries[(ordinal + 1) % entries.size]
+
+  companion object {
+    fun fromId(id: String?): AppDarkThemePreset =
+      entries.firstOrNull { it.id == id } ?: HEXTECH_OBSIDIAN
+  }
+}
+
+enum class AppFontPreset(
+  val id: String,
+  val labelEn: String,
+  val labelTh: String,
+) {
+  NOTO_SANS_THAI(
+    id = "noto_sans_thai",
+    labelEn = "Noto Sans Thai",
+    labelTh = "Noto Sans Thai",
+  ),
+  KANIT(
+    id = "kanit",
+    labelEn = "Kanit",
+    labelTh = "Kanit (คมชัดทันสมัย)",
+  ),
+  SARABUN(
+    id = "sarabun",
+    labelEn = "Sarabun",
+    labelTh = "Sarabun (อ่านสบายตา)",
+  ),
+  SYSTEM(
+    id = "system",
+    labelEn = "System Default",
+    labelTh = "ฟอนต์ระบบ",
+  );
+
+  fun displayLabel(lang: AppLanguage): String = if (lang == AppLanguage.TH) labelTh else labelEn
+
+  companion object {
+    fun fromId(id: String?): AppFontPreset =
+      entries.firstOrNull { it.id == id } ?: NOTO_SANS_THAI
+  }
+}
+
+enum class IconSizePreset(
+  val id: String,
+  val scale: Float,
+  val labelEn: String,
+  val labelTh: String,
+) {
+  COMPACT(
+    id = "compact",
+    scale = 0.78f,
+    labelEn = "Compact (Recommended)",
+    labelTh = "กะทัดรัด (แนะนำ)",
+  ),
+  STANDARD(
+    id = "standard",
+    scale = 1.0f,
+    labelEn = "Standard",
+    labelTh = "ปกติ",
+  );
+
+  fun displayLabel(lang: AppLanguage): String = if (lang == AppLanguage.TH) labelTh else labelEn
+
+  companion object {
+    fun fromId(id: String?): IconSizePreset =
+      entries.firstOrNull { it.id == id } ?: COMPACT
+  }
+}
+

@@ -9,8 +9,11 @@ import com.example.data.local.CoachCacheStats
 import com.example.data.local.GameDao
 import com.example.data.local.PreferencesRepository
 import com.example.data.local.UserPreferences
+import com.example.data.model.AppDarkThemePreset
+import com.example.data.model.AppFontPreset
 import com.example.data.model.AppLanguage
 import com.example.data.model.ChampionData
+import com.example.data.model.IconSizePreset
 import com.example.data.model.Lane
 import com.example.data.model.MatchJournalEntryData
 import com.example.data.model.PatchNoteData
@@ -537,6 +540,25 @@ class HomeAndPatchViewModel(
 
   fun setInGameMiniMode(enabled: Boolean) {
     viewModelScope.launch { preferencesRepository.setInGameMiniMode(enabled) }
+  }
+
+  fun setDarkThemePreset(preset: AppDarkThemePreset) {
+    viewModelScope.launch { preferencesRepository.setDarkThemePreset(preset) }
+  }
+
+  fun cycleDarkThemePreset() {
+    viewModelScope.launch {
+      val current = preferencesRepository.preferencesFlow.first().darkThemePreset
+      preferencesRepository.setDarkThemePreset(current.next())
+    }
+  }
+
+  fun setFontPreset(preset: AppFontPreset) {
+    viewModelScope.launch { preferencesRepository.setFontPreset(preset) }
+  }
+
+  fun setIconSizePreset(preset: IconSizePreset) {
+    viewModelScope.launch { preferencesRepository.setIconSizePreset(preset) }
   }
 
   fun clearCoachCache() {

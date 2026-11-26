@@ -80,6 +80,7 @@ import com.example.ui.theme.HextechOutline
 import com.example.ui.theme.HextechSurface
 import com.example.ui.theme.HextechSurfaceHigh
 import com.example.ui.theme.LocalInGameMiniMode
+import com.example.ui.theme.LocalRiftPalette
 import com.example.ui.theme.SkillViolet
 import com.example.ui.theme.TextMutedLight
 import com.example.ui.theme.ThreatCrimson
@@ -110,6 +111,7 @@ fun TopPlayedMetaWidget(
   modifier: Modifier = Modifier,
 ) {
   val isMiniMode = LocalInGameMiniMode.current
+  val palette = LocalRiftPalette.current
   var expandedChampionId by remember { mutableStateOf<String?>(null) }
   var serverMenuExpanded by remember { mutableStateOf(false) }
 
@@ -117,14 +119,14 @@ fun TopPlayedMetaWidget(
     shape = MaterialTheme.shapes.large,
     color = Color.Transparent,
     tonalElevation = 4.dp,
-    border = BorderStroke(1.dp, HextechGold.copy(alpha = 0.42f)),
+    border = BorderStroke(1.dp, palette.primary.copy(alpha = 0.42f)),
     modifier =
       modifier
         .fillMaxWidth()
         .clip(MaterialTheme.shapes.large)
         .background(
           Brush.verticalGradient(
-            listOf(Color(0xFF121E36), HextechNavy, HextechObsidian)
+            listOf(palette.heroTopTint, palette.surfaceNavy, palette.background)
           )
         )
         .testTag("top_played_meta_widget"),
@@ -146,15 +148,15 @@ fun TopPlayedMetaWidget(
         ) {
           Surface(
             shape = CircleShape,
-            color = HextechGold.copy(alpha = 0.16f),
-            border = BorderStroke(1.dp, HextechGold.copy(alpha = 0.55f)),
+            color = palette.primary.copy(alpha = 0.16f),
+            border = BorderStroke(1.dp, palette.primary.copy(alpha = 0.55f)),
             modifier = Modifier.size(if (isMiniMode) 30.dp else 34.dp),
           ) {
             Box(contentAlignment = Alignment.Center) {
               Icon(
                 imageVector = Icons.Default.Leaderboard,
                 contentDescription = null,
-                tint = HextechGoldBright,
+                tint = palette.primaryBright,
                 modifier = Modifier.size(if (isMiniMode) 16.dp else 18.dp),
               )
             }
@@ -168,7 +170,7 @@ fun TopPlayedMetaWidget(
                 if (isMiniMode) MaterialTheme.typography.titleSmall
                 else MaterialTheme.typography.titleMedium,
               fontWeight = FontWeight.Bold,
-              color = HextechGoldBright,
+              color = palette.primaryBright,
               maxLines = 1,
               overflow = TextOverflow.Ellipsis,
             )
@@ -201,8 +203,8 @@ fun TopPlayedMetaWidget(
             Surface(
               onClick = { serverMenuExpanded = true },
               shape = RoundedCornerShape(10.dp),
-              color = HextechSurfaceHigh,
-              border = BorderStroke(1.dp, ArcaneCyan.copy(alpha = 0.45f)),
+              color = palette.surfaceHigh,
+              border = BorderStroke(1.dp, palette.secondary.copy(alpha = 0.45f)),
               modifier = Modifier.fillMaxWidth().minimumInteractiveComponentSize().testTag("meta_server_selector_chip"),
             ) {
               Row(
@@ -213,7 +215,7 @@ fun TopPlayedMetaWidget(
                 Icon(
                   imageVector = Icons.Default.Public,
                   contentDescription = null,
-                  tint = ArcaneCyan,
+                  tint = palette.secondary,
                   modifier = Modifier.size(15.dp),
                 )
                 Text(
@@ -221,7 +223,7 @@ fun TopPlayedMetaWidget(
                     if (language == AppLanguage.TH) selectedServer.labelTh
                     else selectedServer.labelEn,
                   style = MaterialTheme.typography.labelMedium,
-                  color = ArcaneCyan,
+                  color = palette.secondary,
                   fontWeight = FontWeight.SemiBold,
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis,
@@ -230,7 +232,7 @@ fun TopPlayedMetaWidget(
                 Icon(
                   imageVector = Icons.Default.ArrowDropDown,
                   contentDescription = "Select Server",
-                  tint = ArcaneCyan,
+                  tint = palette.secondary,
                   modifier = Modifier.size(16.dp),
                 )
               }

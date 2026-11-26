@@ -123,6 +123,7 @@ fun PostGameReviewSheet(
     containerColor = MaterialTheme.colorScheme.surface,
     modifier = Modifier.testTag("post_game_review_sheet"),
   ) {
+    ProvideSafeTextToolbar {
     Column(
       modifier =
         Modifier.fillMaxWidth()
@@ -678,6 +679,7 @@ fun PostGameReviewSheet(
           }
         }
       }
+    }
     }
   }
 

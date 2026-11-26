@@ -527,6 +527,7 @@ fun FreeApiKeysBottomSheet(
     contentColor = TextPrimaryLight,
     modifier = Modifier.testTag("free_api_keys_sheet"),
   ) {
+    ProvideSafeTextToolbar {
     LazyColumn(
       modifier = Modifier.fillMaxWidth().testTag("free_keys_lazy_column"),
       contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -582,6 +583,7 @@ fun FreeApiKeysBottomSheet(
       }
 
       item { Spacer(modifier = Modifier.height(14.dp)) }
+    }
     }
   }
 }

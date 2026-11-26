@@ -166,6 +166,7 @@ fun CustomBuildEditorSheet(
     containerColor = MaterialTheme.colorScheme.surface,
     modifier = Modifier.testTag("custom_build_editor_sheet"),
   ) {
+    ProvideSafeTextToolbar {
     Column(
       modifier =
         Modifier.fillMaxWidth()
@@ -602,6 +603,7 @@ fun CustomBuildEditorSheet(
           )
         }
       }
+    }
     }
   }
 

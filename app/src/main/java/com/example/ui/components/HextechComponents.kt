@@ -63,6 +63,7 @@ import coil.request.ImageRequest
 import com.example.data.model.AppLanguage
 import com.example.data.model.ChampionData
 import com.example.data.model.DamageType
+import com.example.data.model.IconSizePreset
 import com.example.data.model.ItemData
 import com.example.data.model.Lane
 import com.example.data.model.RuneData
@@ -76,13 +77,24 @@ import com.example.ui.theme.HextechGold
 import com.example.ui.theme.HextechGoldBright
 import com.example.ui.theme.HextechSurface
 import com.example.ui.theme.HextechSurfaceHigh
+import com.example.ui.theme.LocalIconSizePreset
 import com.example.ui.theme.LocalInGameMiniMode
+import com.example.ui.theme.LocalRiftPalette
 import com.example.ui.theme.LocalUiStrings
 import com.example.ui.theme.LocalUserPrefs
 import com.example.ui.theme.SkillViolet
 import com.example.ui.theme.ThreatCrimson
 import com.example.ui.theme.WarningAmber
 import java.util.Locale
+
+@Composable
+private fun scaledSlotSize(baseSize: Dp, minSize: Dp, applyUserIconPreset: Boolean = true): Dp {
+  val iconPreset = LocalIconSizePreset.current
+  val isMiniMode = LocalInGameMiniMode.current
+  val userFactor = if (applyUserIconPreset) iconPreset.scale else 1.0f
+  val miniFactor = if (isMiniMode) 0.86f else 1.0f
+  return (baseSize * userFactor * miniFactor).coerceAtLeast(minSize)
+}
 
 @Composable
 fun HextechCard(
@@ -119,14 +131,17 @@ fun ChampionCrestAvatar(
   onClick: (() -> Unit)? = null,
 ) {
   val lang = LocalUserPrefs.current.language
+  val palette = LocalRiftPalette.current
+  val isCompactIcons = LocalIconSizePreset.current == IconSizePreset.COMPACT
   val isMiniMode = LocalInGameMiniMode.current
-  val effectiveSize = if (isMiniMode) (size * 0.85f).coerceAtLeast(28.dp) else size
+  val avatarFactor = (if (isCompactIcons) 0.90f else 1.0f) * (if (isMiniMode) 0.86f else 1.0f)
+  val effectiveSize = (size * avatarFactor).coerceAtLeast(28.dp)
   val ringColors =
     when (champion.damageType) {
-      DamageType.AD -> listOf(HextechGold, Color(0xFFB45309))
-      DamageType.AP -> listOf(ArcaneCyan, Color(0xFF1D4ED8))
+      DamageType.AD -> listOf(palette.primary, Color(0xFFB45309))
+      DamageType.AP -> listOf(palette.secondary, Color(0xFF1D4ED8))
       DamageType.TRUE -> listOf(Color(0xFFF8FAFC), SkillViolet)
-      DamageType.HYBRID -> listOf(HextechGold, ArcaneCyan)
+      DamageType.HYBRID -> listOf(palette.primary, palette.secondary)
     }
 
   val initials =
@@ -148,7 +163,7 @@ fun ChampionCrestAvatar(
         .then(if (onClick != null) Modifier.minimumInteractiveComponentSize() else Modifier)
         .size(effectiveSize)
         .clip(CircleShape)
-        .background(Brush.linearGradient(listOf(HextechSurfaceHigh, HextechSurface)))
+        .background(Brush.linearGradient(listOf(palette.surfaceHigh, palette.surface)))
         .border(1.75.dp, Brush.linearGradient(ringColors), CircleShape)
         .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
     contentAlignment = Alignment.Center,
@@ -186,8 +201,10 @@ fun ItemIconSlot(
   showCost: Boolean = true,
   showName: Boolean = false,
 ) {
-  val isMiniMode = LocalInGameMiniMode.current
-  val effectiveSize = if (isMiniMode) (size * 0.84f).coerceAtLeast(34.dp) else size
+  val palette = LocalRiftPalette.current
+  val isCompactIcons = LocalIconSizePreset.current == IconSizePreset.COMPACT
+  val effectiveSize = scaledSlotSize(baseSize = size, minSize = 30.dp)
+  val resolvedAccent = if (accentColor == HextechGold) palette.primary else accentColor
   val initials =
     item.nameEn
       .split(" ", "'", "-")
@@ -202,26 +219,28 @@ fun ItemIconSlot(
         .minimumInteractiveComponentSize()
         .clip(RoundedCornerShape(10.dp))
         .clickable(onClick = onClick)
-        .padding(2.dp),
+        .padding(if (isCompactIcons) 1.dp else 2.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
   ) {
     if (!badgeText.isNullOrBlank() || reserveBadgeSpace) {
       Box(
-        modifier = Modifier.width(effectiveSize).height(18.dp),
+        modifier =
+          Modifier.width(effectiveSize)
+            .height(if (isCompactIcons) 15.dp else 18.dp),
         contentAlignment = Alignment.BottomStart,
       ) {
         if (!badgeText.isNullOrBlank()) {
           Surface(
             shape = RoundedCornerShape(5.dp),
-            color = badgeColor,
+            color = if (badgeColor == HextechGold) palette.primary else badgeColor,
           ) {
             Text(
               text = badgeText,
               style = MaterialTheme.typography.labelSmall,
               fontWeight = FontWeight.Bold,
-              color = Color(0xFF070B14),
+              color = palette.background,
               maxLines = 1,
-              modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+              modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
             )
           }
         }
@@ -232,9 +251,13 @@ fun ItemIconSlot(
     Box(
       modifier =
         Modifier.size(effectiveSize)
-          .clip(RoundedCornerShape(10.dp))
-          .background(Brush.linearGradient(listOf(HextechSurfaceHigh, HextechSurface)))
-          .border(1.5.dp, accentColor.copy(alpha = 0.78f), RoundedCornerShape(10.dp)),
+          .clip(RoundedCornerShape(if (isCompactIcons) 8.dp else 10.dp))
+          .background(Brush.linearGradient(listOf(palette.surfaceHigh, palette.surface)))
+          .border(
+            1.4.dp,
+            resolvedAccent.copy(alpha = 0.78f),
+            RoundedCornerShape(if (isCompactIcons) 8.dp else 10.dp),
+          ),
       contentAlignment = Alignment.Center,
     ) {
       val fallback: @Composable () -> Unit = {
@@ -242,14 +265,14 @@ fun ItemIconSlot(
           Icon(
             imageVector = Icons.Default.Shield,
             contentDescription = null,
-            tint = accentColor.copy(alpha = 0.7f),
-            modifier = Modifier.size(16.dp),
+            tint = resolvedAccent.copy(alpha = 0.7f),
+            modifier = Modifier.size(if (isCompactIcons) 13.dp else 16.dp),
           )
           Text(
             text = initials,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color = accentColor,
+            color = resolvedAccent,
           )
         }
       }
@@ -258,7 +281,8 @@ fun ItemIconSlot(
           model = buildCoilImageRequest(LocalContext.current, item.iconUrl),
           contentDescription = item.displayName(language),
           contentScale = ContentScale.Crop,
-          modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)),
+          modifier =
+            Modifier.fillMaxSize().clip(RoundedCornerShape(if (isCompactIcons) 8.dp else 10.dp)),
           loading = { fallback() },
           error = { fallback() },
         )
@@ -268,12 +292,12 @@ fun ItemIconSlot(
     }
 
     if (showCost) {
-      Spacer(modifier = Modifier.height(3.dp))
+      Spacer(modifier = Modifier.height(2.dp))
       Text(
         text = "${item.cost}g",
         style = MaterialTheme.typography.labelSmall,
         fontWeight = FontWeight.SemiBold,
-        color = HextechGoldBright,
+        color = palette.primaryBright,
         maxLines = 1,
       )
     }
@@ -302,8 +326,9 @@ fun SpellIconSlot(
   size: Dp = 40.dp,
   showLabel: Boolean = true,
 ) {
-  val isMiniMode = LocalInGameMiniMode.current
-  val effectiveSize = if (isMiniMode) (size * 0.85f).coerceAtLeast(32.dp) else size
+  val palette = LocalRiftPalette.current
+  val isCompactIcons = LocalIconSizePreset.current == IconSizePreset.COMPACT
+  val effectiveSize = scaledSlotSize(baseSize = size, minSize = 28.dp)
   val initials = spell.nameEn.take(2).uppercase()
   Column(
     modifier =
@@ -311,15 +336,19 @@ fun SpellIconSlot(
         .minimumInteractiveComponentSize()
         .clip(RoundedCornerShape(10.dp))
         .clickable(onClick = onClick)
-        .padding(2.dp),
+        .padding(if (isCompactIcons) 1.dp else 2.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
   ) {
     Box(
       modifier =
         Modifier.size(effectiveSize)
-          .clip(RoundedCornerShape(10.dp))
-          .background(Brush.linearGradient(listOf(HextechSurfaceHigh, HextechSurface)))
-          .border(1.5.dp, ArcaneCyan.copy(alpha = 0.78f), RoundedCornerShape(10.dp)),
+          .clip(RoundedCornerShape(if (isCompactIcons) 8.dp else 10.dp))
+          .background(Brush.linearGradient(listOf(palette.surfaceHigh, palette.surface)))
+          .border(
+            1.4.dp,
+            palette.secondary.copy(alpha = 0.78f),
+            RoundedCornerShape(if (isCompactIcons) 8.dp else 10.dp),
+          ),
       contentAlignment = Alignment.Center,
     ) {
       val fallback: @Composable () -> Unit = {
@@ -327,7 +356,7 @@ fun SpellIconSlot(
           text = initials,
           style = MaterialTheme.typography.labelMedium,
           fontWeight = FontWeight.Bold,
-          color = ArcaneCyan,
+          color = palette.secondary,
         )
       }
       if (spell.iconUrl.isNotBlank()) {
@@ -335,7 +364,8 @@ fun SpellIconSlot(
           model = buildCoilImageRequest(LocalContext.current, spell.iconUrl),
           contentDescription = spell.displayName(language),
           contentScale = ContentScale.Crop,
-          modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)),
+          modifier =
+            Modifier.fillMaxSize().clip(RoundedCornerShape(if (isCompactIcons) 8.dp else 10.dp)),
           loading = { fallback() },
           error = { fallback() },
         )
@@ -345,7 +375,7 @@ fun SpellIconSlot(
     }
 
     if (showLabel) {
-      Spacer(modifier = Modifier.height(3.dp))
+      Spacer(modifier = Modifier.height(2.dp))
       Text(
         text = spell.displayName(language),
         style = MaterialTheme.typography.labelSmall,
@@ -357,7 +387,7 @@ fun SpellIconSlot(
         Text(
           text = spell.cooldownNote,
           style = MaterialTheme.typography.labelSmall,
-          color = ArcaneCyan,
+          color = palette.secondary,
           maxLines = 1,
         )
       }
@@ -374,8 +404,9 @@ fun AbilityIconBadge(
   size: Dp = 40.dp,
   onClick: (() -> Unit)? = null,
 ) {
-  val isMiniMode = LocalInGameMiniMode.current
-  val effectiveSize = if (isMiniMode) (size * 0.85f).coerceAtLeast(32.dp) else size
+  val palette = LocalRiftPalette.current
+  val isCompactIcons = LocalIconSizePreset.current == IconSizePreset.COMPACT
+  val effectiveSize = scaledSlotSize(baseSize = size, minSize = 28.dp)
   val displaySlot =
     when (slot.uppercase()) {
       "1" -> "Q"
@@ -386,9 +417,9 @@ fun AbilityIconBadge(
     }
   val slotColor =
     when (displaySlot) {
-      "P" -> ArcaneCyan
-      "R" -> HextechGold
-      else -> SkillViolet
+      "P" -> palette.secondary
+      "R" -> palette.primary
+      else -> palette.tertiary
     }
 
   Column(
@@ -401,7 +432,7 @@ fun AbilityIconBadge(
   ) {
     Surface(
       shape = RoundedCornerShape(5.dp),
-      color = Color(0xFF070B14),
+      color = palette.background,
       border = BorderStroke(1.dp, slotColor.copy(alpha = 0.85f)),
     ) {
       Text(
@@ -413,14 +444,18 @@ fun AbilityIconBadge(
       )
     }
 
-    Spacer(modifier = Modifier.height(3.dp))
+    Spacer(modifier = Modifier.height(2.dp))
 
     Box(
       modifier =
         Modifier.size(effectiveSize)
-          .clip(RoundedCornerShape(10.dp))
-          .background(Brush.linearGradient(listOf(HextechSurfaceHigh, HextechSurface)))
-          .border(1.25.dp, slotColor.copy(alpha = 0.72f), RoundedCornerShape(10.dp)),
+          .clip(RoundedCornerShape(if (isCompactIcons) 8.dp else 10.dp))
+          .background(Brush.linearGradient(listOf(palette.surfaceHigh, palette.surface)))
+          .border(
+            1.25.dp,
+            slotColor.copy(alpha = 0.72f),
+            RoundedCornerShape(if (isCompactIcons) 8.dp else 10.dp),
+          ),
       contentAlignment = Alignment.Center,
     ) {
       val fallback: @Composable () -> Unit = {
@@ -429,11 +464,11 @@ fun AbilityIconBadge(
             imageVector = Icons.Default.AutoAwesome,
             contentDescription = null,
             tint = slotColor.copy(alpha = 0.75f),
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(if (isCompactIcons) 13.dp else 16.dp),
           )
           Text(
             text = displaySlot,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = slotColor,
           )
@@ -444,7 +479,8 @@ fun AbilityIconBadge(
           model = buildCoilImageRequest(LocalContext.current, iconUrl),
           contentDescription = contentDescription,
           contentScale = ContentScale.Crop,
-          modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)),
+          modifier =
+            Modifier.fillMaxSize().clip(RoundedCornerShape(if (isCompactIcons) 8.dp else 10.dp)),
           loading = { fallback() },
           error = { fallback() },
         )
@@ -856,8 +892,9 @@ fun RuneIconSlot(
   reserveBadgeSpace: Boolean = showLabel,
   badgeOverride: String? = null,
 ) {
-  val isMiniMode = LocalInGameMiniMode.current
-  val effectiveSize = if (isMiniMode) (size * 0.85f).coerceAtLeast(32.dp) else size
+  val palette = LocalRiftPalette.current
+  val isCompactIcons = LocalIconSizePreset.current == IconSizePreset.COMPACT
+  val effectiveSize = scaledSlotSize(baseSize = size, minSize = 28.dp)
   val isKeystone = rune.slotType.equals("KEYSTONE", ignoreCase = true)
   val accentColor = runeAccentColor(rune)
   val topBadge = badgeOverride ?: if (isKeystone) "★" else null
@@ -875,12 +912,12 @@ fun RuneIconSlot(
         .minimumInteractiveComponentSize()
         .clip(RoundedCornerShape(10.dp))
         .clickable(onClick = onClick)
-        .padding(2.dp),
+        .padding(if (isCompactIcons) 1.dp else 2.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
   ) {
     if (topBadge != null || reserveBadgeSpace) {
       Box(
-        modifier = Modifier.width(effectiveSize).height(16.dp),
+        modifier = Modifier.width(effectiveSize).height(if (isCompactIcons) 14.dp else 16.dp),
         contentAlignment = Alignment.BottomStart,
       ) {
         if (topBadge != null) {
@@ -892,7 +929,7 @@ fun RuneIconSlot(
               text = topBadge,
               style = MaterialTheme.typography.labelSmall,
               fontWeight = FontWeight.Bold,
-              color = Color(0xFF070B14),
+              color = palette.background,
               maxLines = 1,
               modifier = Modifier.padding(horizontal = 4.dp),
             )
@@ -906,9 +943,9 @@ fun RuneIconSlot(
       modifier =
         Modifier.size(effectiveSize)
           .clip(CircleShape)
-          .background(Brush.linearGradient(listOf(HextechSurfaceHigh, HextechSurface)))
+          .background(Brush.linearGradient(listOf(palette.surfaceHigh, palette.surface)))
           .border(
-            if (isKeystone) 2.dp else 1.5.dp,
+            if (isKeystone) 2.dp else 1.4.dp,
             accentColor.copy(alpha = 0.85f),
             CircleShape,
           ),
@@ -937,16 +974,16 @@ fun RuneIconSlot(
     }
 
     if (showLabel) {
-      Spacer(modifier = Modifier.height(3.dp))
+      Spacer(modifier = Modifier.height(2.dp))
       Text(
         text = rune.displayName(language),
         style = MaterialTheme.typography.labelSmall,
-        color = if (isKeystone) HextechGoldBright else MaterialTheme.colorScheme.onSurface,
+        color = if (isKeystone) palette.primaryBright else MaterialTheme.colorScheme.onSurface,
         fontWeight = if (isKeystone) FontWeight.SemiBold else FontWeight.Normal,
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
         textAlign = TextAlign.Center,
-        modifier = Modifier.width(effectiveSize + 18.dp),
+        modifier = Modifier.width(effectiveSize + 16.dp),
       )
     }
   }
@@ -1175,10 +1212,11 @@ fun RuneDetailBottomSheet(
 
 @Composable
 fun TierBadge(tierRank: TierRank, modifier: Modifier = Modifier) {
+  val palette = LocalRiftPalette.current
   val bg =
     when (tierRank) {
-      TierRank.S_PLUS -> HextechGold
-      TierRank.S -> ArcaneCyan
+      TierRank.S_PLUS -> palette.primary
+      TierRank.S -> palette.secondary
       TierRank.A -> AdvantageEmerald
       TierRank.B -> MaterialTheme.colorScheme.surfaceContainerHighest
     }
@@ -1186,7 +1224,7 @@ fun TierBadge(tierRank: TierRank, modifier: Modifier = Modifier) {
     when (tierRank) {
       TierRank.S_PLUS,
       TierRank.S,
-      TierRank.A -> Color(0xFF070B14)
+      TierRank.A -> palette.background
       TierRank.B -> MaterialTheme.colorScheme.onSurface
     }
   Surface(
@@ -1206,11 +1244,12 @@ fun TierBadge(tierRank: TierRank, modifier: Modifier = Modifier) {
 
 @Composable
 fun DamageTypeBadge(damageType: DamageType, language: AppLanguage) {
+  val palette = LocalRiftPalette.current
   val color =
     when (damageType) {
       DamageType.AD -> WarningAmber
-      DamageType.AP -> ArcaneCyan
-      DamageType.HYBRID -> HextechGold
+      DamageType.AP -> palette.secondary
+      DamageType.HYBRID -> palette.primary
       DamageType.TRUE -> SkillViolet
     }
   Surface(
@@ -1265,10 +1304,11 @@ fun TacticalMeterBar(
 
 @Composable
 fun PatchBadgePill(patchVersion: String, sourceLabel: String) {
+  val palette = LocalRiftPalette.current
   Surface(
     shape = RoundedCornerShape(999.dp),
-    color = HextechGold.copy(alpha = 0.15f),
-    border = BorderStroke(1.dp, HextechGold.copy(alpha = 0.6f)),
+    color = palette.primary.copy(alpha = 0.15f),
+    border = BorderStroke(1.dp, palette.primary.copy(alpha = 0.6f)),
   ) {
     Row(
       modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
@@ -1281,7 +1321,7 @@ fun PatchBadgePill(patchVersion: String, sourceLabel: String) {
       Text(
         text = "Patch $patchVersion • $sourceLabel",
         style = MaterialTheme.typography.labelSmall,
-        color = HextechGoldBright,
+        color = palette.primaryBright,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
       )
@@ -1320,6 +1360,7 @@ fun ChampionPickerBottomSheet(
     onDismissRequest = onDismiss,
     containerColor = MaterialTheme.colorScheme.surface,
   ) {
+    ProvideSafeTextToolbar {
     Column(
       modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)
     ) {
@@ -1446,6 +1487,7 @@ fun ChampionPickerBottomSheet(
           }
         }
       }
+    }
     }
   }
 }

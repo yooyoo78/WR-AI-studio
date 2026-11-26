@@ -40,6 +40,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalTextToolbar
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -55,6 +57,7 @@ import com.example.core.AppContainer
 import com.example.data.remote.LiveVersionCheckState
 import com.example.ui.components.LiveVersionCheckSheet
 import com.example.ui.components.PostGameReviewSheet
+import com.example.ui.components.ProvideSafeTextToolbar
 import com.example.ui.components.QuickScanBottomSheet
 import com.example.ui.components.TopBarVersionCheckPill
 import com.example.ui.screens.AnalyzerScreen
@@ -68,6 +71,7 @@ import com.example.ui.screens.SettingsScreen
 import com.example.ui.theme.AdvantageEmerald
 import com.example.ui.theme.ArcaneCyan
 import com.example.ui.theme.HextechGold
+import com.example.ui.theme.LocalRiftPalette
 import com.example.ui.theme.LocalUiStrings
 import com.example.ui.theme.RiftCompanionTheme
 import com.example.ui.viewmodel.AnalyzerViewModel
@@ -187,10 +191,14 @@ fun RiftCompanionApp(appContainer: AppContainer) {
     val effectiveMiniMode = prefs.inGameMiniMode || autoCompactWindow
 
     RiftCompanionTheme(preferences = prefs, inGameMiniMode = effectiveMiniMode) {
+      ProvideSafeTextToolbar {
       val navController = rememberNavController()
       val backStackEntry by navController.currentBackStackEntryAsState()
       val currentRoute = backStackEntry?.destination?.route ?: NavRoutes.HOME
       val strings = LocalUiStrings.current
+      val palette = LocalRiftPalette.current
+      val focusManager = LocalFocusManager.current
+      val textToolbar = LocalTextToolbar.current
 
       val navItems =
         listOf(
@@ -219,6 +227,8 @@ fun RiftCompanionApp(appContainer: AppContainer) {
       val showChrome = currentRoute in navItems.map { it.route }
 
       fun navigateTopLevel(route: String) {
+        textToolbar.hide()
+        focusManager.clearFocus(force = true)
         navController.navigate(route) {
           popUpTo(NavRoutes.HOME) { saveState = true }
           launchSingleTop = true
@@ -259,7 +269,7 @@ fun RiftCompanionApp(appContainer: AppContainer) {
               colors =
                 TopAppBarDefaults.topAppBarColors(
                   containerColor = MaterialTheme.colorScheme.surface,
-                  titleContentColor = HextechGold,
+                  titleContentColor = palette.primary,
                 ),
               actions = {
                 TopBarVersionCheckPill(
@@ -282,7 +292,7 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                     contentDescription = strings.quickScanTitle,
                     tint =
                       if (quickScanState.isQuickCaptureActive) AdvantageEmerald
-                      else ArcaneCyan,
+                      else palette.secondary,
                   )
                 }
                 IconButton(
@@ -295,7 +305,7 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                     else Icons.Default.PictureInPictureAlt,
                     contentDescription = strings.miniModeTitle,
                     tint =
-                      if (effectiveMiniMode) HextechGold
+                      if (effectiveMiniMode) palette.primary
                       else MaterialTheme.colorScheme.onSurfaceVariant,
                   )
                 }
@@ -307,7 +317,7 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                   Icon(
                     Icons.Default.Settings,
                     contentDescription = strings.settingsTitle,
-                    tint = HextechGold,
+                    tint = palette.primary,
                   )
                 }
               },
@@ -385,6 +395,7 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                   onOpenQuickScan = { appContainer.quickScanCoordinator.openSheet() },
                   onOpenPatchCenter = { navController.navigate(NavRoutes.PATCH_CENTER) },
                   onOpenSettings = { navController.navigate(NavRoutes.SETTINGS) },
+                  onCycleDarkTheme = homePatchVm::cycleDarkThemePreset,
                 )
               }
 
@@ -554,6 +565,9 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                   cooldownModelIds = coachState.cooldownModelIds,
                   onSelectLanguage = homePatchVm::setLanguage,
                   onChangeFontScale = homePatchVm::setFontScale,
+                  onSelectThemePreset = homePatchVm::setDarkThemePreset,
+                  onSelectFontPreset = homePatchVm::setFontPreset,
+                  onSelectIconSizePreset = homePatchVm::setIconSizePreset,
                   onToggleHighContrast = homePatchVm::setHighContrastCards,
                   onToggleMiniMode = homePatchVm::setInGameMiniMode,
                   onSelectCoachModel = coachVm::selectCoachModel,
@@ -615,6 +629,7 @@ fun RiftCompanionApp(appContainer: AppContainer) {
           onOpenPatchCenter = { navController.navigate(NavRoutes.PATCH_CENTER) },
           onDismiss = { showVersionCheckSheet = false },
         )
+      }
       }
     }
   }

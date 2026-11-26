@@ -61,6 +61,9 @@ data class UiStrings(
   val miniModeBadge: String,
   val quickScanTitle: String,
   val quickScanCta: String,
+  val themeSectionTitle: String,
+  val fontFamilySectionTitle: String,
+  val iconSizeSectionTitle: String,
 )
 
 object AppStrings {
@@ -127,6 +130,9 @@ object AppStrings {
       miniModeBadge = "โหมดหน้าต่างย่อ",
       quickScanTitle = "แคปเร็ว & สแกนแชมเปี้ยนอัตโนมัติ",
       quickScanCta = "แคปเร็ว & สแกนภาพ",
+      themeSectionTitle = "ธีมสีโทนมืด (Dark Themes)",
+      fontFamilySectionTitle = "รูปแบบฟอนต์ (Font Family)",
+      iconSizeSectionTitle = "ขนาดไอคอนสกิล ไอเทม สเปล และรูน",
     )
 
   private val englishStrings =
@@ -189,5 +195,8 @@ object AppStrings {
       miniModeBadge = "Mini Mode",
       quickScanTitle = "Quick Screen Capture & Scan",
       quickScanCta = "Quick Capture & Scan",
+      themeSectionTitle = "Dark Theme Palette",
+      fontFamilySectionTitle = "Typography & Font Family",
+      iconSizeSectionTitle = "Skill, Item, Spell & Rune Icon Size",
     )
 }

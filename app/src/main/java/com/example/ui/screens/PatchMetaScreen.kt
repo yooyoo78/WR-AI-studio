@@ -57,6 +57,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalTextToolbar
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -67,6 +69,7 @@ import com.example.data.remote.LiveVersionCheckState
 import com.example.data.remote.OtaCheckStatus
 import com.example.data.validation.ValidationResult
 import com.example.ui.components.HextechCard
+import com.example.ui.components.ProvideSafeTextToolbar
 import com.example.ui.components.TopBarVersionCheckPill
 import com.example.ui.theme.AdvantageEmerald
 import com.example.ui.theme.ArcaneCyan
@@ -423,12 +426,11 @@ fun PatchMetaScreen(
         sheetState = sheetState,
         containerColor = HextechSurface,
       ) {
-        var repoSlugInput by remember(homeState.preferences.otaRepoSlug) {
-          mutableStateOf(homeState.preferences.otaRepoSlug)
-        }
-        var pubKeyInput by remember(homeState.preferences.otaPublicKeyBase64) {
-          mutableStateOf(homeState.preferences.otaPublicKeyBase64)
-        }
+        ProvideSafeTextToolbar {
+        val sheetFocusManager = LocalFocusManager.current
+        val sheetToolbar = LocalTextToolbar.current
+        var repoSlugInput by remember { mutableStateOf(homeState.preferences.otaRepoSlug) }
+        var pubKeyInput by remember { mutableStateOf(homeState.preferences.otaPublicKeyBase64) }
         var autoCheckEnabled by remember(homeState.preferences.autoCheckOtaOnLaunch) {
           mutableStateOf(homeState.preferences.autoCheckOtaOnLaunch)
         }
@@ -506,13 +508,19 @@ fun PatchMetaScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
               ) {
                 OutlinedButton(
-                  onClick = { onSaveOtaConfig(repoSlugInput, pubKeyInput, autoCheckEnabled) },
+                  onClick = {
+                    sheetToolbar.hide()
+                    sheetFocusManager.clearFocus(force = true)
+                    onSaveOtaConfig(repoSlugInput, pubKeyInput, autoCheckEnabled)
+                  },
                   modifier = Modifier.weight(0.9f).minimumInteractiveComponentSize().testTag("ota_save_config_button"),
                 ) {
                   Text(if (lang == AppLanguage.TH) "บันทึกค่า" else "Save")
                 }
                 Button(
                   onClick = {
+                    sheetToolbar.hide()
+                    sheetFocusManager.clearFocus(force = true)
                     onSaveOtaConfig(repoSlugInput, pubKeyInput, autoCheckEnabled)
                     onCheckOtaUpdates(repoSlugInput, pubKeyInput)
                   },
@@ -663,6 +671,7 @@ fun PatchMetaScreen(
               }
             }
           }
+        }
         }
       }
     }

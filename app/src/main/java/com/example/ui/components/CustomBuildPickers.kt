@@ -86,6 +86,7 @@ fun ItemPickerBottomSheet(
     containerColor = MaterialTheme.colorScheme.surface,
     modifier = Modifier.testTag("item_picker_sheet"),
   ) {
+    ProvideSafeTextToolbar {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
       Row(
         modifier = Modifier.fillMaxWidth(),
@@ -192,6 +193,7 @@ fun ItemPickerBottomSheet(
           }
         }
       }
+    }
     }
   }
 }
