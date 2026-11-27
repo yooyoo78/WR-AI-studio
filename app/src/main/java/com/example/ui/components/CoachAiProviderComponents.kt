@@ -66,16 +66,11 @@ import com.example.data.ai.AiProviderId
 import com.example.data.ai.ExternalApiKeyStatus
 import com.example.data.local.CoachCacheStats
 import com.example.data.model.AppLanguage
+import com.example.data.model.IconSizePreset
 import com.example.ui.theme.AdvantageEmerald
-import com.example.ui.theme.ArcaneCyan
-import com.example.ui.theme.HextechGold
-import com.example.ui.theme.HextechGoldBright
-import com.example.ui.theme.HextechNavy
-import com.example.ui.theme.HextechObsidian
-import com.example.ui.theme.HextechSurface
-import com.example.ui.theme.HextechSurfaceHigh
-import com.example.ui.theme.TextPrimaryLight
-import com.example.ui.theme.TextSecondaryLight
+import com.example.ui.theme.LocalIconSizePreset
+import com.example.ui.theme.LocalRiftPalette
+import com.example.ui.theme.LocalUserPrefs
 import com.example.ui.theme.ThreatCrimson
 import com.example.ui.theme.WarningAmber
 import com.example.ui.viewmodel.ProviderKeyTestState
@@ -92,6 +87,11 @@ fun AiEngineControlStrip(
   onOpenApiKeys: () -> Unit,
   onOpenCacheInfo: () -> Unit,
 ) {
+  val palette = LocalRiftPalette.current
+  val prefs = LocalUserPrefs.current
+  val compactIcons = LocalIconSizePreset.current == IconSizePreset.COMPACT
+  val arrowIconSize = if (compactIcons) 15.dp else 20.dp
+  val pillIconSize = if (compactIcons) 13.dp else 17.dp
   val activeSpec = AiModelCatalog.findById(selectedModelId)
   val isInCooldown = activeSpec.id in cooldownModelIds
   val isMissingKey = activeSpec.provider.requiresApiKey && !keyStatus.hasKeyFor(activeSpec.provider)
@@ -99,14 +99,20 @@ fun AiEngineControlStrip(
     when {
       isMissingKey -> ThreatCrimson
       isInCooldown -> WarningAmber
-      activeSpec.provider.requiresApiKey -> HextechGoldBright
+      activeSpec.provider.requiresApiKey -> palette.primaryBright
       else -> AdvantageEmerald
     }
 
   Surface(
     shape = RoundedCornerShape(10.dp),
-    color = HextechSurface.copy(alpha = 0.85f),
-    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)),
+    color = palette.surface.copy(alpha = 0.9f),
+    border =
+      BorderStroke(
+        width = if (prefs.highContrastCards) 1.35.dp else 1.dp,
+        color =
+          if (prefs.highContrastCards) palette.outlineHighContrast.copy(alpha = 0.85f)
+          else palette.outline.copy(alpha = 0.75f),
+      ),
     modifier = Modifier.fillMaxWidth().testTag("coach_model_bar"),
   ) {
     Row(
@@ -117,8 +123,8 @@ fun AiEngineControlStrip(
       // Active Model Switcher Chip
       Surface(
         shape = RoundedCornerShape(8.dp),
-        color = ArcaneCyan.copy(alpha = 0.12f),
-        border = BorderStroke(1.dp, ArcaneCyan.copy(alpha = 0.45f)),
+        color = palette.secondary.copy(alpha = 0.14f),
+        border = BorderStroke(1.dp, palette.secondary.copy(alpha = 0.5f)),
         modifier =
           Modifier.weight(1f)
             .minimumInteractiveComponentSize()
@@ -141,7 +147,7 @@ fun AiEngineControlStrip(
               },
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
-            color = ArcaneCyan,
+            color = palette.secondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
@@ -158,8 +164,8 @@ fun AiEngineControlStrip(
             imageVector = Icons.Default.ArrowDropDown,
             contentDescription =
               if (language == AppLanguage.TH) "เปลี่ยนโมเดล AI" else "Switch AI Model",
-            tint = ArcaneCyan,
-            modifier = Modifier.size(16.dp),
+            tint = palette.secondary,
+            modifier = Modifier.size(arrowIconSize),
           )
         }
       }
@@ -170,12 +176,12 @@ fun AiEngineControlStrip(
           shape = RoundedCornerShape(8.dp),
           color =
             if (cacheStats.entryCount > 0) AdvantageEmerald.copy(alpha = 0.14f)
-            else MaterialTheme.colorScheme.surfaceContainerHigh,
+            else palette.surfaceHigh,
           border =
             BorderStroke(
               1.dp,
-              if (cacheStats.entryCount > 0) AdvantageEmerald.copy(alpha = 0.45f)
-              else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+              if (cacheStats.entryCount > 0) AdvantageEmerald.copy(alpha = 0.5f)
+              else palette.outline.copy(alpha = 0.6f),
             ),
           modifier =
             Modifier.minimumInteractiveComponentSize()
@@ -191,8 +197,8 @@ fun AiEngineControlStrip(
             Icon(
               imageVector = Icons.Default.Bolt,
               contentDescription = if (language == AppLanguage.TH) "แคชประหยัดโทเคน" else "Cached responses",
-              tint = if (cacheStats.entryCount > 0) AdvantageEmerald else TextSecondaryLight,
-              modifier = Modifier.size(13.dp),
+              tint = if (cacheStats.entryCount > 0) AdvantageEmerald else palette.textSecondary,
+              modifier = Modifier.size(pillIconSize),
             )
             Text(
               text =
@@ -203,7 +209,7 @@ fun AiEngineControlStrip(
                 },
               style = MaterialTheme.typography.labelSmall,
               fontWeight = FontWeight.Bold,
-              color = if (cacheStats.entryCount > 0) AdvantageEmerald else TextSecondaryLight,
+              color = if (cacheStats.entryCount > 0) AdvantageEmerald else palette.textSecondary,
               maxLines = 1,
             )
           }
@@ -215,12 +221,12 @@ fun AiEngineControlStrip(
       Surface(
         shape = RoundedCornerShape(8.dp),
         color =
-          if (extCount > 0) HextechGold.copy(alpha = 0.16f)
-          else MaterialTheme.colorScheme.surfaceContainerHigh,
+          if (extCount > 0) palette.primary.copy(alpha = 0.18f)
+          else palette.surfaceHigh,
         border =
           BorderStroke(
             1.dp,
-            if (extCount > 0) HextechGold.copy(alpha = 0.65f) else ArcaneCyan.copy(alpha = 0.45f),
+            if (extCount > 0) palette.primary.copy(alpha = 0.7f) else palette.secondary.copy(alpha = 0.5f),
           ),
         modifier =
           Modifier.minimumInteractiveComponentSize()
@@ -236,8 +242,8 @@ fun AiEngineControlStrip(
           Icon(
             imageVector = Icons.Default.Key,
             contentDescription = if (language == AppLanguage.TH) "ตั้งค่า Free API Key" else "Manage Free API Keys",
-            tint = if (extCount > 0) HextechGoldBright else ArcaneCyan,
-            modifier = Modifier.size(14.dp),
+            tint = if (extCount > 0) palette.primaryBright else palette.secondary,
+            modifier = Modifier.size(pillIconSize),
           )
           Text(
             text =
@@ -246,7 +252,7 @@ fun AiEngineControlStrip(
               else "+ Key",
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color = if (extCount > 0) HextechGoldBright else ArcaneCyan,
+            color = if (extCount > 0) palette.primaryBright else palette.secondary,
             maxLines = 1,
           )
         }
@@ -267,12 +273,15 @@ fun ModelPickerBottomSheet(
   onOpenApiKeys: () -> Unit,
   onDismiss: () -> Unit,
 ) {
+  val palette = LocalRiftPalette.current
+  val compactIcons = LocalIconSizePreset.current == IconSizePreset.COMPACT
+  val sheetIconSize = if (compactIcons) 15.dp else 19.dp
   val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   ModalBottomSheet(
     onDismissRequest = onDismiss,
     sheetState = sheetState,
-    containerColor = HextechNavy,
-    contentColor = TextPrimaryLight,
+    containerColor = palette.surfaceNavy,
+    contentColor = palette.textPrimary,
     modifier = Modifier.testTag("model_picker_sheet"),
   ) {
     LazyColumn(
@@ -298,7 +307,7 @@ fun ModelPickerBottomSheet(
                 },
               style = MaterialTheme.typography.titleMedium,
               fontWeight = FontWeight.Bold,
-              color = HextechGoldBright,
+              color = palette.primaryBright,
             )
             Text(
               text =
@@ -308,14 +317,14 @@ fun ModelPickerBottomSheet(
                   "Use Auto for smart fallback, or lock a specific free model anytime."
                 },
               style = MaterialTheme.typography.bodySmall,
-              color = TextSecondaryLight,
+              color = palette.textSecondary,
             )
           }
           IconButton(
             onClick = onDismiss,
             modifier = Modifier.minimumInteractiveComponentSize().testTag("close_model_picker_button"),
           ) {
-            Icon(Icons.Default.Close, contentDescription = "Close")
+            Icon(Icons.Default.Close, contentDescription = "Close", tint = palette.textSecondary)
           }
         }
       }
@@ -326,10 +335,10 @@ fun ModelPickerBottomSheet(
             onDismiss()
             onOpenApiKeys()
           },
-          border = BorderStroke(1.dp, HextechGold.copy(alpha = 0.7f)),
+          border = BorderStroke(1.dp, palette.primary.copy(alpha = 0.75f)),
           modifier = Modifier.fillMaxWidth().minimumInteractiveComponentSize().testTag("model_picker_manage_keys_button"),
         ) {
-          Icon(Icons.Default.Key, contentDescription = null, tint = HextechGoldBright, modifier = Modifier.size(16.dp))
+          Icon(Icons.Default.Key, contentDescription = null, tint = palette.primaryBright, modifier = Modifier.size(sheetIconSize))
           Spacer(modifier = Modifier.width(6.dp))
           Text(
             text =
@@ -338,7 +347,7 @@ fun ModelPickerBottomSheet(
               } else {
                 "Manage Free API Keys (Groq / OpenRouter / AI Studio) • ${keyStatus.configuredExternalCount}/3 active"
               },
-            color = HextechGoldBright,
+            color = palette.primaryBright,
             style = MaterialTheme.typography.labelLarge,
           )
         }
@@ -364,7 +373,7 @@ fun ModelPickerBottomSheet(
               text = if (language == AppLanguage.TH) provider.labelTh else provider.labelEn,
               style = MaterialTheme.typography.labelLarge,
               fontWeight = FontWeight.Bold,
-              color = if (provider.requiresApiKey) HextechGoldBright else ArcaneCyan,
+              color = if (provider.requiresApiKey) palette.primaryBright else palette.secondary,
               modifier = Modifier.padding(top = 4.dp),
             )
           }
@@ -409,16 +418,19 @@ private fun ModelOptionRow(
   language: AppLanguage,
   onClick: () -> Unit,
 ) {
+  val palette = LocalRiftPalette.current
+  val compactIcons = LocalIconSizePreset.current == IconSizePreset.COMPACT
+  val rowIconSize = if (compactIcons) 15.dp else 19.dp
   val borderColor =
     when {
-      isSelected -> ArcaneCyan
-      !hasKey -> MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
+      isSelected -> palette.secondary
+      !hasKey -> palette.outline.copy(alpha = 0.5f)
       isCooldown -> WarningAmber.copy(alpha = 0.65f)
-      else -> MaterialTheme.colorScheme.outline
+      else -> palette.outline
     }
   Surface(
     shape = MaterialTheme.shapes.medium,
-    color = if (isSelected) ArcaneCyan.copy(alpha = 0.14f) else HextechSurfaceHigh,
+    color = if (isSelected) palette.secondary.copy(alpha = 0.14f) else palette.surfaceHigh,
     border = BorderStroke(if (isSelected) 1.5.dp else 1.dp, borderColor),
     modifier =
       Modifier.fillMaxWidth()
@@ -451,17 +463,17 @@ private fun ModelOptionRow(
             contentDescription = null,
             tint =
               when {
-                isSelected -> ArcaneCyan
+                isSelected -> palette.secondary
                 !hasKey -> WarningAmber
-                else -> HextechGoldBright
+                else -> palette.primaryBright
               },
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(rowIconSize),
           )
           Text(
             text = spec.displayName,
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
-            color = if (hasKey) TextPrimaryLight else TextSecondaryLight,
+            color = if (hasKey) palette.textPrimary else palette.textSecondary,
           )
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -474,7 +486,7 @@ private fun ModelOptionRow(
           if (!hasKey) {
             StatusTagPill(
               text = if (language == AppLanguage.TH) "ใส่ Key ฟรี" else "Add Key",
-              color = HextechGoldBright,
+              color = palette.primaryBright,
             )
           } else if (isCooldown) {
             StatusTagPill(
@@ -487,7 +499,7 @@ private fun ModelOptionRow(
       Text(
         text = if (language == AppLanguage.TH) spec.descTh else spec.descEn,
         style = MaterialTheme.typography.bodySmall,
-        color = TextSecondaryLight,
+        color = palette.textSecondary,
       )
     }
   }
@@ -519,12 +531,13 @@ fun FreeApiKeysBottomSheet(
   onClearKey: (AiProviderId) -> Unit,
   onDismiss: () -> Unit,
 ) {
+  val palette = LocalRiftPalette.current
   val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   ModalBottomSheet(
     onDismissRequest = onDismiss,
     sheetState = sheetState,
-    containerColor = HextechNavy,
-    contentColor = TextPrimaryLight,
+    containerColor = palette.surfaceNavy,
+    contentColor = palette.textPrimary,
     modifier = Modifier.testTag("free_api_keys_sheet"),
   ) {
     ProvideSafeTextToolbar {
@@ -546,7 +559,7 @@ fun FreeApiKeysBottomSheet(
                 else "Add Optional Free API Keys",
               style = MaterialTheme.typography.titleMedium,
               fontWeight = FontWeight.Bold,
-              color = HextechGoldBright,
+              color = palette.primaryBright,
             )
             Text(
               text =
@@ -556,14 +569,14 @@ fun FreeApiKeysBottomSheet(
                   "Encrypted on-device via Android Keystore. Expands your free quota pool alongside Firebase AI."
                 },
               style = MaterialTheme.typography.bodySmall,
-              color = TextSecondaryLight,
+              color = palette.textSecondary,
             )
           }
           IconButton(
             onClick = onDismiss,
             modifier = Modifier.minimumInteractiveComponentSize().testTag("close_free_keys_button"),
           ) {
-            Icon(Icons.Default.Close, contentDescription = "Close")
+            Icon(Icons.Default.Close, contentDescription = "Close", tint = palette.textSecondary)
           }
         }
       }
@@ -598,6 +611,9 @@ private fun ProviderKeyCard(
   onSaveAndTest: (String) -> Unit,
   onClear: () -> Unit,
 ) {
+  val palette = LocalRiftPalette.current
+  val compactIcons = LocalIconSizePreset.current == IconSizePreset.COMPACT
+  val btnIconSize = if (compactIcons) 15.dp else 19.dp
   var keyInput by remember(provider) { mutableStateOf("") }
   var showKey by remember(provider) { mutableStateOf(false) }
 
@@ -626,12 +642,12 @@ private fun ProviderKeyCard(
 
   Surface(
     shape = MaterialTheme.shapes.medium,
-    color = HextechSurfaceHigh,
+    color = palette.surfaceHigh,
     border =
       BorderStroke(
         1.dp,
         if (hasSavedKey) AdvantageEmerald.copy(alpha = 0.6f)
-        else MaterialTheme.colorScheme.outline,
+        else palette.outline,
       ),
     modifier = Modifier.fillMaxWidth(),
   ) {
@@ -648,7 +664,7 @@ private fun ProviderKeyCard(
           text = if (language == AppLanguage.TH) provider.labelTh else provider.labelEn,
           style = MaterialTheme.typography.titleSmall,
           fontWeight = FontWeight.Bold,
-          color = HextechGoldBright,
+          color = palette.primaryBright,
           modifier = Modifier.weight(1f),
         )
         StatusTagPill(
@@ -658,14 +674,14 @@ private fun ProviderKeyCard(
             } else {
               if (language == AppLanguage.TH) "ยังไม่ใส่ Key" else "Not set"
             },
-          color = if (hasSavedKey) AdvantageEmerald else TextSecondaryLight,
+          color = if (hasSavedKey) AdvantageEmerald else palette.textSecondary,
         )
       }
 
       Text(
         text = guideHint,
         style = MaterialTheme.typography.bodySmall,
-        color = TextSecondaryLight,
+        color = palette.textSecondary,
       )
 
       OutlinedTextField(
@@ -695,8 +711,8 @@ private fun ProviderKeyCard(
         },
         colors =
           OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = ArcaneCyan,
-            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+            focusedBorderColor = palette.secondary,
+            unfocusedBorderColor = palette.outline,
           ),
         modifier = Modifier.fillMaxWidth().testTag("api_key_input_${provider.name}"),
       )
@@ -711,8 +727,8 @@ private fun ProviderKeyCard(
           enabled = keyInput.isNotBlank() && !testState.isTesting,
           colors =
             ButtonDefaults.buttonColors(
-              containerColor = ArcaneCyan,
-              contentColor = HextechObsidian,
+              containerColor = palette.secondary,
+              contentColor = palette.onSecondary,
             ),
           modifier =
             Modifier.weight(1f)
@@ -721,8 +737,8 @@ private fun ProviderKeyCard(
         ) {
           if (testState.isTesting) {
             CircularProgressIndicator(
-              color = HextechObsidian,
-              modifier = Modifier.size(16.dp),
+              color = palette.onSecondary,
+              modifier = Modifier.size(btnIconSize),
               strokeWidth = 2.dp,
             )
             Spacer(modifier = Modifier.width(6.dp))
@@ -750,7 +766,7 @@ private fun ProviderKeyCard(
               imageVector = Icons.Default.DeleteOutline,
               contentDescription = if (language == AppLanguage.TH) "ลบ Key" else "Clear key",
               tint = ThreatCrimson,
-              modifier = Modifier.size(16.dp),
+              modifier = Modifier.size(btnIconSize),
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(if (language == AppLanguage.TH) "ลบ" else "Clear", color = ThreatCrimson)

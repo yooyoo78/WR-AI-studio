@@ -28,8 +28,7 @@ fun createScaledTypography(
 ): Typography {
   val s = scale.coerceIn(0.85f, 1.35f)
   val primaryFamily = fontFamilyFor(fontPreset)
-  val numericBadgeFamily =
-    if (fontPreset == AppFontPreset.NOTO_SANS_THAI) SpaceGroteskFamily else primaryFamily
+  val numericBadgeFamily = primaryFamily
 
   return Typography(
     displaySmall =

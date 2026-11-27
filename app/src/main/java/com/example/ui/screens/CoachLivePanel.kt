@@ -69,13 +69,12 @@ import com.example.capture.QuickCaptureService
 import com.example.data.ai.CoachSpeechState
 import com.example.data.ai.LiveScreenPhase
 import com.example.data.model.AppLanguage
+import com.example.data.model.IconSizePreset
 import com.example.ui.components.ChampionCrestAvatar
 import com.example.ui.theme.AdvantageEmerald
-import com.example.ui.theme.ArcaneCyan
-import com.example.ui.theme.HextechGold
-import com.example.ui.theme.HextechGoldBright
-import com.example.ui.theme.HextechSurfaceHigh
-import com.example.ui.theme.TextPrimaryLight
+import com.example.ui.theme.LocalIconSizePreset
+import com.example.ui.theme.LocalRiftPalette
+import com.example.ui.theme.LocalUserPrefs
 import com.example.ui.theme.ThreatCrimson
 import com.example.ui.theme.WarningAmber
 import com.example.ui.viewmodel.LiveCoachUiState
@@ -99,6 +98,13 @@ fun CoachLivePanel(
   onOpenChampionDetail: (String) -> Unit = {},
 ) {
   val context = LocalContext.current
+  val palette = LocalRiftPalette.current
+  val prefs = LocalUserPrefs.current
+  val compactIcons = LocalIconSizePreset.current == IconSizePreset.COMPACT
+  val btnIconSize = if (compactIcons) 15.dp else 20.dp
+  val chipAvatarSize = if (compactIcons) 18.dp else 24.dp
+  val pickAvatarSize = if (compactIcons) 28.dp else 36.dp
+  val cardBorderWidth = if (prefs.highContrastCards) 1.65.dp else 1.2.dp
 
   val photoPickerLauncher =
     rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -168,8 +174,8 @@ fun CoachLivePanel(
             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
             colors =
               ButtonDefaults.buttonColors(
-                containerColor = if (isQuickCaptureActive) AdvantageEmerald else ArcaneCyan,
-                contentColor = Color(0xFF031520),
+                containerColor = if (isQuickCaptureActive) AdvantageEmerald else palette.secondary,
+                contentColor = palette.onSecondary,
               ),
           ) {
             Icon(
@@ -178,7 +184,7 @@ fun CoachLivePanel(
                 else if (isQuickCaptureActive) Icons.Default.Visibility
                 else Icons.Default.CameraAlt,
               contentDescription = null,
-              modifier = Modifier.size(16.dp),
+              modifier = Modifier.size(btnIconSize),
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
@@ -209,19 +215,19 @@ fun CoachLivePanel(
             modifier =
               Modifier.minimumInteractiveComponentSize().testTag("coach_live_pick_button"),
             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
-            border = BorderStroke(1.dp, HextechGold.copy(alpha = 0.7f)),
+            border = BorderStroke(1.dp, palette.primary.copy(alpha = 0.75f)),
           ) {
             Icon(
               Icons.Default.PhotoLibrary,
               contentDescription = if (language == AppLanguage.TH) "เลือกรูป" else "Pick Image",
-              tint = HextechGoldBright,
-              modifier = Modifier.size(16.dp),
+              tint = palette.primaryBright,
+              modifier = Modifier.size(btnIconSize),
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
               text = if (language == AppLanguage.TH) "รูปภาพ" else "Image",
               style = MaterialTheme.typography.labelMedium,
-              color = HextechGoldBright,
+              color = palette.primaryBright,
               maxLines = 1,
             )
           }
@@ -230,12 +236,12 @@ fun CoachLivePanel(
             shape = RoundedCornerShape(10.dp),
             color =
               if (liveState.autoSpeakLive) AdvantageEmerald.copy(alpha = 0.2f)
-              else MaterialTheme.colorScheme.surfaceContainerHigh,
+              else palette.surfaceHigh,
             border =
               BorderStroke(
                 1.dp,
                 if (liveState.autoSpeakLive) AdvantageEmerald
-                else MaterialTheme.colorScheme.outline,
+                else palette.outline,
               ),
             modifier =
               Modifier.minimumInteractiveComponentSize()
@@ -254,8 +260,8 @@ fun CoachLivePanel(
                   if (language == AppLanguage.TH) "อ่านผล Live อัตโนมัติ" else "Auto-speak live advice",
                 tint =
                   if (liveState.autoSpeakLive) AdvantageEmerald
-                  else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(16.dp),
+                  else palette.textSecondary,
+                modifier = Modifier.size(btnIconSize),
               )
               Text(
                 text = if (language == AppLanguage.TH) "พูดสด" else "Voice",
@@ -263,7 +269,7 @@ fun CoachLivePanel(
                 fontWeight = if (liveState.autoSpeakLive) FontWeight.Bold else FontWeight.Medium,
                 color =
                   if (liveState.autoSpeakLive) AdvantageEmerald
-                  else MaterialTheme.colorScheme.onSurfaceVariant,
+                  else palette.textSecondary,
               )
             }
           }
@@ -276,8 +282,8 @@ fun CoachLivePanel(
       item(key = "live_analyzing") {
         Surface(
           shape = MaterialTheme.shapes.medium,
-          color = HextechSurfaceHigh,
-          border = BorderStroke(1.2.dp, ArcaneCyan.copy(alpha = 0.65f)),
+          color = palette.surfaceHigh,
+          border = BorderStroke(cardBorderWidth, palette.secondary.copy(alpha = 0.7f)),
           modifier = Modifier.fillMaxWidth(),
         ) {
           Column {
@@ -295,7 +301,7 @@ fun CoachLivePanel(
               horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
               CircularProgressIndicator(
-                color = ArcaneCyan,
+                color = palette.secondary,
                 modifier = Modifier.size(18.dp),
                 strokeWidth = 2.dp,
               )
@@ -307,7 +313,7 @@ fun CoachLivePanel(
                     "Live Coach is analyzing your game screen..."
                   },
                 style = MaterialTheme.typography.bodyMedium,
-                color = ArcaneCyan,
+                color = palette.secondary,
               )
             }
           }
@@ -340,8 +346,13 @@ fun CoachLivePanel(
       item(key = "live_empty_guide") {
         Surface(
           shape = MaterialTheme.shapes.medium,
-          color = HextechSurfaceHigh,
-          border = BorderStroke(1.2.dp, ArcaneCyan.copy(alpha = 0.55f)),
+          color = palette.surfaceHigh,
+          border =
+            BorderStroke(
+              cardBorderWidth,
+              if (prefs.highContrastCards) palette.outlineHighContrast
+              else palette.secondary.copy(alpha = 0.6f),
+            ),
           modifier = Modifier.fillMaxWidth().testTag("coach_live_empty_card"),
         ) {
           Column(
@@ -354,8 +365,9 @@ fun CoachLivePanel(
                 else "Live Coach (On-Demand)",
               style = MaterialTheme.typography.titleSmall,
               fontWeight = FontWeight.Bold,
-              color = ArcaneCyan,
+              color = palette.secondary,
             )
+            val emptyStyle = MaterialTheme.typography.bodySmall
             Text(
               text =
                 if (language == AppLanguage.TH) {
@@ -363,8 +375,8 @@ fun CoachLivePanel(
                 } else {
                   "Tap 'Enable Live Screen' or 'Image' to scan Draft or Loading Screen on demand."
                 },
-              style = MaterialTheme.typography.bodySmall,
-              color = TextPrimaryLight,
+              style = emptyStyle.copy(lineHeight = emptyStyle.fontSize * 1.45f),
+              color = palette.textPrimary,
             )
           }
         }
@@ -376,15 +388,15 @@ fun CoachLivePanel(
       item(key = "live_header_card") {
         val phaseColor =
           when (analysis.phase) {
-            LiveScreenPhase.CHAMP_SELECT -> HextechGold
-            LiveScreenPhase.LOADING_SCREEN -> ArcaneCyan
+            LiveScreenPhase.CHAMP_SELECT -> palette.primary
+            LiveScreenPhase.LOADING_SCREEN -> palette.secondary
             LiveScreenPhase.IN_GAME -> AdvantageEmerald
-            LiveScreenPhase.UNKNOWN -> ArcaneCyan
+            LiveScreenPhase.UNKNOWN -> palette.secondary
           }
         Surface(
           shape = MaterialTheme.shapes.medium,
-          color = HextechSurfaceHigh,
-          border = BorderStroke(1.5.dp, phaseColor.copy(alpha = 0.7f)),
+          color = palette.surfaceHigh,
+          border = BorderStroke(1.5.dp, phaseColor.copy(alpha = 0.75f)),
           modifier = Modifier.fillMaxWidth().testTag("coach_live_result_card"),
         ) {
           Column(
@@ -417,13 +429,13 @@ fun CoachLivePanel(
                 if (analysis.usedModelLabel.isNotBlank()) {
                   Surface(
                     shape = RoundedCornerShape(999.dp),
-                    color = ArcaneCyan.copy(alpha = 0.14f),
-                    border = BorderStroke(1.dp, ArcaneCyan.copy(alpha = 0.45f)),
+                    color = palette.secondary.copy(alpha = 0.14f),
+                    border = BorderStroke(1.dp, palette.secondary.copy(alpha = 0.45f)),
                   ) {
                     Text(
                       text = analysis.usedModelLabel,
                       style = MaterialTheme.typography.labelSmall,
-                      color = ArcaneCyan,
+                      color = palette.secondary,
                       maxLines = 1,
                       modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
                     )
@@ -460,7 +472,8 @@ fun CoachLivePanel(
                       } else {
                         if (language == AppLanguage.TH) "ฟังคำแนะนำสด" else "Speak live briefing"
                       },
-                    tint = if (isSpeakingLive) HextechGoldBright else ArcaneCyan,
+                    tint = if (isSpeakingLive) palette.primaryBright else palette.secondary,
+                    modifier = Modifier.size(btnIconSize),
                   )
                 }
               }
@@ -486,12 +499,12 @@ fun CoachLivePanel(
                   Surface(
                     shape = RoundedCornerShape(8.dp),
                     color =
-                      if (isMe) HextechGold.copy(alpha = 0.2f)
-                      else ArcaneCyan.copy(alpha = 0.12f),
+                      if (isMe) palette.primary.copy(alpha = 0.2f)
+                      else palette.secondary.copy(alpha = 0.12f),
                     border =
                       BorderStroke(
                         1.dp,
-                        if (isMe) HextechGold else ArcaneCyan.copy(alpha = 0.5f),
+                        if (isMe) palette.primary else palette.secondary.copy(alpha = 0.5f),
                       ),
                     modifier =
                       Modifier.clip(RoundedCornerShape(8.dp))
@@ -502,11 +515,11 @@ fun CoachLivePanel(
                       verticalAlignment = Alignment.CenterVertically,
                       horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                      ChampionCrestAvatar(champion = ally, size = 20.dp)
+                      ChampionCrestAvatar(champion = ally, size = chipAvatarSize)
                       Text(
                         text = ally.displayName(language),
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (isMe) HextechGoldBright else TextPrimaryLight,
+                        color = if (isMe) palette.primaryBright else palette.textPrimary,
                       )
                     }
                   }
@@ -525,7 +538,7 @@ fun CoachLivePanel(
                       verticalAlignment = Alignment.CenterVertically,
                       horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                      ChampionCrestAvatar(champion = enemy, size = 20.dp)
+                      ChampionCrestAvatar(champion = enemy, size = chipAvatarSize)
                       Text(
                         text = enemy.displayName(language),
                         style = MaterialTheme.typography.labelSmall,
@@ -545,8 +558,8 @@ fun CoachLivePanel(
         item(key = "live_picks_card") {
           Surface(
             shape = MaterialTheme.shapes.medium,
-            color = HextechSurfaceHigh,
-            border = BorderStroke(1.2.dp, HextechGold.copy(alpha = 0.65f)),
+            color = palette.surfaceHigh,
+            border = BorderStroke(cardBorderWidth, palette.primary.copy(alpha = 0.7f)),
             modifier = Modifier.fillMaxWidth().testTag("coach_live_picks_card"),
           ) {
             Column(
@@ -559,7 +572,7 @@ fun CoachLivePanel(
                   else "Recommended Draft Picks",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = HextechGoldBright,
+                color = palette.primaryBright,
               )
               analysis.recommendedPicks.forEach { pick ->
                 Row(
@@ -570,7 +583,7 @@ fun CoachLivePanel(
                   pick.resolvedChampion?.let { champ ->
                     ChampionCrestAvatar(
                       champion = champ,
-                      size = 32.dp,
+                      size = pickAvatarSize,
                       onClick = { onOpenChampionDetail(champ.id) },
                     )
                   }
@@ -579,13 +592,13 @@ fun CoachLivePanel(
                       text = pick.resolvedChampion?.displayName(language) ?: pick.championName,
                       style = MaterialTheme.typography.labelLarge,
                       fontWeight = FontWeight.Bold,
-                      color = HextechGoldBright,
+                      color = palette.primaryBright,
                     )
                     if (pick.reason.isNotBlank()) {
                       Text(
                         text = pick.reason,
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextPrimaryLight,
+                        color = palette.textPrimary,
                       )
                     }
                   }
@@ -601,8 +614,8 @@ fun CoachLivePanel(
         item(key = "live_items_card") {
           Surface(
             shape = MaterialTheme.shapes.medium,
-            color = HextechSurfaceHigh,
-            border = BorderStroke(1.2.dp, ArcaneCyan.copy(alpha = 0.65f)),
+            color = palette.surfaceHigh,
+            border = BorderStroke(cardBorderWidth, palette.secondary.copy(alpha = 0.7f)),
             modifier = Modifier.fillMaxWidth().testTag("coach_live_items_card"),
           ) {
             Column(
@@ -615,7 +628,7 @@ fun CoachLivePanel(
                   else "Recommended Items & Enchants",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = ArcaneCyan,
+                color = palette.secondary,
               )
               FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -624,13 +637,13 @@ fun CoachLivePanel(
                 analysis.recommendedItems.forEach { itemText ->
                   Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = ArcaneCyan.copy(alpha = 0.14f),
-                    border = BorderStroke(1.dp, ArcaneCyan.copy(alpha = 0.45f)),
+                    color = palette.secondary.copy(alpha = 0.14f),
+                    border = BorderStroke(1.dp, palette.secondary.copy(alpha = 0.45f)),
                   ) {
                     Text(
                       text = itemText,
                       style = MaterialTheme.typography.labelMedium,
-                      color = TextPrimaryLight,
+                      color = palette.textPrimary,
                       modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
                     )
                   }
@@ -646,8 +659,8 @@ fun CoachLivePanel(
         item(key = "live_early_plan_card") {
           Surface(
             shape = MaterialTheme.shapes.medium,
-            color = HextechSurfaceHigh,
-            border = BorderStroke(1.2.dp, AdvantageEmerald.copy(alpha = 0.65f)),
+            color = palette.surfaceHigh,
+            border = BorderStroke(cardBorderWidth, AdvantageEmerald.copy(alpha = 0.7f)),
             modifier = Modifier.fillMaxWidth().testTag("coach_live_early_card"),
           ) {
             Column(
@@ -663,13 +676,11 @@ fun CoachLivePanel(
                   fontWeight = FontWeight.Bold,
                   color = AdvantageEmerald,
                 )
+                val planBodyStyle = MaterialTheme.typography.bodyMedium
                 Text(
                   text = analysis.earlyLanePlan,
-                  style =
-                    MaterialTheme.typography.bodyMedium.copy(
-                      lineHeight = if (isCompactHeight) 20.sp else 22.sp
-                    ),
-                  color = TextPrimaryLight,
+                  style = planBodyStyle.copy(lineHeight = planBodyStyle.fontSize * 1.46f),
+                  color = palette.textPrimary,
                 )
               }
 
@@ -689,12 +700,12 @@ fun CoachLivePanel(
                       Icons.Default.Warning,
                       contentDescription = null,
                       tint = ThreatCrimson,
-                      modifier = Modifier.size(16.dp),
+                      modifier = Modifier.size(btnIconSize),
                     )
                     Text(
                       text = analysis.threatAlert,
                       style = MaterialTheme.typography.bodySmall,
-                      color = TextPrimaryLight,
+                      color = palette.textPrimary,
                     )
                   }
                 }
@@ -709,7 +720,7 @@ fun CoachLivePanel(
                   onClick = onOpenAnalyzer,
                   modifier = Modifier.weight(1f).minimumInteractiveComponentSize(),
                 ) {
-                  Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(15.dp))
+                  Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(btnIconSize))
                   Spacer(modifier = Modifier.width(6.dp))
                   Text(
                     text = if (language == AppLanguage.TH) "เปิด 1v5" else "Open 1v5",
@@ -720,7 +731,7 @@ fun CoachLivePanel(
                   onClick = onOpenDraft,
                   modifier = Modifier.weight(1f).minimumInteractiveComponentSize(),
                 ) {
-                  Icon(Icons.Default.Groups, contentDescription = null, modifier = Modifier.size(15.dp))
+                  Icon(Icons.Default.Groups, contentDescription = null, modifier = Modifier.size(btnIconSize))
                   Spacer(modifier = Modifier.width(6.dp))
                   Text(
                     text = if (language == AppLanguage.TH) "เปิด Draft" else "Open Draft",

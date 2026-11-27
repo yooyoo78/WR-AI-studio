@@ -80,10 +80,19 @@ data class CoachChatMessage(
   val questionText: String = "",
 )
 
+enum class CoachPromptCategory(val labelTh: String, val labelEn: String) {
+  ALL("ทั้งหมด", "All"),
+  LANING("เทรดเลน", "Laning"),
+  BUILD_COUNTER("ออกของ/แก้ทาง", "Build & Counter"),
+  OBJECTIVES("ไฟต์/มังกร", "Fights & Obj"),
+  COMEBACK("คัมแบ็ก", "Comeback"),
+}
+
 data class CoachQuickPrompt(
   val id: String,
   val shortLabel: String,
   val fullQuestion: String,
+  val category: CoachPromptCategory = CoachPromptCategory.LANING,
 )
 
 data class LiveCoachUiState(
@@ -627,12 +636,21 @@ class CoachViewModel(
             shortLabel = "เทรด Lv 1–3 & คุมเวฟ",
             fullQuestion =
               "เล่น $champTag เลน$laneTag ช่วง Lv 1–3 ควรอัพสกิล คุมเวฟ และหาจังหวะเทรดยังไงให้ได้เปรียบ?",
+            category = CoachPromptCategory.LANING,
+          ),
+          CoachQuickPrompt(
+            id = "power_spike",
+            shortLabel = "จังหวะ All-In & Power Spike",
+            fullQuestion =
+              "$champTag เก่งสุดช่วงเลเวลไหนหรือตอนได้ไอเทมชิ้นไหน และคอมโบสั้นสำหรับคิลในเลน$laneTag ควรกดยังไง?",
+            category = CoachPromptCategory.LANING,
           ),
           CoachQuickPrompt(
             id = "rush_item_enchant",
             shortLabel = "ไอเทมแรก & Enchant",
             fullQuestion =
               "เกมนี้ $champTag ควรออกชิ้นแรก รองเท้า และ Boot Enchant (เช่น Stasis/QSS) ชิ้นไหนก่อนเพราะอะไร?",
+            category = CoachPromptCategory.BUILD_COUNTER,
           ),
           CoachQuickPrompt(
             id = "counter_threat",
@@ -643,18 +661,28 @@ class CoachViewModel(
               } else {
                 "เวลาเจอตัวเบิร์สหรือฮีลแรงในเลน$laneTag $champTag ควรปรับบิลด์และจังหวะเข้าไฟต์ยังไง?"
               },
+            category = CoachPromptCategory.BUILD_COUNTER,
           ),
           CoachQuickPrompt(
             id = "objective_setup",
             shortLabel = "ไฟต์มังกร / บารอน",
             fullQuestion =
               "จังหวะชิงมังกร/Herald นาที 5:00 และบารอน $champTag ควรยืนตำแหน่งตรงไหนและเปิดไฟต์เมื่อไหร่?",
+            category = CoachPromptCategory.OBJECTIVES,
+          ),
+          CoachQuickPrompt(
+            id = "teamfight_target",
+            shortLabel = "ยืนตำแหน่งทีมไฟต์",
+            fullQuestion =
+              "ในทีมไฟต์ 5v5 $champTag ควรโฟกัสตัวไหนก่อน ระหว่างล้วงแครี่หรือกันหลังบ้านให้ทีม?",
+            category = CoachPromptCategory.OBJECTIVES,
           ),
           CoachQuickPrompt(
             id = "play_behind",
             shortLabel = "คัมแบ็กตอนเสียเปรียบ",
             fullQuestion =
               "ถ้าช่วงต้นเกม $champTag เสียเปรียบหรือโดนกดเลน ต้องปรับวิธีฟาร์ม ออกของ และเดินเกมยังไงให้กลับมาชนะไฟต์ได้?",
+            category = CoachPromptCategory.COMEBACK,
           ),
         )
       } else {
@@ -666,12 +694,21 @@ class CoachViewModel(
             shortLabel = "Lv 1–3 Trade & Wave",
             fullQuestion =
               "Playing $champTag in $laneTag, how should I manage the wave and trade levels 1–3?",
+            category = CoachPromptCategory.LANING,
+          ),
+          CoachQuickPrompt(
+            id = "power_spike",
+            shortLabel = "All-In & Power Spike",
+            fullQuestion =
+              "At what level and core item does $champTag spike hardest in $laneTag, and what kill combo should I look for?",
+            category = CoachPromptCategory.LANING,
           ),
           CoachQuickPrompt(
             id = "rush_item_enchant",
             shortLabel = "First Item & Enchant",
             fullQuestion =
               "For $champTag in this match, what first core item, boots, and boot enchant (Stasis/QSS/etc.) should I rush?",
+            category = CoachPromptCategory.BUILD_COUNTER,
           ),
           CoachQuickPrompt(
             id = "counter_threat",
@@ -682,18 +719,28 @@ class CoachViewModel(
               } else {
                 "Against heavy burst or healing in $laneTag, how should $champTag adapt items and positioning?"
               },
+            category = CoachPromptCategory.BUILD_COUNTER,
           ),
           CoachQuickPrompt(
             id = "objective_setup",
             shortLabel = "Dragon / Baron Setup",
             fullQuestion =
               "How should $champTag position and play around 5:00 Dragon/Herald and late Baron fights?",
+            category = CoachPromptCategory.OBJECTIVES,
+          ),
+          CoachQuickPrompt(
+            id = "teamfight_target",
+            shortLabel = "Teamfight Target",
+            fullQuestion =
+              "In 5v5 teamfights as $champTag, should I dive the backline or peel for my carries first?",
+            category = CoachPromptCategory.OBJECTIVES,
           ),
           CoachQuickPrompt(
             id = "play_behind",
             shortLabel = "Play From Behind",
             fullQuestion =
               "If $champTag falls behind early, how do I farm safely, build budget defense, and look for comeback picks?",
+            category = CoachPromptCategory.COMEBACK,
           ),
         )
       }

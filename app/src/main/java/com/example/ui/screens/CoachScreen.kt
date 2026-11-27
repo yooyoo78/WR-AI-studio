@@ -39,7 +39,9 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Visibility
@@ -77,33 +79,35 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.data.ai.AiModelCatalog
 import com.example.data.ai.AiProviderId
 import com.example.data.ai.CoachErrorKind
 import com.example.data.ai.CoachSpeechState
+import com.example.data.local.UserPreferences
+import com.example.data.model.AppDarkThemePreset
+import com.example.data.model.AppFontPreset
 import com.example.data.model.AppLanguage
 import com.example.data.model.ChampionData
+import com.example.data.model.IconSizePreset
 import com.example.data.model.Lane
 import com.example.ui.components.AiEngineControlStrip
 import com.example.ui.components.ChampionCrestAvatar
 import com.example.ui.components.ChampionPickerBottomSheet
+import com.example.ui.components.CoachAppearanceQuickSheet
+import com.example.ui.components.CoachFormattedAdviceBody
 import com.example.ui.components.FreeApiKeysBottomSheet
 import com.example.ui.components.ModelPickerBottomSheet
 import com.example.ui.theme.AdvantageEmerald
-import com.example.ui.theme.ArcaneCyan
-import com.example.ui.theme.HextechGold
-import com.example.ui.theme.HextechGoldBright
-import com.example.ui.theme.HextechNavy
-import com.example.ui.theme.HextechObsidian
-import com.example.ui.theme.HextechSurface
-import com.example.ui.theme.HextechSurfaceHigh
+import com.example.ui.theme.LocalIconSizePreset
 import com.example.ui.theme.LocalInGameMiniMode
+import com.example.ui.theme.LocalRiftPalette
 import com.example.ui.theme.LocalUiStrings
-import com.example.ui.theme.TextPrimaryLight
+import com.example.ui.theme.LocalUserPrefs
+import com.example.ui.theme.RiftThemePalette
 import com.example.ui.theme.ThreatCrimson
 import com.example.ui.theme.WarningAmber
 import com.example.ui.viewmodel.CoachChatMessage
+import com.example.ui.viewmodel.CoachPromptCategory
 import com.example.ui.viewmodel.CoachUiState
 import com.example.ui.viewmodel.GeminiUiState
 import com.example.ui.viewmodel.LiveCoachUiState
@@ -119,11 +123,17 @@ fun CoachScreen(
   speechState: CoachSpeechState,
   liveState: LiveCoachUiState,
   isQuickCaptureActive: Boolean,
+  preferences: UserPreferences = UserPreferences(),
   keyTestStates: Map<AiProviderId, ProviderKeyTestState> = emptyMap(),
   openLiveTabRequest: Boolean = false,
   onConsumeOpenLiveTabRequest: () -> Unit = {},
   onSelectChampion: (ChampionData) -> Unit,
   onSelectLane: (Lane) -> Unit,
+  onSelectThemePreset: (AppDarkThemePreset) -> Unit = {},
+  onSelectFontPreset: (AppFontPreset) -> Unit = {},
+  onChangeFontScale: (Float) -> Unit = {},
+  onSelectIconSizePreset: (IconSizePreset) -> Unit = {},
+  onToggleHighContrast: (Boolean) -> Unit = {},
   onSelectCoachModel: (String) -> Unit = {},
   onSelectLiveModel: (String) -> Unit = {},
   onSaveAndTestApiKey: (AiProviderId, String) -> Unit = { _, _ -> },
@@ -148,13 +158,21 @@ fun CoachScreen(
   onOpenChampionDetail: (String) -> Unit = {},
 ) {
   val strings = LocalUiStrings.current
+  val palette = LocalRiftPalette.current
   val isMiniMode = LocalInGameMiniMode.current
+  val compactIcons = LocalIconSizePreset.current == IconSizePreset.COMPACT
+  val champAvatarSize = if (compactIcons) 22.dp else 28.dp
+  val topIconSize = if (compactIcons) 15.dp else 19.dp
+  val headerIconSize = if (compactIcons) 18.dp else 22.dp
+  val highContrast = preferences.highContrastCards
   val lang = state.language
   var selectedTab by remember { mutableIntStateOf(0) }
+  var selectedPromptCategory by remember { mutableStateOf(CoachPromptCategory.ALL) }
   var showChampPicker by remember { mutableStateOf(false) }
   var showModelPicker by remember { mutableStateOf(false) }
   var showFreeKeysSheet by remember { mutableStateOf(false) }
   var showCacheInfoDialog by remember { mutableStateOf(false) }
+  var showAppearanceSheet by remember { mutableStateOf(false) }
   var laneMenuExpanded by remember { mutableStateOf(false) }
   var questionInput by remember { mutableStateOf("") }
   val clipboardManager = LocalClipboardManager.current
@@ -182,11 +200,15 @@ fun CoachScreen(
           .padding(horizontal = outerPad, vertical = if (isCompactHeight) 4.dp else 8.dp),
       verticalArrangement = Arrangement.spacedBy(if (isCompactHeight) 5.dp else 8.dp),
     ) {
-      // Ultra-compact single-row secondary control strip so the advice viewport dominates the screen
+      // Ultra-compact single-row secondary control strip + Quick Appearance Customizer
       Surface(
         shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        color = palette.surfaceNavy,
+        border =
+          BorderStroke(
+            width = if (highContrast) 1.4.dp else 1.dp,
+            color = if (highContrast) palette.outlineHighContrast else palette.outlineVariant,
+          ),
         modifier = Modifier.fillMaxWidth().testTag("coach_compact_topbar"),
       ) {
         Row(
@@ -197,8 +219,8 @@ fun CoachScreen(
           val selectedChamp = state.selectedChampion
           Surface(
             shape = RoundedCornerShape(8.dp),
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)),
+            color = palette.surface,
+            border = BorderStroke(1.dp, palette.outline.copy(alpha = 0.8f)),
             modifier =
               Modifier.weight(1f)
                 .minimumInteractiveComponentSize()
@@ -212,11 +234,12 @@ fun CoachScreen(
               horizontalArrangement = Arrangement.spacedBy(5.dp),
             ) {
               if (selectedChamp != null) {
-                ChampionCrestAvatar(champion = selectedChamp, size = 22.dp)
+                ChampionCrestAvatar(champion = selectedChamp, size = champAvatarSize)
                 Text(
                   text = selectedChamp.displayName(lang),
                   style = MaterialTheme.typography.labelMedium,
                   fontWeight = FontWeight.SemiBold,
+                  color = palette.textPrimary,
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis,
                   modifier = Modifier.weight(1f),
@@ -225,6 +248,7 @@ fun CoachScreen(
                 Text(
                   text = strings.selectYourChampion,
                   style = MaterialTheme.typography.labelMedium,
+                  color = palette.textPrimary,
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis,
                   modifier = Modifier.weight(1f),
@@ -233,8 +257,8 @@ fun CoachScreen(
               Icon(
                 imageVector = Icons.Default.SwapHoriz,
                 contentDescription = strings.selectYourChampion,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(15.dp),
+                tint = palette.textSecondary,
+                modifier = Modifier.size(topIconSize),
               )
             }
           }
@@ -242,8 +266,8 @@ fun CoachScreen(
           Box {
             Surface(
               shape = RoundedCornerShape(8.dp),
-              color = MaterialTheme.colorScheme.surfaceContainer,
-              border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)),
+              color = palette.surface,
+              border = BorderStroke(1.dp, palette.outline.copy(alpha = 0.8f)),
               modifier =
                 Modifier.minimumInteractiveComponentSize()
                   .clip(RoundedCornerShape(8.dp))
@@ -257,14 +281,14 @@ fun CoachScreen(
                 Text(
                   text = if (lang == AppLanguage.TH) state.selectedLane.labelTh else state.selectedLane.labelEn,
                   style = MaterialTheme.typography.labelSmall,
-                  color = MaterialTheme.colorScheme.onSurface,
+                  color = palette.textPrimary,
                   maxLines = 1,
                 )
                 Icon(
                   imageVector = Icons.Default.ArrowDropDown,
                   contentDescription = strings.selectLane,
-                  tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                  modifier = Modifier.size(15.dp),
+                  tint = palette.textSecondary,
+                  modifier = Modifier.size(topIconSize),
                 )
               }
             }
@@ -278,7 +302,7 @@ fun CoachScreen(
                   text = {
                     Text(
                       text = if (lang == AppLanguage.TH) lane.labelTh else lane.labelEn,
-                      color = if (isSelectedLane) HextechGoldBright else MaterialTheme.colorScheme.onSurface,
+                      color = if (isSelectedLane) palette.primaryBright else palette.textPrimary,
                       fontWeight = if (isSelectedLane) FontWeight.Bold else FontWeight.Normal,
                     )
                   },
@@ -288,7 +312,7 @@ fun CoachScreen(
                         Icon(
                           imageVector = Icons.Default.Check,
                           contentDescription = null,
-                          tint = HextechGoldBright,
+                          tint = palette.primaryBright,
                           modifier = Modifier.size(16.dp),
                         )
                       }
@@ -306,8 +330,8 @@ fun CoachScreen(
           // 3-Way Segmented Mode Toggle (Playbook | AI | Live)
           Surface(
             shape = RoundedCornerShape(8.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHighest,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)),
+            color = palette.surfaceHighest,
+            border = BorderStroke(1.dp, palette.outline.copy(alpha = 0.75f)),
           ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
               CompactModeSegment(
@@ -315,7 +339,8 @@ fun CoachScreen(
                 label = if (lang == AppLanguage.TH) "คู่มือ" else "Guide",
                 showIcon = showSegmentIcons,
                 icon = Icons.AutoMirrored.Filled.MenuBook,
-                accentColor = HextechGold,
+                iconSize = topIconSize,
+                accentColor = palette.primary,
                 contentDescription = strings.offlinePlaybookTab,
                 onClick = { selectedTab = 0 },
                 modifier = Modifier.testTag("coach_offline_tab"),
@@ -325,7 +350,8 @@ fun CoachScreen(
                 label = "AI",
                 showIcon = showSegmentIcons,
                 icon = Icons.Default.AutoAwesome,
-                accentColor = ArcaneCyan,
+                iconSize = topIconSize,
+                accentColor = palette.secondary,
                 contentDescription = strings.geminiCoachTab,
                 onClick = { selectedTab = 1 },
                 modifier = Modifier.testTag("coach_gemini_tab"),
@@ -335,10 +361,162 @@ fun CoachScreen(
                 label = if (lang == AppLanguage.TH) "สด" else "Live",
                 showIcon = showSegmentIcons,
                 icon = Icons.Default.Visibility,
+                iconSize = topIconSize,
                 accentColor = AdvantageEmerald,
                 contentDescription = if (lang == AppLanguage.TH) "โหมด Live Coach" else "Live Coach Mode",
                 onClick = { selectedTab = 2 },
                 modifier = Modifier.testTag("coach_live_tab"),
+              )
+            }
+          }
+
+          // In-Screen Quick Appearance Customizer Button (Synced with Settings)
+          Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = palette.primaryContainer.copy(alpha = 0.75f),
+            border = BorderStroke(1.dp, palette.primary.copy(alpha = 0.75f)),
+            modifier =
+              Modifier.minimumInteractiveComponentSize()
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { showAppearanceSheet = true }
+                .testTag("coach_quick_appearance_button"),
+          ) {
+            Box(
+              modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+              contentAlignment = Alignment.Center,
+            ) {
+              Icon(
+                imageVector = Icons.Default.Palette,
+                contentDescription =
+                  if (lang == AppLanguage.TH) "ปรับสี ฟอนต์ และขนาด AI Coach"
+                  else "Customize AI Coach appearance",
+                tint = palette.primaryBright,
+                modifier = Modifier.size(topIconSize),
+              )
+            }
+          }
+        }
+      }
+
+      // Live Matchup Context Summary Bar (Active Champion + Lane + Enemy Threats + Journal Memory)
+      Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = palette.surface.copy(alpha = 0.88f),
+        border =
+          BorderStroke(
+            width = if (highContrast) 1.35.dp else 1.dp,
+            color =
+              if (highContrast) palette.outlineHighContrast.copy(alpha = 0.85f)
+              else palette.outlineVariant,
+          ),
+        modifier = Modifier.fillMaxWidth().testTag("coach_matchup_summary_bar"),
+      ) {
+        Row(
+          modifier =
+            Modifier.fillMaxWidth()
+              .padding(horizontal = 8.dp, vertical = if (isCompactHeight) 4.dp else 6.dp),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+          Text(
+            text = if (lang == AppLanguage.TH) "บริบท:" else "Context:",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = palette.primaryBright,
+            maxLines = 1,
+          )
+          if (state.enemyContext.isNotEmpty()) {
+            Text(
+              text = "vs",
+              style = MaterialTheme.typography.labelSmall,
+              color = ThreatCrimson,
+              fontWeight = FontWeight.Bold,
+            )
+            LazyRow(
+              modifier = Modifier.weight(1f),
+              horizontalArrangement = Arrangement.spacedBy(5.dp),
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              itemsIndexed(state.enemyContext, key = { _, e -> e.id }) { _, enemy ->
+                Surface(
+                  shape = RoundedCornerShape(999.dp),
+                  color = ThreatCrimson.copy(alpha = 0.14f),
+                  border = BorderStroke(1.dp, ThreatCrimson.copy(alpha = 0.55f)),
+                  modifier =
+                    Modifier.clip(RoundedCornerShape(999.dp))
+                      .clickable { onOpenChampionDetail(enemy.id) },
+                ) {
+                  Row(
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                  ) {
+                    ChampionCrestAvatar(
+                      champion = enemy,
+                      size = if (compactIcons) 16.dp else 20.dp,
+                    )
+                    Text(
+                      text = enemy.displayName(lang),
+                      style = MaterialTheme.typography.labelSmall,
+                      color = palette.textPrimary,
+                      maxLines = 1,
+                    )
+                  }
+                }
+              }
+            }
+          } else {
+            Surface(
+              shape = RoundedCornerShape(999.dp),
+              color = palette.secondary.copy(alpha = 0.12f),
+              border = BorderStroke(1.dp, palette.secondary.copy(alpha = 0.45f)),
+              modifier =
+                Modifier.weight(1f, fill = false)
+                  .clip(RoundedCornerShape(999.dp))
+                  .clickable(onClick = onOpenAnalyzer)
+                  .testTag("coach_context_add_enemies"),
+            ) {
+              Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+              ) {
+                Icon(
+                  imageVector = Icons.Default.Security,
+                  contentDescription = null,
+                  tint = palette.secondary,
+                  modifier = Modifier.size(if (compactIcons) 12.dp else 15.dp),
+                )
+                Text(
+                  text =
+                    if (lang == AppLanguage.TH) "ยังไม่ระบุศัตรู • แตะเลือกใน 1v5"
+                    else "No enemies set • Pick in 1v5",
+                  style = MaterialTheme.typography.labelSmall,
+                  color = palette.secondary,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                )
+              }
+            }
+            Spacer(modifier = Modifier.weight(1f))
+          }
+
+          if (state.journalGameCount > 0) {
+            Surface(
+              shape = RoundedCornerShape(999.dp),
+              color = AdvantageEmerald.copy(alpha = 0.14f),
+              border = BorderStroke(1.dp, AdvantageEmerald.copy(alpha = 0.5f)),
+              modifier = Modifier.testTag("coach_journal_memory_badge"),
+            ) {
+              Text(
+                text =
+                  if (lang == AppLanguage.TH) "จำ ${state.journalGameCount} เกม"
+                  else "${state.journalGameCount} matches",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = AdvantageEmerald,
+                maxLines = 1,
+                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
               )
             }
           }
@@ -359,28 +537,6 @@ fun CoachScreen(
           onOpenApiKeys = { showFreeKeysSheet = true },
           onOpenCacheInfo = { showCacheInfoDialog = true },
         )
-        if (selectedTab == 1 && state.journalGameCount > 0) {
-          Surface(
-            shape = RoundedCornerShape(8.dp),
-            color = ArcaneCyan.copy(alpha = 0.1f),
-            border = BorderStroke(1.dp, ArcaneCyan.copy(alpha = 0.35f)),
-            modifier = Modifier.fillMaxWidth().testTag("coach_journal_memory_badge"),
-          ) {
-            Text(
-              text =
-                if (lang == AppLanguage.TH) {
-                  "Journal Memory: AI โค้ชกำลังวิเคราะห์ร่วมกับสถิติย้อนหลัง ${state.journalGameCount} เกมของคุณ"
-                } else {
-                  "Journal Memory Active: Personalizing advice using your ${state.journalGameCount} saved matches"
-                },
-              style = MaterialTheme.typography.labelSmall,
-              color = ArcaneCyan,
-              maxLines = 1,
-              overflow = TextOverflow.Ellipsis,
-              modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-            )
-          }
-        }
       }
 
       // Optional TTS error banner (only shown if device TTS fails)
@@ -417,18 +573,24 @@ fun CoachScreen(
         }
       }
 
-      // HERO SPOTLIGHT ADVICE VIEWPORT — dominates screen space & visual prominence
+      // HERO SPOTLIGHT ADVICE VIEWPORT — 100% synced with active dark theme, font & icon density
       val spotlightAccent =
         when (selectedTab) {
-          0 -> HextechGold
-          1 -> ArcaneCyan
+          0 -> palette.primary
+          1 -> palette.secondary
           else -> AdvantageEmerald
         }
       Surface(
         shape = MaterialTheme.shapes.medium,
-        color = HextechObsidian,
+        color = palette.background,
         tonalElevation = 4.dp,
-        border = BorderStroke(1.5.dp, spotlightAccent.copy(alpha = 0.65f)),
+        border =
+          BorderStroke(
+            width = if (highContrast) 1.8.dp else 1.4.dp,
+            color =
+              if (highContrast) palette.outlineHighContrast
+              else spotlightAccent.copy(alpha = 0.72f),
+          ),
         modifier = Modifier.weight(1f).fillMaxWidth().testTag("coach_advice_spotlight"),
       ) {
         Box(
@@ -437,9 +599,9 @@ fun CoachScreen(
               .background(
                 Brush.verticalGradient(
                   listOf(
-                    spotlightAccent.copy(alpha = 0.11f),
-                    HextechSurface.copy(alpha = 0.55f),
-                    HextechObsidian,
+                    spotlightAccent.copy(alpha = 0.14f),
+                    palette.heroTopTint.copy(alpha = 0.55f),
+                    palette.background,
                   )
                 )
               )
@@ -470,8 +632,8 @@ fun CoachScreen(
                         Icon(
                           imageVector = Icons.AutoMirrored.Filled.MenuBook,
                           contentDescription = null,
-                          tint = HextechGoldBright,
-                          modifier = Modifier.size(18.dp),
+                          tint = palette.primaryBright,
+                          modifier = Modifier.size(headerIconSize),
                         )
                         Text(
                           text =
@@ -479,20 +641,20 @@ fun CoachScreen(
                             else "Tactical Playbook & Advice",
                           style = MaterialTheme.typography.titleSmall,
                           fontWeight = FontWeight.Bold,
-                          color = HextechGoldBright,
+                          color = palette.primaryBright,
                           maxLines = 1,
                           overflow = TextOverflow.Ellipsis,
                         )
                       }
                       Surface(
                         shape = RoundedCornerShape(999.dp),
-                        color = HextechGold.copy(alpha = 0.16f),
-                        border = BorderStroke(1.dp, HextechGold.copy(alpha = 0.45f)),
+                        color = palette.primary.copy(alpha = 0.16f),
+                        border = BorderStroke(1.dp, palette.primary.copy(alpha = 0.5f)),
                       ) {
                         Text(
                           text = "Patch ${state.activePatchVersion}",
                           style = MaterialTheme.typography.labelSmall,
-                          color = HextechGoldBright,
+                          color = palette.primaryBright,
                           modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                         )
                       }
@@ -519,11 +681,11 @@ fun CoachScreen(
                           if (lang == AppLanguage.TH) listOf("ต้นเกม", "กลางเกม", "ท้ายเกม")
                           else listOf("Early", "Mid", "Late")
                         playbookSections.forEachIndexed { idx, _ ->
-                          val chipColor = phaseAccentColor(idx)
+                          val chipColor = phaseAccentColor(idx, palette)
                           Surface(
                             shape = RoundedCornerShape(999.dp),
                             color = chipColor.copy(alpha = 0.14f),
-                            border = BorderStroke(1.dp, chipColor.copy(alpha = 0.45f)),
+                            border = BorderStroke(1.dp, chipColor.copy(alpha = 0.5f)),
                             modifier =
                               Modifier.clip(RoundedCornerShape(999.dp)).clickable {
                                 coroutineScope.launch {
@@ -547,7 +709,7 @@ fun CoachScreen(
 
                 itemsIndexed(playbookSections, key = { idx, sec -> "${idx}_${sec.titleEn}" }) { index, section ->
                   val cardId = "playbook_$index"
-                  val phaseAccent = phaseAccentColor(index)
+                  val phaseAccent = phaseAccentColor(index, palette)
                   val phaseBadge =
                     when (index) {
                       0 -> if (lang == AppLanguage.TH) "EARLY • ต้นเกม" else "EARLY PHASE"
@@ -575,6 +737,14 @@ fun CoachScreen(
               val chatListState = rememberLazyListState()
               val isBusy =
                 geminiState is GeminiUiState.Loading || geminiState is GeminiUiState.Streaming
+              val visiblePrompts =
+                remember(state.quickPrompts, selectedPromptCategory) {
+                  if (selectedPromptCategory == CoachPromptCategory.ALL) {
+                    state.quickPrompts
+                  } else {
+                    state.quickPrompts.filter { it.category == selectedPromptCategory }
+                  }
+                }
 
               LaunchedEffect(messages.size, geminiState) {
                 if (messages.isNotEmpty() || geminiState !is GeminiUiState.Idle) {
@@ -589,13 +759,45 @@ fun CoachScreen(
                 contentPadding = PaddingValues(if (isCompactHeight) 8.dp else 12.dp),
                 verticalArrangement = Arrangement.spacedBy(if (isCompactHeight) 8.dp else 10.dp),
               ) {
-                item(key = "quick_prompts_row") {
+                item(key = "prompt_categories_row") {
                   LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    itemsIndexed(state.quickPrompts, key = { _, p -> p.id }) { idx, prompt ->
+                    itemsIndexed(CoachPromptCategory.entries) { _, cat ->
+                      val selectedCat = selectedPromptCategory == cat
                       Surface(
                         shape = RoundedCornerShape(999.dp),
-                        color = ArcaneCyan.copy(alpha = 0.12f),
-                        border = BorderStroke(1.dp, ArcaneCyan.copy(alpha = 0.4f)),
+                        color =
+                          if (selectedCat) palette.primary.copy(alpha = 0.22f)
+                          else palette.surfaceHigh,
+                        border =
+                          BorderStroke(
+                            1.dp,
+                            if (selectedCat) palette.primaryBright
+                            else palette.outline.copy(alpha = 0.65f),
+                          ),
+                        modifier =
+                          Modifier.clip(RoundedCornerShape(999.dp))
+                            .clickable { selectedPromptCategory = cat }
+                            .testTag("coach_prompt_cat_${cat.name}"),
+                      ) {
+                        Text(
+                          text = if (lang == AppLanguage.TH) cat.labelTh else cat.labelEn,
+                          style = MaterialTheme.typography.labelSmall,
+                          fontWeight = if (selectedCat) FontWeight.Bold else FontWeight.Medium,
+                          color = if (selectedCat) palette.primaryBright else palette.textSecondary,
+                          modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                        )
+                      }
+                    }
+                  }
+                }
+
+                item(key = "quick_prompts_row") {
+                  LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    itemsIndexed(visiblePrompts, key = { _, p -> p.id }) { idx, prompt ->
+                      Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = palette.secondary.copy(alpha = 0.14f),
+                        border = BorderStroke(1.dp, palette.secondary.copy(alpha = 0.55f)),
                         modifier =
                           Modifier.clip(RoundedCornerShape(999.dp))
                             .clickable(enabled = !isBusy) { onAskGemini(prompt.fullQuestion) }
@@ -604,7 +806,7 @@ fun CoachScreen(
                         Text(
                           text = prompt.shortLabel,
                           style = MaterialTheme.typography.labelMedium,
-                          color = if (isBusy) MaterialTheme.colorScheme.onSurfaceVariant else ArcaneCyan,
+                          color = if (isBusy) palette.textMuted else palette.secondary,
                           maxLines = 1,
                           overflow = TextOverflow.Ellipsis,
                           modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -618,7 +820,7 @@ fun CoachScreen(
                   item(key = "gemini_empty_spotlight") {
                     AdviceSpotlightCard(
                       cardId = "gemini_welcome",
-                      accentColor = ArcaneCyan,
+                      accentColor = palette.secondary,
                       badgeText = "WR-AI COACH • PATCH ${state.activePatchVersion}",
                       title =
                         if (lang == AppLanguage.TH) "พร้อมวิเคราะห์แมตช์อัปให้คุณทันที"
@@ -627,11 +829,11 @@ fun CoachScreen(
                         if (lang == AppLanguage.TH) {
                           val champName = state.selectedChampion?.displayName(lang) ?: ""
                           val laneLabel = state.selectedLane.labelTh
-                          "กดปุ่มคำถามด่วนด้านบนเพื่อถามทันทีโดยไม่ต้องพิมพ์ หรือพิมพ์ถามแผนเล่น $champName ($laneLabel) ด้านล่าง"
+                          "กดปุ่มคำถามกลยุทธ์ด้านบนเพื่อถามทันทีในคลิกเดียว หรือพิมพ์ถามแผนเล่น $champName ($laneLabel) ด้านล่าง"
                         } else {
                           val champName = state.selectedChampion?.displayName(lang) ?: ""
                           val laneLabel = state.selectedLane.labelEn
-                          "Tap any quick tactical chip above to ask instantly, or type a custom question for $champName ($laneLabel)."
+                          "Tap any categorized strategy chip above to ask in 1 tap, or ask a custom question for $champName ($laneLabel)."
                         },
                       compact = isCompactHeight,
                       language = lang,
@@ -645,15 +847,16 @@ fun CoachScreen(
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                       Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = HextechGold.copy(alpha = 0.16f),
-                        border = BorderStroke(1.dp, HextechGold.copy(alpha = 0.45f)),
+                        color = palette.primaryContainer.copy(alpha = 0.85f),
+                        border = BorderStroke(1.dp, palette.primary.copy(alpha = 0.65f)),
                         modifier = Modifier.widthIn(max = 300.dp),
                       ) {
+                        val userMsgStyle = MaterialTheme.typography.bodyMedium
                         Text(
                           text = msg.text,
-                          style = MaterialTheme.typography.bodySmall,
-                          color = HextechGoldBright,
-                          modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                          style = userMsgStyle.copy(lineHeight = userMsgStyle.fontSize * 1.42f),
+                          color = palette.primaryBright,
+                          modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
                         )
                       }
                     }
@@ -663,7 +866,7 @@ fun CoachScreen(
                         if (msg.isFallbackUsed) " (Fallback)" else ""
                     AdviceSpotlightCard(
                       cardId = msg.id,
-                      accentColor = ArcaneCyan,
+                      accentColor = palette.secondary,
                       badgeText = activeModelBadge,
                       cachedBadgeText =
                         if (msg.fromCache) {
@@ -689,8 +892,8 @@ fun CoachScreen(
                     item(key = "gemini_loading") {
                       Surface(
                         shape = MaterialTheme.shapes.medium,
-                        color = HextechSurfaceHigh,
-                        border = BorderStroke(1.dp, ArcaneCyan.copy(alpha = 0.55f)),
+                        color = palette.surfaceHigh,
+                        border = BorderStroke(1.dp, palette.secondary.copy(alpha = 0.6f)),
                         modifier = Modifier.fillMaxWidth(),
                       ) {
                         Row(
@@ -699,7 +902,7 @@ fun CoachScreen(
                           horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                           CircularProgressIndicator(
-                            color = ArcaneCyan,
+                            color = palette.secondary,
                             modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp,
                           )
@@ -709,7 +912,7 @@ fun CoachScreen(
                               if (lang == AppLanguage.TH) "กำลังวิเคราะห์คำแนะนำ ($modelHint)..."
                               else "Analyzing matchup with $modelHint...",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = ArcaneCyan,
+                            color = palette.secondary,
                           )
                         }
                       }
@@ -720,7 +923,7 @@ fun CoachScreen(
                       val modelHint = geminiState.modelLabel.takeIf { it.isNotBlank() } ?: "AI"
                       AdviceSpotlightCard(
                         cardId = "gemini_streaming",
-                        accentColor = ArcaneCyan,
+                        accentColor = palette.secondary,
                         badgeText =
                           if (lang == AppLanguage.TH) "กำลังตอบ ($modelHint)..."
                           else "STREAMING ($modelHint)...",
@@ -755,8 +958,8 @@ fun CoachScreen(
                               val fallbackSpec = AiModelCatalog.findById(fallbackId)
                               Surface(
                                 shape = RoundedCornerShape(8.dp),
-                                color = ArcaneCyan.copy(alpha = 0.18f),
-                                border = BorderStroke(1.dp, ArcaneCyan),
+                                color = palette.secondary.copy(alpha = 0.18f),
+                                border = BorderStroke(1.dp, palette.secondary),
                                 modifier =
                                   Modifier.minimumInteractiveComponentSize()
                                     .clip(RoundedCornerShape(8.dp))
@@ -769,15 +972,15 @@ fun CoachScreen(
                                     else "Switch to ${fallbackSpec.shortBadge}",
                                   style = MaterialTheme.typography.labelLarge,
                                   fontWeight = FontWeight.Bold,
-                                  color = ArcaneCyan,
+                                  color = palette.secondary,
                                   modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                                 )
                               }
                             }
                             Surface(
                               shape = RoundedCornerShape(8.dp),
-                              color = HextechGold.copy(alpha = 0.16f),
-                              border = BorderStroke(1.dp, HextechGold.copy(alpha = 0.8f)),
+                              color = palette.primary.copy(alpha = 0.16f),
+                              border = BorderStroke(1.dp, palette.primary.copy(alpha = 0.8f)),
                               modifier =
                                 Modifier.minimumInteractiveComponentSize()
                                   .clip(RoundedCornerShape(8.dp))
@@ -798,7 +1001,7 @@ fun CoachScreen(
                                     if (lang == AppLanguage.TH) "เปลี่ยนโมเดล / ใส่ Key" else "Models / Keys"
                                   },
                                 style = MaterialTheme.typography.labelLarge,
-                                color = HextechGoldBright,
+                                color = palette.primaryBright,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                               )
                             }
@@ -815,14 +1018,14 @@ fun CoachScreen(
                               Text(
                                 text = if (lang == AppLanguage.TH) "ลองใหม่" else "Retry",
                                 style = MaterialTheme.typography.labelLarge,
-                                color = TextPrimaryLight,
+                                color = palette.textPrimary,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                               )
                             }
                             Surface(
                               shape = RoundedCornerShape(8.dp),
-                              color = HextechGold.copy(alpha = 0.18f),
-                              border = BorderStroke(1.dp, HextechGold),
+                              color = palette.primary.copy(alpha = 0.18f),
+                              border = BorderStroke(1.dp, palette.primary),
                               modifier =
                                 Modifier.minimumInteractiveComponentSize()
                                   .clip(RoundedCornerShape(8.dp))
@@ -832,7 +1035,7 @@ fun CoachScreen(
                               Text(
                                 text = strings.offlinePlaybookTab,
                                 style = MaterialTheme.typography.labelLarge,
-                                color = HextechGoldBright,
+                                color = palette.primaryBright,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                               )
                             }
@@ -871,8 +1074,12 @@ fun CoachScreen(
       if (selectedTab == 1) {
         Surface(
           shape = MaterialTheme.shapes.small,
-          color = MaterialTheme.colorScheme.surfaceContainerLow,
-          border = BorderStroke(1.dp, ArcaneCyan.copy(alpha = 0.35f)),
+          color = palette.surfaceNavy,
+          border =
+            BorderStroke(
+              width = if (highContrast) 1.4.dp else 1.dp,
+              color = if (highContrast) palette.outlineHighContrast else palette.secondary.copy(alpha = 0.45f),
+            ),
           modifier = Modifier.fillMaxWidth(),
         ) {
           Row(
@@ -890,7 +1097,8 @@ fun CoachScreen(
                 Icon(
                   imageVector = Icons.Default.DeleteSweep,
                   contentDescription = "Clear chat",
-                  tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                  tint = palette.textSecondary,
+                  modifier = Modifier.size(topIconSize),
                 )
               }
             }
@@ -914,8 +1122,10 @@ fun CoachScreen(
               textStyle = MaterialTheme.typography.bodyMedium,
               colors =
                 OutlinedTextFieldDefaults.colors(
-                  focusedBorderColor = ArcaneCyan,
-                  unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                  focusedBorderColor = palette.secondary,
+                  unfocusedBorderColor = palette.outline.copy(alpha = 0.65f),
+                  focusedTextColor = palette.textPrimary,
+                  unfocusedTextColor = palette.textPrimary,
                 ),
             )
             val canSend =
@@ -934,7 +1144,8 @@ fun CoachScreen(
               Icon(
                 imageVector = Icons.AutoMirrored.Filled.Send,
                 contentDescription = strings.sendPrompt,
-                tint = if (canSend) ArcaneCyan else MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = if (canSend) palette.secondary else palette.textMuted,
+                modifier = Modifier.size(headerIconSize),
               )
             }
           }
@@ -985,12 +1196,24 @@ fun CoachScreen(
     )
   }
 
+  if (showAppearanceSheet) {
+    CoachAppearanceQuickSheet(
+      preferences = preferences,
+      onSelectThemePreset = onSelectThemePreset,
+      onSelectFontPreset = onSelectFontPreset,
+      onChangeFontScale = onChangeFontScale,
+      onSelectIconSizePreset = onSelectIconSizePreset,
+      onToggleHighContrast = onToggleHighContrast,
+      onDismiss = { showAppearanceSheet = false },
+    )
+  }
+
   if (showCacheInfoDialog) {
     AlertDialog(
       onDismissRequest = { showCacheInfoDialog = false },
-      containerColor = HextechNavy,
-      titleContentColor = HextechGoldBright,
-      textContentColor = TextPrimaryLight,
+      containerColor = palette.surfaceNavy,
+      titleContentColor = palette.primaryBright,
+      textContentColor = palette.textPrimary,
       title = {
         Text(
           text =
@@ -1017,7 +1240,7 @@ fun CoachScreen(
       },
       confirmButton = {
         TextButton(onClick = { showCacheInfoDialog = false }) {
-          Text(if (lang == AppLanguage.TH) "ปิด" else "Close", color = ArcaneCyan)
+          Text(if (lang == AppLanguage.TH) "ปิด" else "Close", color = palette.secondary)
         }
       },
       dismissButton =
@@ -1044,11 +1267,13 @@ private fun CompactModeSegment(
   label: String,
   showIcon: Boolean,
   icon: ImageVector,
+  iconSize: androidx.compose.ui.unit.Dp,
   accentColor: Color,
   contentDescription: String,
   onClick: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
+  val palette = LocalRiftPalette.current
   Surface(
     shape = RoundedCornerShape(7.dp),
     color = if (selected) accentColor.copy(alpha = 0.22f) else Color.Transparent,
@@ -1068,15 +1293,15 @@ private fun CompactModeSegment(
         Icon(
           imageVector = icon,
           contentDescription = contentDescription,
-          tint = if (selected) accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
-          modifier = Modifier.size(14.dp),
+          tint = if (selected) accentColor else palette.textSecondary,
+          modifier = Modifier.size(iconSize),
         )
       }
       Text(
         text = label,
         style = MaterialTheme.typography.labelMedium,
         fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-        color = if (selected) accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
+        color = if (selected) accentColor else palette.textSecondary,
         maxLines = 1,
       )
     }
@@ -1098,13 +1323,28 @@ private fun AdviceSpotlightCard(
   onCopy: (() -> Unit)? = null,
   onRefresh: (() -> Unit)? = null,
 ) {
+  val palette = LocalRiftPalette.current
+  val prefs = LocalUserPrefs.current
+  val compactIcons = LocalIconSizePreset.current == IconSizePreset.COMPACT
+  val actionIconSize = if (compactIcons) 16.dp else 21.dp
+  val speakIconSize = if (compactIcons) 18.dp else 22.dp
   val effectiveBorder =
-    if (isSpeaking) HextechGoldBright.copy(alpha = 0.9f) else accentColor.copy(alpha = 0.65f)
+    when {
+      isSpeaking -> palette.primaryBright.copy(alpha = 0.95f)
+      prefs.highContrastCards -> palette.outlineHighContrast
+      else -> accentColor.copy(alpha = 0.68f)
+    }
+  val borderWidth =
+    when {
+      isSpeaking || prefs.highContrastCards -> 1.7.dp
+      else -> 1.2.dp
+    }
+
   Surface(
     shape = MaterialTheme.shapes.medium,
-    color = HextechSurfaceHigh,
+    color = palette.surfaceHigh,
     tonalElevation = 3.dp,
-    border = BorderStroke(if (isSpeaking) 1.6.dp else 1.2.dp, effectiveBorder),
+    border = BorderStroke(borderWidth, effectiveBorder),
     modifier = Modifier.fillMaxWidth(),
   ) {
     Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
@@ -1112,11 +1352,11 @@ private fun AdviceSpotlightCard(
         modifier =
           Modifier.width(4.dp)
             .fillMaxHeight()
-            .background(if (isSpeaking) HextechGoldBright else accentColor)
+            .background(if (isSpeaking) palette.primaryBright else accentColor)
       )
       Column(
         modifier = Modifier.weight(1f).padding(if (compact) 10.dp else 14.dp),
-        verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 6.dp),
+        verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 7.dp),
       ) {
         Row(
           modifier = Modifier.fillMaxWidth(),
@@ -1131,7 +1371,7 @@ private fun AdviceSpotlightCard(
             Surface(
               shape = RoundedCornerShape(6.dp),
               color = accentColor.copy(alpha = 0.16f),
-              border = BorderStroke(1.dp, accentColor.copy(alpha = 0.45f)),
+              border = BorderStroke(1.dp, accentColor.copy(alpha = 0.5f)),
             ) {
               Row(
                 modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
@@ -1165,7 +1405,7 @@ private fun AdviceSpotlightCard(
                     imageVector = Icons.Default.Bolt,
                     contentDescription = null,
                     tint = AdvantageEmerald,
-                    modifier = Modifier.size(11.dp),
+                    modifier = Modifier.size(if (compactIcons) 11.dp else 14.dp),
                   )
                   Text(
                     text = cachedBadgeText,
@@ -1190,8 +1430,8 @@ private fun AdviceSpotlightCard(
                   contentDescription =
                     if (language == AppLanguage.TH) "ถาม AI สดใหม่ (ข้ามแคช)"
                     else "Ask fresh (bypass cache)",
-                  tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                  modifier = Modifier.size(16.dp),
+                  tint = palette.textSecondary,
+                  modifier = Modifier.size(actionIconSize),
                 )
               }
             }
@@ -1210,8 +1450,8 @@ private fun AdviceSpotlightCard(
                     } else {
                       if (language == AppLanguage.TH) "ฟังเสียงอ่านคำตอบ" else "Listen to advice"
                     },
-                  tint = if (isSpeaking) HextechGoldBright else accentColor,
-                  modifier = Modifier.size(18.dp),
+                  tint = if (isSpeaking) palette.primaryBright else accentColor,
+                  modifier = Modifier.size(speakIconSize),
                 )
               }
             }
@@ -1223,8 +1463,8 @@ private fun AdviceSpotlightCard(
                 Icon(
                   imageVector = Icons.Default.ContentCopy,
                   contentDescription = "Copy advice",
-                  tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                  modifier = Modifier.size(16.dp),
+                  tint = palette.textSecondary,
+                  modifier = Modifier.size(actionIconSize),
                 )
               }
             }
@@ -1240,24 +1480,19 @@ private fun AdviceSpotlightCard(
           )
         }
 
-        Text(
-          text = body,
-          style =
-            if (compact) {
-              MaterialTheme.typography.bodyMedium.copy(lineHeight = 20.sp)
-            } else {
-              MaterialTheme.typography.bodyLarge.copy(lineHeight = 23.sp)
-            },
-          color = TextPrimaryLight,
+        CoachFormattedAdviceBody(
+          rawText = body,
+          accentColor = accentColor,
+          compact = compact,
         )
       }
     }
   }
 }
 
-private fun phaseAccentColor(index: Int): Color =
+private fun phaseAccentColor(index: Int, palette: RiftThemePalette): Color =
   when (index) {
-    0 -> HextechGold
-    1 -> ArcaneCyan
+    0 -> palette.primary
+    1 -> palette.secondary
     else -> AdvantageEmerald
   }

@@ -73,6 +73,11 @@ class ExampleRobolectricTest {
       repo.setLanguage(AppLanguage.TH)
       repo.setInGameMiniMode(false)
       repo.setHasSeenMiniWindowTutorial(false)
+      repo.setDarkThemePreset(AppDarkThemePreset.HEXTECH_OBSIDIAN)
+      repo.setFontPreset(AppFontPreset.NOTO_SANS_THAI)
+      repo.setFontScaleMultiplier(1.0f)
+      repo.setIconSizePreset(IconSizePreset.COMPACT)
+      repo.setHighContrastCards(false)
     }
     composeTestRule.waitForIdle()
   }
@@ -606,12 +611,12 @@ class ExampleRobolectricTest {
       val zed = champs.first { it.id == "zed" }
 
       val thPrompts = CoachViewModel.buildQuickPrompts(ahri, Lane.MID, listOf(zed), AppLanguage.TH)
-      assertEquals(5, thPrompts.size)
+      assertEquals(7, thPrompts.size)
       assertTrue(thPrompts.any { it.shortLabel.contains("Zed", ignoreCase = true) })
       assertTrue(thPrompts.all { it.fullQuestion.contains("Ahri", ignoreCase = true) })
 
       val enPrompts = CoachViewModel.buildQuickPrompts(ahri, Lane.MID, listOf(zed), AppLanguage.EN)
-      assertEquals(5, enPrompts.size)
+      assertEquals(7, enPrompts.size)
       assertTrue(enPrompts.any { it.shortLabel.contains("Zed", ignoreCase = true) })
     } finally {
       db.close()
@@ -1488,5 +1493,121 @@ class ExampleRobolectricTest {
       .onNodeWithTag("champion_detail_lazy_column")
       .performScrollToNode(hasTestTag("detail_combos_card"))
     composeTestRule.onNodeWithTag("detail_combos_card").assertIsDisplayed()
+  }
+
+  @Test
+  fun `unit coach quick prompts cover all tactical categories in both languages`() = runBlocking {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
+    try {
+      val repo = GameDataRepository(context, db.gameDao(), PreferencesRepository(context))
+      repo.ensureSeeded()
+      val champs = repo.champions.first()
+      val ahri = champs.first { it.id == "ahri" }
+      val zed = champs.first { it.id == "zed" }
+
+      val thPrompts =
+        CoachViewModel.buildQuickPrompts(
+          champion = ahri,
+          lane = Lane.MID,
+          enemies = listOf(zed),
+          language = AppLanguage.TH,
+        )
+      val enPrompts =
+        CoachViewModel.buildQuickPrompts(
+          champion = ahri,
+          lane = Lane.MID,
+          enemies = listOf(zed),
+          language = AppLanguage.EN,
+        )
+
+      assertEquals(7, thPrompts.size)
+      assertEquals(7, enPrompts.size)
+      val expectedCategories =
+        setOf(
+          com.example.ui.viewmodel.CoachPromptCategory.LANING,
+          com.example.ui.viewmodel.CoachPromptCategory.BUILD_COUNTER,
+          com.example.ui.viewmodel.CoachPromptCategory.OBJECTIVES,
+          com.example.ui.viewmodel.CoachPromptCategory.COMEBACK,
+        )
+      assertEquals(expectedCategories, thPrompts.map { it.category }.toSet())
+      assertEquals(expectedCategories, enPrompts.map { it.category }.toSet())
+      assertTrue(thPrompts.any { it.shortLabel.contains("Zed", ignoreCase = true) })
+      assertTrue(enPrompts.any { it.shortLabel.contains("Zed", ignoreCase = true) })
+    } finally {
+      db.close()
+    }
+  }
+
+  @Test
+  fun `cuj coach screen quick appearance syncs theme font scale icon size and categorized prompts`() {
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("nav_coach").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+
+    // Context summary bar and spotlight viewport are visible on AI Coach
+    composeTestRule.onNodeWithTag("coach_matchup_summary_bar").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("coach_advice_spotlight").assertIsDisplayed()
+
+    // Open in-screen Quick Appearance sheet from Coach top bar
+    composeTestRule.onNodeWithTag("coach_quick_appearance_button").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("coach_appearance_sheet").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("coach_appearance_preview_card").assertIsDisplayed()
+
+    // Change dark theme, font, text scale, icon size, and high-contrast border inside AI Coach
+    composeTestRule
+      .onNodeWithTag("coach_appearance_lazy_column")
+      .performScrollToNode(hasTestTag("coach_quick_theme_void_abyss"))
+    composeTestRule.onNodeWithTag("coach_quick_theme_void_abyss").performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule
+      .onNodeWithTag("coach_appearance_lazy_column")
+      .performScrollToNode(hasTestTag("coach_quick_font_kanit"))
+    composeTestRule.onNodeWithTag("coach_quick_font_kanit").performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule
+      .onNodeWithTag("coach_appearance_lazy_column")
+      .performScrollToNode(hasTestTag("coach_quick_scale_large"))
+    composeTestRule.onNodeWithTag("coach_quick_scale_large").performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule
+      .onNodeWithTag("coach_appearance_lazy_column")
+      .performScrollToNode(hasTestTag("coach_quick_icon_standard"))
+    composeTestRule.onNodeWithTag("coach_quick_icon_standard").performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule
+      .onNodeWithTag("coach_appearance_lazy_column")
+      .performScrollToNode(hasTestTag("coach_quick_high_contrast"))
+    composeTestRule.onNodeWithTag("coach_quick_high_contrast").performClick()
+    composeTestRule.waitForIdle()
+
+    // Verify PreferencesRepository persisted all changes bi-directionally
+    val appContext = ApplicationProvider.getApplicationContext<Context>()
+    composeTestRule.waitUntil(timeoutMillis = 8000) {
+      val prefs = runBlocking { PreferencesRepository(appContext).preferencesFlow.first() }
+      prefs.darkThemePreset == AppDarkThemePreset.VOID_ABYSS &&
+        prefs.fontPreset == AppFontPreset.KANIT &&
+        prefs.fontScaleMultiplier >= 1.1f &&
+        prefs.iconSizePreset == IconSizePreset.STANDARD &&
+        prefs.highContrastCards
+    }
+
+    // Dismiss sheet & switch to AI tab to test categorized 1-click strategy prompts
+    composeTestRule
+      .onNodeWithTag("coach_appearance_lazy_column")
+      .performScrollToNode(hasTestTag("close_coach_appearance_button"))
+    composeTestRule.onNodeWithTag("close_coach_appearance_button").performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("coach_gemini_tab").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("coach_prompt_cat_BUILD_COUNTER").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("coach_quick_prompt_0").assertIsDisplayed()
   }
 }
