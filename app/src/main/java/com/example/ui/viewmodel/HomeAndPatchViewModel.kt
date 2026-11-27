@@ -561,6 +561,10 @@ class HomeAndPatchViewModel(
     viewModelScope.launch { preferencesRepository.setIconSizePreset(preset) }
   }
 
+  fun setHasSeenMiniWindowTutorial(seen: Boolean) {
+    viewModelScope.launch { preferencesRepository.setHasSeenMiniWindowTutorial(seen) }
+  }
+
   fun clearCoachCache() {
     viewModelScope.launch {
       geminiCoachService?.clearPersistentCache() ?: gameDao?.clearAllCoachCache()

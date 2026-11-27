@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Key
@@ -98,6 +99,7 @@ fun SettingsScreen(
   onSelectIconSizePreset: (IconSizePreset) -> Unit = {},
   onToggleHighContrast: (Boolean) -> Unit,
   onToggleMiniMode: (Boolean) -> Unit,
+  onOpenMiniTutorial: () -> Unit = {},
   onSelectCoachModel: (String) -> Unit = {},
   onSaveAndTestApiKey: (AiProviderId, String) -> Unit = { _, _ -> },
   onClearApiKey: (AiProviderId) -> Unit = {},
@@ -255,7 +257,7 @@ fun SettingsScreen(
         item {
           val activeSpec = AiModelCatalog.findById(preferences.selectedCoachModelId)
           HextechCard(
-            accentColor = ArcaneCyan,
+            accentColor = palette.secondary,
             modifier = Modifier.testTag("settings_ai_providers_card"),
           ) {
             Text(
@@ -263,7 +265,7 @@ fun SettingsScreen(
                 if (lang == AppLanguage.TH) "AI Coach: โมเดลฟรี, Key เสริม & แคชประหยัดโทเคน"
                 else "AI Coach: Free Models, Keys & Response Cache",
               style = MaterialTheme.typography.titleMedium,
-              color = ArcaneCyan,
+              color = palette.secondary,
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
@@ -287,28 +289,28 @@ fun SettingsScreen(
             ) {
               OutlinedButton(
                 onClick = { showModelPicker = true },
-                border = BorderStroke(1.dp, ArcaneCyan.copy(alpha = 0.7f)),
+                border = BorderStroke(1.dp, palette.secondary.copy(alpha = 0.75f)),
                 modifier =
                   Modifier.minimumInteractiveComponentSize().testTag("settings_select_model_button"),
               ) {
-                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = ArcaneCyan, modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = palette.secondary, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                   text = if (lang == AppLanguage.TH) "เลือกโมเดล AI" else "Select AI Model",
-                  color = ArcaneCyan,
+                  color = palette.secondary,
                 )
               }
               OutlinedButton(
                 onClick = { showKeysSheet = true },
-                border = BorderStroke(1.dp, HextechGold.copy(alpha = 0.75f)),
+                border = BorderStroke(1.dp, palette.primary.copy(alpha = 0.8f)),
                 modifier =
                   Modifier.minimumInteractiveComponentSize().testTag("settings_manage_keys_button"),
               ) {
-                Icon(Icons.Default.Key, contentDescription = null, tint = HextechGoldBright, modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.Key, contentDescription = null, tint = palette.primaryBright, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                   text = if (lang == AppLanguage.TH) "จัดการ Free Keys" else "Manage Free Keys",
-                  color = HextechGoldBright,
+                  color = palette.primaryBright,
                   fontWeight = FontWeight.SemiBold,
                 )
               }
@@ -537,7 +539,7 @@ fun SettingsScreen(
 
         // In-Game Mini-Window Mode
         item {
-          HextechCard(accentColor = ArcaneCyan) {
+          HextechCard(accentColor = palette.secondary) {
             Row(
               modifier = Modifier.fillMaxWidth(),
               horizontalArrangement = Arrangement.SpaceBetween,
@@ -559,6 +561,30 @@ fun SettingsScreen(
                 checked = preferences.inGameMiniMode,
                 onCheckedChange = onToggleMiniMode,
                 modifier = Modifier.testTag("settings_mini_mode_switch"),
+              )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            OutlinedButton(
+              onClick = onOpenMiniTutorial,
+              border = BorderStroke(1.dp, palette.secondary.copy(alpha = 0.75f)),
+              modifier =
+                Modifier.fillMaxWidth()
+                  .minimumInteractiveComponentSize()
+                  .testTag("settings_mini_tutorial_button"),
+            ) {
+              Icon(
+                imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+                contentDescription = null,
+                tint = palette.secondary,
+                modifier = Modifier.size(17.dp),
+              )
+              Spacer(modifier = Modifier.width(8.dp))
+              Text(
+                text =
+                  if (lang == AppLanguage.TH) "ดูคู่มือวิธีใช้ Mini-Window Mode"
+                  else "View Mini-Window Mode Tutorial",
+                color = palette.secondary,
+                fontWeight = FontWeight.SemiBold,
               )
             }
           }

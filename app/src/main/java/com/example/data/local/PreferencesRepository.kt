@@ -42,6 +42,7 @@ data class UserPreferences(
   val darkThemePreset: AppDarkThemePreset = AppDarkThemePreset.HEXTECH_OBSIDIAN,
   val fontPreset: AppFontPreset = AppFontPreset.NOTO_SANS_THAI,
   val iconSizePreset: IconSizePreset = IconSizePreset.COMPACT,
+  val hasSeenMiniWindowTutorial: Boolean = false,
 )
 
 class PreferencesRepository(private val context: Context) {
@@ -67,6 +68,7 @@ class PreferencesRepository(private val context: Context) {
     val DARK_THEME_PRESET = stringPreferencesKey("dark_theme_preset")
     val FONT_PRESET = stringPreferencesKey("font_preset")
     val ICON_SIZE_PRESET = stringPreferencesKey("icon_size_preset")
+    val HAS_SEEN_MINI_TUTORIAL = booleanPreferencesKey("has_seen_mini_window_tutorial")
   }
 
   val preferencesFlow: Flow<UserPreferences> =
@@ -95,6 +97,7 @@ class PreferencesRepository(private val context: Context) {
         darkThemePreset = AppDarkThemePreset.fromId(prefs[Keys.DARK_THEME_PRESET]),
         fontPreset = AppFontPreset.fromId(prefs[Keys.FONT_PRESET]),
         iconSizePreset = IconSizePreset.fromId(prefs[Keys.ICON_SIZE_PRESET]),
+        hasSeenMiniWindowTutorial = prefs[Keys.HAS_SEEN_MINI_TUTORIAL] ?: false,
       )
     }
 
@@ -173,5 +176,9 @@ class PreferencesRepository(private val context: Context) {
 
   suspend fun setIconSizePreset(preset: IconSizePreset) {
     context.dataStore.edit { it[Keys.ICON_SIZE_PRESET] = preset.id }
+  }
+
+  suspend fun setHasSeenMiniWindowTutorial(seen: Boolean) {
+    context.dataStore.edit { it[Keys.HAS_SEEN_MINI_TUTORIAL] = seen }
   }
 }

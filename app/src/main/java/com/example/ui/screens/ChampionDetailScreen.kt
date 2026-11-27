@@ -76,11 +76,9 @@ import com.example.ui.components.WildRiftRuneLoadoutStrip
 import com.example.ui.components.WinRatePillsRow
 import com.example.ui.components.buildDefaultCustomDraft
 import com.example.ui.theme.AdvantageEmerald
-import com.example.ui.theme.ArcaneCyan
-import com.example.ui.theme.HextechGold
-import com.example.ui.theme.HextechGoldBright
 import com.example.ui.theme.LocalIconSizePreset
 import com.example.ui.theme.LocalInGameMiniMode
+import com.example.ui.theme.LocalRiftPalette
 import com.example.ui.theme.LocalUserPrefs
 import com.example.ui.theme.SkillViolet
 import com.example.ui.theme.ThreatCrimson
@@ -101,6 +99,7 @@ fun ChampionDetailScreen(
   BackHandler(onBack = onBack)
 
   val isMiniMode = LocalInGameMiniMode.current
+  val palette = LocalRiftPalette.current
   val lang = LocalUserPrefs.current.language
   val isFav = champion.id in state.favoriteIds
   val champMap = state.allChampions.associateBy { it.id }
@@ -143,7 +142,7 @@ fun ChampionDetailScreen(
             Icon(
               if (isFav) Icons.Default.Star else Icons.Default.StarBorder,
               contentDescription = "Favorite",
-              tint = if (isFav) HextechGold else MaterialTheme.colorScheme.onSurface,
+              tint = if (isFav) palette.primary else MaterialTheme.colorScheme.onSurface,
             )
           }
         },
@@ -162,7 +161,7 @@ fun ChampionDetailScreen(
       ) {
         // Identity Header
         item {
-          HextechCard(accentColor = HextechGold) {
+          HextechCard(accentColor = palette.primary) {
             Row(verticalAlignment = Alignment.CenterVertically) {
               ChampionCrestAvatar(champion = champion, size = 50.dp)
               Spacer(modifier = Modifier.width(12.dp))
@@ -219,8 +218,8 @@ fun ChampionDetailScreen(
                   .testTag("detail_analyze_button"),
               colors =
                 ButtonDefaults.buttonColors(
-                  containerColor = HextechGold,
-                  contentColor = Color(0xFF0A0F1A),
+                  containerColor = palette.primary,
+                  contentColor = palette.onPrimary,
                 ),
             ) {
               Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -258,7 +257,7 @@ fun ChampionDetailScreen(
               Text(
                 text = if (lang == AppLanguage.TH) "กดไอคอนดูข้อมูล" else "Tap icon",
                 style = MaterialTheme.typography.labelSmall,
-                color = ArcaneCyan,
+                color = palette.secondary,
               )
             }
             Spacer(modifier = Modifier.height(8.dp))
@@ -291,7 +290,7 @@ fun ChampionDetailScreen(
                     text = abilityName,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = HextechGoldBright,
+                    color = palette.primaryBright,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,
@@ -300,7 +299,7 @@ fun ChampionDetailScreen(
                     Text(
                       text = ab.cooldownNote,
                       style = MaterialTheme.typography.labelSmall,
-                      color = ArcaneCyan,
+                      color = palette.secondary,
                       maxLines = 1,
                       overflow = TextOverflow.Ellipsis,
                     )
@@ -310,6 +309,9 @@ fun ChampionDetailScreen(
             }
           }
         }
+
+        // Basic - Hard Combo Playbook
+        item { ChampionCombosCard(champion = champion, lang = lang) }
 
         // Lane-Adaptive Build, Runes & Spells
         item {
@@ -328,7 +330,7 @@ fun ChampionDetailScreen(
               Text(
                 text = if (lang == AppLanguage.TH) "แตะไอคอนดูย่อ" else "Tap for quick box",
                 style = MaterialTheme.typography.labelSmall,
-                color = ArcaneCyan,
+                color = palette.secondary,
               )
             }
 
@@ -366,13 +368,13 @@ fun ChampionDetailScreen(
             Surface(
               shape = RoundedCornerShape(10.dp),
               color =
-                if (laneLoadout.isOffMetaLane) ArcaneCyan.copy(alpha = 0.1f)
-                else HextechGold.copy(alpha = 0.1f),
+                if (laneLoadout.isOffMetaLane) palette.secondary.copy(alpha = 0.12f)
+                else palette.primary.copy(alpha = 0.12f),
               border =
                 BorderStroke(
-                  0.75.dp,
-                  if (laneLoadout.isOffMetaLane) ArcaneCyan.copy(alpha = 0.45f)
-                  else HextechGold.copy(alpha = 0.45f),
+                  1.dp,
+                  if (laneLoadout.isOffMetaLane) palette.secondary.copy(alpha = 0.55f)
+                  else palette.primary.copy(alpha = 0.55f),
                 ),
               modifier = Modifier.fillMaxWidth().testTag("detail_lane_condition"),
             ) {
@@ -381,7 +383,7 @@ fun ChampionDetailScreen(
                   if (lang == AppLanguage.TH) laneLoadout.conditionNoteTh
                   else laneLoadout.conditionNoteEn,
                 style = MaterialTheme.typography.bodySmall,
-                color = if (laneLoadout.isOffMetaLane) ArcaneCyan else HextechGoldBright,
+                color = if (laneLoadout.isOffMetaLane) palette.secondary else palette.primaryBright,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
               )
             }
@@ -416,9 +418,9 @@ fun ChampionDetailScreen(
                     item = item,
                     language = lang,
                     onClick = { miniInspectTarget = MiniInspectTarget.Item(item) },
-                    accentColor = ArcaneCyan,
+                    accentColor = palette.secondary,
                     badgeText = "Start",
-                    badgeColor = ArcaneCyan,
+                    badgeColor = palette.secondary,
                     showCost = true,
                     showName = true,
                     modifier = Modifier.testTag("detail_item_${item.id}"),
@@ -434,9 +436,9 @@ fun ChampionDetailScreen(
                   item = item,
                   language = lang,
                   onClick = { miniInspectTarget = MiniInspectTarget.Item(item) },
-                  accentColor = HextechGold,
+                  accentColor = palette.primary,
                   badgeText = "#${idx + 1}",
-                  badgeColor = HextechGold,
+                  badgeColor = palette.primary,
                   showCost = true,
                   showName = true,
                   modifier = Modifier.testTag("detail_item_${item.id}"),
@@ -478,9 +480,9 @@ fun ChampionDetailScreen(
                     item = t3Item,
                     language = lang,
                     onClick = { miniInspectTarget = MiniInspectTarget.Item(t3Item) },
-                    accentColor = HextechGoldBright,
+                    accentColor = palette.primaryBright,
                     badgeText = if (lang == AppLanguage.TH) "10น.+ T3" else "10m+ T3",
-                    badgeColor = HextechGold,
+                    badgeColor = palette.primary,
                     showCost = true,
                     showName = true,
                     modifier = Modifier.testTag("detail_item_${t3Item.id}"),
@@ -534,13 +536,13 @@ fun ChampionDetailScreen(
                   .minimumInteractiveComponentSize()
                   .testTag("detail_customize_build_button"),
             ) {
-              Icon(Icons.Default.Build, contentDescription = null, tint = HextechGold)
+              Icon(Icons.Default.Build, contentDescription = null, tint = palette.primary)
               Spacer(modifier = Modifier.width(8.dp))
               Text(
                 text =
                   if (lang == AppLanguage.TH) "จัดเซ็ตไอเทมเอง (${selectedLane.labelTh})"
                   else "Customize ${selectedLane.labelEn} Build",
-                color = HextechGoldBright,
+                color = palette.primaryBright,
                 fontWeight = FontWeight.SemiBold,
               )
             }
@@ -549,6 +551,16 @@ fun ChampionDetailScreen(
 
         // 3-Phase Game Plan Card
         item { ChampionGamePlanCard(champion = champion, lang = lang) }
+
+        // Team Combo Synergy Partners
+        item {
+          ChampionTeamSynergyCard(
+            champion = champion,
+            allChampions = state.allChampions,
+            lang = lang,
+            onOpenChampionDetail = onOpenChampionDetail,
+          )
+        }
 
         // Strengths & Weaknesses
         item {
@@ -585,7 +597,7 @@ fun ChampionDetailScreen(
                 if (lang == AppLanguage.TH) "เซ็ตไอเทมของฉัน (${champCustomBuilds.size})"
                 else "My Custom Builds (${champCustomBuilds.size})",
               style = MaterialTheme.typography.titleMedium,
-              color = HextechGoldBright,
+              color = palette.primaryBright,
             )
           }
           items(champCustomBuilds, key = { "detail_cb_${it.id}" }) { cb ->

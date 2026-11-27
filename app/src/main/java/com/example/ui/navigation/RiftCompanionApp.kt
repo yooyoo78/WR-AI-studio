@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CloseFullscreen
@@ -54,8 +55,10 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.core.AppContainer
+import com.example.data.model.AppLanguage
 import com.example.data.remote.LiveVersionCheckState
 import com.example.ui.components.LiveVersionCheckSheet
+import com.example.ui.components.MiniWindowTutorialOverlay
 import com.example.ui.components.PostGameReviewSheet
 import com.example.ui.components.ProvideSafeTextToolbar
 import com.example.ui.components.QuickScanBottomSheet
@@ -169,6 +172,7 @@ fun RiftCompanionApp(appContainer: AppContainer) {
   val metaRefreshState by homePatchVm.metaRefreshState.collectAsStateWithLifecycle()
   val patchSnapshots by homePatchVm.patchSnapshots.collectAsStateWithLifecycle()
   var showVersionCheckSheet by remember { mutableStateOf(false) }
+  var showMiniTutorial by remember { mutableStateOf(false) }
   val analyzerState by analyzerVm.uiState.collectAsStateWithLifecycle()
   val championsState by championsVm.uiState.collectAsStateWithLifecycle()
   val postGameState by championsVm.postGameState.collectAsStateWithLifecycle()
@@ -242,6 +246,7 @@ fun RiftCompanionApp(appContainer: AppContainer) {
         }
       }
 
+      Box(modifier = Modifier.fillMaxSize()) {
       Scaffold(
         modifier = Modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets.safeDrawing,
@@ -296,7 +301,13 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                   )
                 }
                 IconButton(
-                  onClick = { homePatchVm.setInGameMiniMode(!prefs.inGameMiniMode) },
+                  onClick = {
+                    val target = !prefs.inGameMiniMode
+                    homePatchVm.setInGameMiniMode(target)
+                    if (target && !prefs.hasSeenMiniWindowTutorial) {
+                      showMiniTutorial = true
+                    }
+                  },
                   modifier =
                     Modifier.minimumInteractiveComponentSize().testTag("topbar_mini_mode_button"),
                 ) {
@@ -308,6 +319,22 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                       if (effectiveMiniMode) palette.primary
                       else MaterialTheme.colorScheme.onSurfaceVariant,
                   )
+                }
+                if (effectiveMiniMode) {
+                  IconButton(
+                    onClick = { showMiniTutorial = true },
+                    modifier =
+                      Modifier.minimumInteractiveComponentSize()
+                        .testTag("topbar_mini_tutorial_button"),
+                  ) {
+                    Icon(
+                      Icons.AutoMirrored.Filled.HelpOutline,
+                      contentDescription =
+                        if (prefs.language == AppLanguage.TH) "คู่มือ Mini-Window"
+                        else "Mini-Window Tutorial",
+                      tint = palette.secondary,
+                    )
+                  }
                 }
                 IconButton(
                   onClick = { navController.navigate(NavRoutes.SETTINGS) },
@@ -569,7 +596,13 @@ fun RiftCompanionApp(appContainer: AppContainer) {
                   onSelectFontPreset = homePatchVm::setFontPreset,
                   onSelectIconSizePreset = homePatchVm::setIconSizePreset,
                   onToggleHighContrast = homePatchVm::setHighContrastCards,
-                  onToggleMiniMode = homePatchVm::setInGameMiniMode,
+                  onToggleMiniMode = { enabled ->
+                    homePatchVm.setInGameMiniMode(enabled)
+                    if (enabled && !prefs.hasSeenMiniWindowTutorial) {
+                      showMiniTutorial = true
+                    }
+                  },
+                  onOpenMiniTutorial = { showMiniTutorial = true },
                   onSelectCoachModel = coachVm::selectCoachModel,
                   onSaveAndTestApiKey = coachVm::saveAndTestApiKey,
                   onClearApiKey = coachVm::clearApiKey,
@@ -629,6 +662,20 @@ fun RiftCompanionApp(appContainer: AppContainer) {
           onOpenPatchCenter = { navController.navigate(NavRoutes.PATCH_CENTER) },
           onDismiss = { showVersionCheckSheet = false },
         )
+      }
+      if (showMiniTutorial) {
+        MiniWindowTutorialOverlay(
+          language = prefs.language,
+          onComplete = {
+            homePatchVm.setHasSeenMiniWindowTutorial(true)
+            showMiniTutorial = false
+          },
+          onDismiss = {
+            homePatchVm.setHasSeenMiniWindowTutorial(true)
+            showMiniTutorial = false
+          },
+        )
+      }
       }
       }
     }

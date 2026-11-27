@@ -4,33 +4,33 @@ import androidx.compose.ui.graphics.Color
 import com.example.data.model.AppDarkThemePreset
 
 // Default Hextech Dark Obsidian & Navy Tokens (preserved for static color compatibility)
-val HextechObsidian = Color(0xFF070B14)
-val HextechNavy = Color(0xFF0D1424)
-val HextechSurface = Color(0xFF131D33)
-val HextechSurfaceHigh = Color(0xFF1A2742)
-val HextechSurfaceHighest = Color(0xFF233354)
+val HextechObsidian = Color(0xFF050810)
+val HextechNavy = Color(0xFF0B1220)
+val HextechSurface = Color(0xFF111A2E)
+val HextechSurfaceHigh = Color(0xFF182542)
+val HextechSurfaceHighest = Color(0xFF213256)
 
-// Default Hextech Gold & Arcane Cyan Accents
-val HextechGold = Color(0xFFE5B842)
-val HextechGoldBright = Color(0xFFF6D776)
-val HextechGoldMuted = Color(0xFF9E7B27)
-val ArcaneCyan = Color(0xFF38BDF8)
-val ArcaneCyanSoft = Color(0xFF0EA5E9)
+// Default Hextech Gold & Arcane Cyan Accents (High-Luminance for Dark Surfaces)
+val HextechGold = Color(0xFFF5C443)
+val HextechGoldBright = Color(0xFFFFE28A)
+val HextechGoldMuted = Color(0xFFC2952B)
+val ArcaneCyan = Color(0xFF56CCF2)
+val ArcaneCyanSoft = Color(0xFF22B8EB)
 
-// High-Contrast Text Tokens
-val TextPrimaryLight = Color(0xFFF8FAFC)
-val TextSecondaryLight = Color(0xFFD1D9E6)
-val TextMutedLight = Color(0xFF9AA8BF)
+// High-Contrast Text Tokens (Crisp white primary & luminous secondary/muted)
+val TextPrimaryLight = Color(0xFFFFFFFF)
+val TextSecondaryLight = Color(0xFFE6EDF7)
+val TextMutedLight = Color(0xFFB8C4D9)
 
 // Tactical Semantic Colors (shared across all dark themes for clear gameplay meaning)
-val AdvantageEmerald = Color(0xFF22C55E)
-val ThreatCrimson = Color(0xFFEF4444)
-val WarningAmber = Color(0xFFF59E0B)
-val SkillViolet = Color(0xFFA78BFA)
+val AdvantageEmerald = Color(0xFF34D399)
+val ThreatCrimson = Color(0xFFF87171)
+val WarningAmber = Color(0xFFFBBF24)
+val SkillViolet = Color(0xFFC4B5FD)
 
-// Outline & Rim Borders
-val HextechOutline = Color(0xFF2C3E63)
-val HextechOutlineHighContrast = Color(0xFF647CA8)
+// Brighter Outline & Rim Borders
+val HextechOutline = Color(0xFF3E5887)
+val HextechOutlineHighContrast = Color(0xFF7AA2E3)
 
 data class RiftThemePalette(
   val preset: AppDarkThemePreset,
@@ -70,99 +70,99 @@ fun riftPaletteFor(preset: AppDarkThemePreset): RiftThemePalette =
         surface = HextechSurface,
         surfaceHigh = HextechSurfaceHigh,
         surfaceHighest = HextechSurfaceHighest,
-        heroTopTint = Color(0xFF121E36),
+        heroTopTint = Color(0xFF15223D),
         primary = HextechGold,
         primaryBright = HextechGoldBright,
         primaryMuted = HextechGoldMuted,
-        onPrimary = Color(0xFF140F02),
-        primaryContainer = Color(0xFF332609),
+        onPrimary = Color(0xFF140E02),
+        primaryContainer = Color(0xFF3B2B08),
         secondary = ArcaneCyan,
         secondarySoft = ArcaneCyanSoft,
         onSecondary = Color(0xFF031520),
-        secondaryContainer = Color(0xFF0D2B42),
-        onSecondaryContainer = Color(0xFFBAE6FD),
+        secondaryContainer = Color(0xFF0E3452),
+        onSecondaryContainer = Color(0xFFD6F1FF),
         tertiary = SkillViolet,
         onTertiary = Color(0xFF180E33),
-        outline = Color(0xFF23324F),
-        outlineVariant = Color(0xFF18243B),
+        outline = HextechOutline,
+        outlineVariant = Color(0xFF2B3E63),
         outlineHighContrast = HextechOutlineHighContrast,
       )
 
     AppDarkThemePreset.VOID_ABYSS ->
       RiftThemePalette(
         preset = preset,
-        background = Color(0xFF090714),
-        surfaceNavy = Color(0xFF110D22),
-        surface = Color(0xFF17132B),
-        surfaceHigh = Color(0xFF211B3D),
-        surfaceHighest = Color(0xFF2B234F),
-        heroTopTint = Color(0xFF1E163B),
-        primary = Color(0xFFC084FC),
-        primaryBright = Color(0xFFE9D5FF),
-        primaryMuted = Color(0xFF7E22CE),
-        onPrimary = Color(0xFF1D0733),
-        primaryContainer = Color(0xFF341857),
+        background = Color(0xFF06040E),
+        surfaceNavy = Color(0xFF0E0A1D),
+        surface = Color(0xFF16112B),
+        surfaceHigh = Color(0xFF20193D),
+        surfaceHighest = Color(0xFF2B2252),
+        heroTopTint = Color(0xFF211747),
+        primary = Color(0xFFD8B4FE),
+        primaryBright = Color(0xFFF3E8FF),
+        primaryMuted = Color(0xFFA855F7),
+        onPrimary = Color(0xFF19062E),
+        primaryContainer = Color(0xFF3D1D66),
         secondary = Color(0xFFF472B6),
         secondarySoft = Color(0xFFEC4899),
         onSecondary = Color(0xFF2A0819),
-        secondaryContainer = Color(0xFF42142D),
-        onSecondaryContainer = Color(0xFFFBCFE8),
-        tertiary = Color(0xFF60A5FA),
-        onTertiary = Color(0xFF0B1C38),
-        outline = Color(0xFF332957),
-        outlineVariant = Color(0xFF241D40),
-        outlineHighContrast = Color(0xFF8B74C4),
+        secondaryContainer = Color(0xFF4D1635),
+        onSecondaryContainer = Color(0xFFFCE7F3),
+        tertiary = Color(0xFF7DD3FC),
+        onTertiary = Color(0xFF082032),
+        outline = Color(0xFF624A96),
+        outlineVariant = Color(0xFF3B2C61),
+        outlineHighContrast = Color(0xFFA78BFA),
       )
 
     AppDarkThemePreset.SHADOW_EMERALD ->
       RiftThemePalette(
         preset = preset,
-        background = Color(0xFF050D0B),
-        surfaceNavy = Color(0xFF0A1714),
-        surface = Color(0xFF0F211C),
-        surfaceHigh = Color(0xFF162E27),
-        surfaceHighest = Color(0xFF1E3D34),
-        heroTopTint = Color(0xFF112922),
-        primary = Color(0xFF34D399),
-        primaryBright = Color(0xFF6EE7B7),
-        primaryMuted = Color(0xFF059669),
-        onPrimary = Color(0xFF032117),
-        primaryContainer = Color(0xFF0B3829),
-        secondary = Color(0xFFFBBF24),
-        secondarySoft = Color(0xFFD97706),
+        background = Color(0xFF030A08),
+        surfaceNavy = Color(0xFF081411),
+        surface = Color(0xFF0D1F1A),
+        surfaceHigh = Color(0xFF142D26),
+        surfaceHighest = Color(0xFF1C3D34),
+        heroTopTint = Color(0xFF112C24),
+        primary = Color(0xFF4ADE80),
+        primaryBright = Color(0xFFA7F3D0),
+        primaryMuted = Color(0xFF10B981),
+        onPrimary = Color(0xFF032112),
+        primaryContainer = Color(0xFF0D422A),
+        secondary = Color(0xFFFCD34D),
+        secondarySoft = Color(0xFFF59E0B),
         onSecondary = Color(0xFF241802),
-        secondaryContainer = Color(0xFF3A2806),
-        onSecondaryContainer = Color(0xFFFDE68A),
-        tertiary = Color(0xFF2DD4BF),
+        secondaryContainer = Color(0xFF453007),
+        onSecondaryContainer = Color(0xFFFEF3C7),
+        tertiary = Color(0xFF5EEAD4),
         onTertiary = Color(0xFF04221E),
-        outline = Color(0xFF1F3D34),
-        outlineVariant = Color(0xFF162C25),
-        outlineHighContrast = Color(0xFF4F8C78),
+        outline = Color(0xFF2E6B59),
+        outlineVariant = Color(0xFF1E473B),
+        outlineHighContrast = Color(0xFF6EE7B7),
       )
 
     AppDarkThemePreset.TACTICAL_CARBON ->
       RiftThemePalette(
         preset = preset,
-        background = Color(0xFF090A0D),
-        surfaceNavy = Color(0xFF111318),
-        surface = Color(0xFF17191E),
-        surfaceHigh = Color(0xFF20232B),
-        surfaceHighest = Color(0xFF2A2E38),
-        heroTopTint = Color(0xFF1D2028),
-        primary = Color(0xFFE2E8F0),
-        primaryBright = Color(0xFFF8FAFC),
+        background = Color(0xFF06070A),
+        surfaceNavy = Color(0xFF0E1015),
+        surface = Color(0xFF161920),
+        surfaceHigh = Color(0xFF202530),
+        surfaceHighest = Color(0xFF2B3140),
+        heroTopTint = Color(0xFF1F242E),
+        primary = Color(0xFFF8FAFC),
+        primaryBright = Color(0xFFFFFFFF),
         primaryMuted = Color(0xFF94A3B8),
-        onPrimary = Color(0xFF0F172A),
-        primaryContainer = Color(0xFF2A313D),
-        secondary = Color(0xFFFB923C),
+        onPrimary = Color(0xFF0A0E17),
+        primaryContainer = Color(0xFF2F3747),
+        secondary = Color(0xFFFF9E44),
         secondarySoft = Color(0xFFF97316),
-        onSecondary = Color(0xFF291102),
-        secondaryContainer = Color(0xFF421E07),
-        onSecondaryContainer = Color(0xFFFED7AA),
-        tertiary = Color(0xFF38BDF8),
-        onTertiary = Color(0xFF031520),
-        outline = Color(0xFF2E333F),
-        outlineVariant = Color(0xFF21252E),
-        outlineHighContrast = Color(0xFF788296),
+        onSecondary = Color(0xFF261002),
+        secondaryContainer = Color(0xFF472006),
+        onSecondaryContainer = Color(0xFFFFEDD5),
+        tertiary = Color(0xFF60A5FA),
+        onTertiary = Color(0xFF061A33),
+        outline = Color(0xFF4E586B),
+        outlineVariant = Color(0xFF313847),
+        outlineHighContrast = Color(0xFF94A3B8),
       )
   }

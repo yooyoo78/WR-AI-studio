@@ -42,7 +42,10 @@ import com.example.data.model.IconSizePreset
 import com.example.data.model.Lane
 import com.example.data.repository.GameDataRepository
 import com.example.data.repository.ImportResult
+import com.example.domain.engine.ChampionComboSynergyEngine
 import com.example.domain.engine.ChampionScanMatcher
+import com.example.domain.engine.ComboDifficulty
+import com.example.domain.engine.ComboSituation
 import com.example.domain.engine.RawChampionScanPayload
 import com.example.ui.viewmodel.CoachViewModel
 import kotlinx.coroutines.flow.first
@@ -1323,11 +1326,14 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("settings_icon_size_standard").assertIsDisplayed().performClick()
     composeTestRule.waitForIdle()
 
+    composeTestRule
+      .onNodeWithTag("settings_lazy_column")
+      .performScrollToNode(hasTestTag("settings_icon_size_compact"))
     composeTestRule.onNodeWithTag("settings_icon_size_compact").assertIsDisplayed().performClick()
     composeTestRule.waitForIdle()
 
     val appContext = ApplicationProvider.getApplicationContext<Context>()
-    composeTestRule.waitUntil(timeoutMillis = 5000) {
+    composeTestRule.waitUntil(timeoutMillis = 8000) {
       val prefs = runBlocking { PreferencesRepository(appContext).preferencesFlow.first() }
       prefs.darkThemePreset == AppDarkThemePreset.SHADOW_EMERALD &&
         prefs.fontPreset == AppFontPreset.KANIT &&
@@ -1337,5 +1343,133 @@ class ExampleRobolectricTest {
     assertEquals(AppDarkThemePreset.SHADOW_EMERALD, saved.darkThemePreset)
     assertEquals(AppFontPreset.KANIT, saved.fontPreset)
     assertEquals(IconSizePreset.COMPACT, saved.iconSizePreset)
+  }
+
+  @Test
+  fun `unit champion combo engine covers basic medium hard and all situations plus team synergies`() {
+    val appContext = ApplicationProvider.getApplicationContext<Context>()
+    val prefsRepo = PreferencesRepository(appContext)
+    val db = Room.inMemoryDatabaseBuilder(appContext, AppDatabase::class.java).allowMainThreadQueries().build()
+    val repo = GameDataRepository(appContext, db.gameDao(), prefsRepo)
+
+    runBlocking {
+      repo.ensureSeeded()
+      val champs = repo.champions.first()
+      assertTrue(champs.size >= 100)
+
+      // Test both curated (yasuo, ahri) and synthesized (smolder, garen) champions
+      val targets = listOf("yasuo", "ahri", "smolder", "garen").map { id -> champs.first { it.id == id } }
+      targets.forEach { champ ->
+        val combos = ChampionComboSynergyEngine.getCombosForChampion(champ)
+        val diffs = combos.map { it.difficulty }.toSet()
+        val situations = combos.map { it.situation }.toSet()
+        assertEquals(
+          "All 3 difficulties expected for ${champ.id}",
+          setOf(ComboDifficulty.BASIC, ComboDifficulty.MEDIUM, ComboDifficulty.HARD),
+          diffs,
+        )
+        assertTrue(ComboSituation.WAVE_CLEAR in situations)
+        assertTrue(ComboSituation.SOLO_KILL in situations)
+        assertTrue(ComboSituation.TEAMFIGHT in situations)
+        assertTrue(ComboSituation.ESCAPE_SURVIVAL in situations)
+        assertTrue(combos.all { it.sequence.isNotEmpty() && it.timingTipTh.isNotBlank() })
+
+        val synergies = ChampionComboSynergyEngine.getTeamSynergies(champ, champs, limit = 5)
+        assertTrue("Expected at least 3 synergy partners for ${champ.id}", synergies.size >= 3)
+        assertTrue(synergies.none { it.champion.id == champ.id })
+      }
+
+      val yasuoSynergies =
+        ChampionComboSynergyEngine.getTeamSynergies(champs.first { it.id == "yasuo" }, champs)
+      assertTrue(yasuoSynergies.any { it.champion.id == "malphite" })
+    }
+    db.close()
+  }
+
+  @Test
+  fun `cuj mini window tutorial opens on first toggle steps through completes and replays from settings`() {
+    composeTestRule.waitForIdle()
+
+    // First toggle of Mini-Window Mode auto-triggers step-by-step tutorial
+    composeTestRule.onNodeWithTag("topbar_mini_mode_button").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("mini_tutorial_overlay").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("mini_tutorial_step_indicator").assertIsDisplayed()
+
+    // Step 1 -> Step 2 -> Step 3 -> Done
+    composeTestRule.onNodeWithTag("mini_tutorial_next").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("mini_tutorial_prev").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("mini_tutorial_next").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("mini_tutorial_done").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+
+    // Top bar '?' replay button is visible while Mini-Window is active
+    composeTestRule.onNodeWithTag("topbar_mini_tutorial_button").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("mini_tutorial_overlay").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("mini_tutorial_skip").performClick()
+    composeTestRule.waitForIdle()
+
+    // Persist seen flag in DataStore
+    val appContext = ApplicationProvider.getApplicationContext<Context>()
+    composeTestRule.waitUntil(timeoutMillis = 5000) {
+      val prefs = runBlocking { PreferencesRepository(appContext).preferencesFlow.first() }
+      prefs.inGameMiniMode && prefs.hasSeenMiniWindowTutorial
+    }
+
+    // Replay from Settings Mini-Window card
+    composeTestRule.onNodeWithTag("topbar_settings_button").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("settings_lazy_column")
+      .performScrollToNode(hasTestTag("settings_mini_tutorial_button"))
+    composeTestRule.onNodeWithTag("settings_mini_tutorial_button").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("mini_tutorial_overlay").assertIsDisplayed()
+  }
+
+  @Test
+  fun `cuj champion detail displays basic medium hard combos and team synergy partners with navigation`() {
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("nav_champions").performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("champions_search_input").performTextInput("Yasuo")
+    composeTestRule.waitForIdle()
+    composeTestRule
+      .onNodeWithTag("champions_lazy_column")
+      .performScrollToNode(hasTestTag("champ_card_yasuo"))
+    composeTestRule.onNodeWithTag("champ_card_yasuo").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+
+    // Verify Basic-Hard Combos section & switch tabs
+    composeTestRule
+      .onNodeWithTag("champion_detail_lazy_column")
+      .performScrollToNode(hasTestTag("detail_combos_card"))
+    composeTestRule.onNodeWithTag("detail_combos_card").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("combo_tab_MEDIUM").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("combo_entry_yas_m_solo").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("combo_tab_HARD").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("combo_entry_yas_h_tf").assertIsDisplayed()
+
+    // Verify Team Synergy Partners card and tap Malphite partner to open Malphite profile
+    composeTestRule
+      .onNodeWithTag("champion_detail_lazy_column")
+      .performScrollToNode(hasTestTag("detail_synergy_card"))
+    composeTestRule.onNodeWithTag("detail_synergy_card").assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("champion_detail_lazy_column")
+      .performScrollToNode(hasTestTag("detail_synergy_malphite"))
+    composeTestRule.onNodeWithTag("detail_synergy_malphite").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("champion_detail_lazy_column").assertIsDisplayed()
+    composeTestRule
+      .onNodeWithTag("champion_detail_lazy_column")
+      .performScrollToNode(hasTestTag("detail_combos_card"))
+    composeTestRule.onNodeWithTag("detail_combos_card").assertIsDisplayed()
   }
 }

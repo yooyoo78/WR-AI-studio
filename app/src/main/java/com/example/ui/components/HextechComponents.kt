@@ -105,9 +105,10 @@ fun HextechCard(
 ) {
   val highContrast = LocalUserPrefs.current.highContrastCards
   val isMiniMode = LocalInGameMiniMode.current
+  val palette = LocalRiftPalette.current
   val borderColor =
-    accentColor?.copy(alpha = if (highContrast) 0.85f else 0.28f)
-      ?: MaterialTheme.colorScheme.outline.copy(alpha = if (highContrast) 0.95f else 0.55f)
+    accentColor?.copy(alpha = if (highContrast) 0.92f else 0.56f)
+      ?: palette.outline.copy(alpha = if (highContrast) 1f else 0.85f)
 
   Surface(
     modifier =
@@ -116,8 +117,8 @@ fun HextechCard(
       ),
     shape = MaterialTheme.shapes.medium,
     color = MaterialTheme.colorScheme.surfaceContainer,
-    tonalElevation = 1.dp,
-    border = BorderStroke(if (highContrast) 1.4.dp else 0.75.dp, borderColor),
+    tonalElevation = 2.dp,
+    border = BorderStroke(if (highContrast) 1.6.dp else 1.05.dp, borderColor),
   ) {
     Column(modifier = Modifier.padding(if (isMiniMode) 8.dp else 11.dp), content = content)
   }
