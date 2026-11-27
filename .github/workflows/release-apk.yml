@@ -84,7 +84,10 @@ jobs:
           gradle-version: "9.3.1"
 
       - name: Run Android unit & Robolectric tests
-        run: gradle :app:testDebugUnitTest --no-daemon --stacktrace
+        run: >-
+          gradle :app:testDebugUnitTest --no-daemon --stacktrace
+          -Drobolectric.dependency.repo.url=https://maven-central.storage-download.googleapis.com/maven2
+          -Drobolectric.dependency.repo.id=central
 
       - name: Upload unit test report on failure
         if: failure()

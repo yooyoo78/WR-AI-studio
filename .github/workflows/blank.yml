@@ -81,7 +81,10 @@ jobs:
 
       # Robolectric tests targeting Android API 36 require Java 21.
       - name: Run Android unit tests
-        run: gradle :app:testDebugUnitTest --no-daemon --stacktrace
+        run: >-
+          gradle :app:testDebugUnitTest --no-daemon --stacktrace
+          -Drobolectric.dependency.repo.url=https://maven-central.storage-download.googleapis.com/maven2
+          -Drobolectric.dependency.repo.id=central
 
       - name: Upload unit test report on failure
         if: failure()

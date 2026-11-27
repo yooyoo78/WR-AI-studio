@@ -52,6 +52,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -63,6 +64,18 @@ import org.robolectric.annotation.Config
 class ExampleRobolectricTest {
 
   @get:Rule val composeTestRule = createAndroidComposeRule<MainActivity>()
+
+  @Before
+  fun resetSharedPreferences() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    runBlocking {
+      val repo = PreferencesRepository(context)
+      repo.setLanguage(AppLanguage.TH)
+      repo.setInGameMiniMode(false)
+      repo.setHasSeenMiniWindowTutorial(false)
+    }
+    composeTestRule.waitForIdle()
+  }
 
   @Test
   fun `read app name from context`() {
@@ -195,11 +208,13 @@ class ExampleRobolectricTest {
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("settings_title_text").assertIsDisplayed()
 
-    // Toggle In-Game Mini-Window Mode in Settings
+    // Toggle In-Game Mini-Window Mode in Settings (dismiss first-time tutorial overlay)
     composeTestRule
       .onNodeWithTag("settings_lazy_column")
       .performScrollToNode(hasTestTag("settings_mini_mode_switch"))
     composeTestRule.onNodeWithTag("settings_mini_mode_switch").assertIsDisplayed().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("mini_tutorial_skip").assertIsDisplayed().performClick()
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("settings_back_button").performClick()
     composeTestRule.waitForIdle()
@@ -430,8 +445,10 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("coach_lane_option_JUNGLE").performClick()
     composeTestRule.waitForIdle()
 
-    // Toggle Mini-Window mode and ensure spotlight advice stays visible
+    // Toggle Mini-Window mode, dismiss first-time tutorial, and ensure spotlight advice stays visible
     composeTestRule.onNodeWithTag("topbar_mini_mode_button").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("mini_tutorial_skip").assertIsDisplayed().performClick()
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("coach_advice_spotlight").assertIsDisplayed()
 
